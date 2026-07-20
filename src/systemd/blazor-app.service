@@ -1,0 +1,18 @@
+[Unit]
+Description=Roadrunner Auction .NET 10 Blazor App
+After=network.target
+
+[Service]
+WorkingDirectory=/var/www/roadrunner
+ExecStart=/usr/bin/dotnet /var/www/roadrunner/RoadrunnerAuction.dll
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=ASPNETCORE_URLS=http://0.0.0.0:5000
+User=www-data
+Group=www-data
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Install]
+WantedBy=multi-user.target
