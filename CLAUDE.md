@@ -24,7 +24,7 @@ Whenever you touch code, refactor logic, modify infrastructure configs, or add f
 
 ### VLAN 10 (Web / Ingress Tier) - `10.10.10.x`
 * **Synology NAS IP:** `10.10.10.90`
-* **Kemp LoadMaster VIP:** `10.10.10.199` (Sticky Sessions enabled)
+* **Kemp LoadMaster VIP:** `10.10.10.199` (Sticky Sessions enabled, Let's Encrypt Wildcard SSL Terminated here)
 * **Cloudflared Tunnel LXC:** `10.10.10.5`
 * **Blazor Web 01 (Node 1):** `10.10.10.101`
 * **Blazor Web 02 (Node 2):** `10.10.10.102`
@@ -51,6 +51,7 @@ Whenever you touch code, refactor logic, modify infrastructure configs, or add f
 - **Health Checks:** Always maintain `/health` endpoint mapping deep checks for Kemp L7 routing.
 - **Secrets:** Avoid plain-text passwords in `appsettings.json`. Use `Infisical.Sdk`.
 - **Logging:** Use `Serilog` with the Grafana Loki sink.
+- **Certificates:** Let's Encrypt wildcard certs are managed at the Kemp LoadMaster layer. App LXCs run HTTP (port 5000) internally.
 
 ### B. CI/CD & Deployments
 - **Migrations:** GitHub Actions MUST generate and execute EF Core Migration Bundles BEFORE deploying web apps to prevent race conditions.
