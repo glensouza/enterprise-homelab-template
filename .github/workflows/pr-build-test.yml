@@ -1,0 +1,29 @@
+name: PR Build & Test
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET 10
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Restore
+      run: dotnet restore
+
+    - name: Build
+      run: dotnet build --no-restore -c Release
+
+    # Includes the Aspire.Hosting.Testing integration test against a real
+    # PostgreSQL (pgvector) container - Docker is available on ubuntu-latest.
+    - name: Test
+      run: dotnet test --no-build -c Release

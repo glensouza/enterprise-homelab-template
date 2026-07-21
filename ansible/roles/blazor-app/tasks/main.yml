@@ -1,0 +1,33 @@
+---
+# Prepares the Blazor release layout and systemd unit (docs/10 section 1).
+# The unit file is copied verbatim from src/systemd/ so there is ONE canonical
+# copy in the repo — edit it there, then re-run this playbook.
+- name: Create release and config directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "0755"
+  loop:
+    - { path: /var/www/roadrunner, owner: www-data, group: www-data }
+    - { path: /var/www/roadrunner/releases, owner: www-data, group: www-data }
+    # Infisical Agent renders roadrunner.env here (ADR 12)
+    - { path: /etc/roadrunner, owner: root, group: root }
+
+- name: Install blazor-app.service (canonical copy lives in src/systemd/)
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../src/systemd/blazor-app.service"
+    dest: /etc/systemd/system/blazor-app.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: systemd daemon-reload
+
+- name: Enable blazor-app.service
+  # Enabled at boot but not started here — CI deploys create the
+  # releases/<sha> + current symlink and own service start/health-gating.
+  ansible.builtin.systemd:
+    name: blazor-app.service
+    enabled: true
+    daemon_reload: true

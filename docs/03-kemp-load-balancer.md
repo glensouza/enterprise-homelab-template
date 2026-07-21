@@ -64,3 +64,9 @@ ingress:
 ```
 
 *Note: Blazor's `Program.cs` is configured with `KeepAliveInterval = 15s` to ensure Cloudflare Tunnels do not terminate quiet WebSocket connections after 100 seconds.*
+
+---
+
+## Alternative: HAProxy + Keepalived
+
+If Kemp licensing ever becomes an issue, HAProxy + Keepalived is the documented free, open-source replacement (see ADR 15 in `docs/01-architecture-decisions.md`). HAProxy stick tables provide the session persistence Blazor Server requires for its long-lived WebSocket circuits, equivalent to Kemp's Sticky Sessions. Keepalived (VRRP) floats the `10.10.10.199` VIP between two load-balancer instances, preserving load-balancer redundancy. L7 health checks against the app's `/health` endpoint map directly onto HAProxy's `httpchk` configuration. Kemp LoadMaster remains the current choice for this architecture.

@@ -8,6 +8,8 @@ To avoid IP addressing conflicts and DHCP exhaustion on the UDM-Pro, **all LXCs 
 
 ## 1. UniFi Virtual Networks (VLANs)
 
+> **IaC target state (ADR 17):** these networks and the section 3 firewall rules are declared in `terraform/unifi.tf` and applied by Terraform — see `docs/08-infrastructure-as-code.md`. The GUI steps below document the same end state (and serve as the manual fallback). **Keep this document and `terraform/unifi.tf` in sync.**
+
 In the **UniFi Network Application**, navigate to **Settings > Networks** and create the following networks:
 
 1.  **Web / Ingress Tier (VLAN 10)**
@@ -21,7 +23,7 @@ In the **UniFi Network Application**, navigate to **Settings > Networks** and cr
 3.  **Management / Infrastructure Tier (VLAN 30)**
     *   **Router:** UDM-Pro
     *   **Host Address:** `10.10.30.1/24`
-    *   **Purpose:** Houses Proxmox host IPs and infrastructure tools (Zot, Infisical).
+    *   **Purpose:** Houses Proxmox host IPs and infrastructure tools (Infisical, Uptime Kuma, Grafana/Alloy/Loki).
 
 ---
 

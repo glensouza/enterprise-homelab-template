@@ -3,16 +3,32 @@ Description=Roadrunner Auction .NET 10 Blazor App
 After=network.target
 
 [Service]
-WorkingDirectory=/var/www/roadrunner
-ExecStart=/usr/bin/dotnet /var/www/roadrunner/RoadrunnerAuction.dll
+WorkingDirectory=/var/www/roadrunner/current
+ExecStart=/usr/bin/dotnet /var/www/roadrunner/current/RoadrunnerAuction.dll
 Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=ASPNETCORE_URLS=http://0.0.0.0:5000
+# Secrets (ConnectionStrings__roadrunnerdb, ConnectionStrings__cache,
+# ConnectionStrings__messaging, OTEL_EXPORTER_OTLP_ENDPOINT) are rendered into
+# this file by the Infisical Agent on VLAN 30. The app fails fast without them.
+EnvironmentFile=-/etc/roadrunner/roadrunner.env
 User=www-data
 Group=www-data
 Restart=always
 RestartSec=5
 StartLimitIntervalSec=60
 StartLimitBurst=3
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/www/roadrunner /mnt/synology/media
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
 
 [Install]
 WantedBy=multi-user.target

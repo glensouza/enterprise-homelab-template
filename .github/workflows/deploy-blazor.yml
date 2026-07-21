@@ -6,37 +6,55 @@ on:
       - main
 
 jobs:
-  build-and-deploy:
+  build-test-and-deploy:
     runs-on: self-hosted
+    environment: production
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
-    
+
     - name: Setup .NET 10
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '10.0.x'
 
-    - name: Restore & Publish App
+    # Tests must pass before anything touches production.
+    - name: Restore & Test
+      run: dotnet test -c Release
+
+    - name: Publish App
       run: dotnet publish ./src/RoadrunnerAuction/RoadrunnerAuction.csproj -c Release -o ./publish /p:UseAppHost=false
-    
+
     - name: Install EF Core CLI
       run: dotnet tool install --global dotnet-ef
 
     - name: Generate EF Core Migration Bundle
       run: dotnet ef migrations bundle --project ./src/RoadrunnerAuction/RoadrunnerAuction.csproj --self-contained -r linux-x64 -o ./publish/efbundle
 
+    # Pre-migration safety net: dump the database to the Synology NAS mount on
+    # the Postgres LXC (local peer auth as the postgres OS user - no password needed).
+    - name: Backup Database (pg_dump to NAS)
+      run: |
+        ssh root@10.10.20.110 "mkdir -p /mnt/synology/postgres-data/backups && sudo -u postgres pg_dump roadrunner_db | gzip > /mnt/synology/postgres-data/backups/roadrunner_db-${GITHUB_SHA::8}-$(date +%Y%m%d-%H%M%S).sql.gz"
+
+    # Connection string lives in the EFBUNDLE_CONNECTION GitHub secret - never in the repo.
     - name: Execute Migration Bundle
+      run: ./publish/efbundle --connection "${{ secrets.EFBUNDLE_CONNECTION }}"
+
+    # Symlinked releases: deploy into releases/<sha>, flip 'current', restart, health-gate.
+    # Keeps the last 5 releases per node for instant rollback (see rollback.yml).
+    - name: Deploy to Blazor LXC 01
       run: |
-        # In a real environment, pull connection string from CI Secrets
-        ./publish/efbundle --connection "Host=10.10.20.110;Database=roadrunner_db;Username=admin;Password=secret"
-    
-    - name: Rsync to Blazor LXC 01
+        RELEASE=/var/www/roadrunner/releases/${GITHUB_SHA}
+        ssh root@10.10.10.101 "mkdir -p $RELEASE"
+        rsync -avz --delete ./publish/ root@10.10.10.101:$RELEASE/
+        ssh root@10.10.10.101 "ln -sfn $RELEASE /var/www/roadrunner/current && systemctl restart blazor-app.service && sleep 5 && curl -fsS http://localhost:5000/health"
+        ssh root@10.10.10.101 "cd /var/www/roadrunner/releases && ls -1t | tail -n +6 | xargs -r rm -rf"
+
+    - name: Deploy to Blazor LXC 02
       run: |
-        rsync -avz --delete ./publish/ root@10.10.10.101:/var/www/roadrunner/
-        ssh root@10.10.10.101 "systemctl restart blazor-app.service"
-        
-    - name: Rsync to Blazor LXC 02
-      run: |
-        rsync -avz --delete ./publish/ root@10.10.10.102:/var/www/roadrunner/
-        ssh root@10.10.10.102 "systemctl restart blazor-app.service"
+        RELEASE=/var/www/roadrunner/releases/${GITHUB_SHA}
+        ssh root@10.10.10.102 "mkdir -p $RELEASE"
+        rsync -avz --delete ./publish/ root@10.10.10.102:$RELEASE/
+        ssh root@10.10.10.102 "ln -sfn $RELEASE /var/www/roadrunner/current && systemctl restart blazor-app.service && sleep 5 && curl -fsS http://localhost:5000/health"
+        ssh root@10.10.10.102 "cd /var/www/roadrunner/releases && ls -1t | tail -n +6 | xargs -r rm -rf"

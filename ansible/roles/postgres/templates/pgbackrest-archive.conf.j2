@@ -1,0 +1,10 @@
+# Managed by Ansible (roles/postgres) — enables continuous WAL archiving for
+# pgBackRest PITR (docs/10 section 4). This is what eliminates the rollback
+# data-loss window: every committed transaction is pushed to the NAS within
+# archive_timeout seconds.
+archive_mode = on
+archive_command = 'pgbackrest --stanza={{ pgbackrest_stanza }} archive-push %p'
+archive_timeout = 60
+restore_command = 'pgbackrest --stanza={{ pgbackrest_stanza }} archive-get %f "%p"'
+wal_level = replica
+max_wal_senders = 3

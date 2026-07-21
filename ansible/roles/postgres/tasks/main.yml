@@ -1,0 +1,132 @@
+---
+# PostgreSQL LXC: pgBackRest PITR (docs/10 section 4) + pg_dump prune timer
+# (docs/04 section 3). Assumes PostgreSQL itself is already installed
+# (community script bootstrap, docs/04 section 2).
+
+# --- pgBackRest ---------------------------------------------------------------
+- name: Install pgBackRest
+  ansible.builtin.apt:
+    name: pgbackrest
+    update_cache: true
+    state: present
+
+# RED-RULE guardrail: the repo lives on the NAS mount; never write backups to
+# the (empty) local directory if the mount is down.
+- name: Verify the NAS mount is up before touching the backup repo
+  ansible.builtin.command: "mountpoint -q {{ pgbackrest_repo_mount }}"
+  changed_when: false
+  failed_when: false
+  register: nas_mount_check
+
+- name: Fail if the NAS mount is down
+  ansible.builtin.fail:
+    msg: "{{ pgbackrest_repo_mount }} is not a mountpoint — NAS mount is down. Fix the mount (nfs-mounts role) before configuring pgBackRest."
+  when: nas_mount_check.rc != 0
+
+- name: Create pgBackRest local directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: "0750"
+  loop:
+    - /etc/pgbackrest
+    - /var/spool/pgbackrest
+    - /var/log/pgbackrest
+
+- name: Create pgBackRest repo directory on the NAS mount
+  ansible.builtin.file:
+    path: "{{ pgbackrest_repo_path }}"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: "0750"
+
+- name: Configure pgBackRest
+  ansible.builtin.template:
+    src: pgbackrest.conf.j2
+    dest: /etc/pgbackrest/pgbackrest.conf
+    owner: postgres
+    group: postgres
+    mode: "0640"
+  notify: restart postgresql
+
+- name: Enable WAL archiving in PostgreSQL
+  ansible.builtin.template:
+    src: pgbackrest-archive.conf.j2
+    dest: "{{ postgres_conf_dir }}/conf.d/pgbackrest-archive.conf"
+    owner: postgres
+    group: postgres
+    mode: "0644"
+  notify: restart postgresql
+
+- name: Flush handlers so PostgreSQL picks up archive_command
+  ansible.builtin.meta: flush_handlers
+
+- name: Create the pgBackRest stanza (idempotent)
+  ansible.builtin.command: "pgbackrest --stanza={{ pgbackrest_stanza }} stanza-create"
+  become: true
+  become_user: postgres
+  register: stanza_create
+  changed_when: "'stanza-create command end: completed successfully' in stanza_create.stderr"
+  failed_when: stanza_create.rc != 0
+
+- name: Verify WAL archiving is flowing into the repo
+  ansible.builtin.command: "pgbackrest --stanza={{ pgbackrest_stanza }} check"
+  become: true
+  become_user: postgres
+  register: pgbackrest_check
+  changed_when: false
+
+- name: Install pgBackRest backup timers
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - pgbackrest-diff.service
+    - pgbackrest-diff.timer
+    - pgbackrest-full.service
+    - pgbackrest-full.timer
+  notify: systemd daemon-reload
+
+- name: Enable pgBackRest backup timers
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop:
+    - pgbackrest-diff.timer
+    - pgbackrest-full.timer
+
+# --- pg_dump prune timer ------------------------------------------------------
+- name: Install pg-dump-prune script (canonical copy in src/systemd/)
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../src/systemd/pg-dump-prune.sh"
+    dest: /usr/local/sbin/pg-dump-prune.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install pg-dump-prune units (canonical copies in src/systemd/)
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../src/systemd/{{ item }}"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - pg-dump-prune.service
+    - pg-dump-prune.timer
+  notify: systemd daemon-reload
+
+- name: Enable pg-dump-prune timer
+  ansible.builtin.systemd:
+    name: pg-dump-prune.timer
+    enabled: true
+    state: started
+    daemon_reload: true

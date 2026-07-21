@@ -1,0 +1,10 @@
+[Unit]
+Description=pgBackRest differential backup ({{ pgbackrest_stanza }} stanza)
+# Refuse to run if the NAS mount is down (same guardrail as pg-dump-prune).
+ConditionPathIsMountPoint={{ pgbackrest_repo_mount }}
+
+[Service]
+Type=oneshot
+User=postgres
+Group=postgres
+ExecStart=/usr/bin/pgbackrest --stanza={{ pgbackrest_stanza }} --type=diff backup

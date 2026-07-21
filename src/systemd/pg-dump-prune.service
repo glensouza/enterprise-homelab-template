@@ -1,0 +1,12 @@
+[Unit]
+Description=Prune old pg_dump backups from the Synology NAS mount
+# Refuse to start if the NAS mount is down (prevents deleting local files).
+ConditionPathIsMountPoint=/mnt/synology/postgres-data
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/usr/local/sbin/pg-dump-prune.sh
+# Retention is configurable here; script defaults to 30 days.
+Environment=RETENTION_DAYS=30

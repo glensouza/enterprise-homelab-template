@@ -1,0 +1,24 @@
+---
+# Installs the ASP.NET Core 10 runtime from the Microsoft apt feed.
+# The systemd unit expects /usr/bin/dotnet, which these packages provide.
+- name: Download Microsoft package repository config
+  ansible.builtin.get_url:
+    url: "https://packages.microsoft.com/config/debian/{{ ansible_distribution_major_version }}/packages-microsoft-prod.deb"
+    dest: /tmp/packages-microsoft-prod.deb
+    mode: "0644"
+
+- name: Install Microsoft package repository
+  ansible.builtin.apt:
+    deb: /tmp/packages-microsoft-prod.deb
+    state: present
+
+- name: Install ASP.NET Core runtime
+  ansible.builtin.apt:
+    name: "aspnetcore-runtime-{{ dotnet_channel }}"
+    update_cache: true
+    state: present
+
+- name: Verify dotnet is on the expected path
+  ansible.builtin.command: /usr/bin/dotnet --list-runtimes
+  register: dotnet_runtimes
+  changed_when: false

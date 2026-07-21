@@ -1,12 +1,11 @@
 @page "/"
-@using FluentStorage.Blobs
-@using MassTransit
-@using StackExchange.Redis
+@using Microsoft.EntityFrameworkCore
 @using RoadrunnerAuction.Data
-@inject AuctionDbContext DbContext
-@inject IConnectionMultiplexer Redis
-@inject IBlobStorage Storage
-@inject IBus MessageBus
+@using RoadrunnerAuction.Storage
+@using Wolverine
+@inject IDbContextFactory<AuctionDbContext> DbContextFactory
+@inject IBlobStore BlobStore
+@inject IMessageBus MessageBus
 
 <h1>Heavy Equipment Auction Portal</h1>
 
@@ -15,9 +14,10 @@
 
 @code {
     private string UploadStatus = "Ready.";
+
     private async Task UploadMockPhoto()
     {
-        await Storage.WriteTextAsync("auctions/equipment/CAT-D9-Front.txt", "mock-image-data");
+        await BlobStore.WriteTextAsync("auctions/equipment/CAT-D9-Front.txt", "mock-image-data");
         UploadStatus = "Mock photo written to storage backend successfully.";
     }
 }

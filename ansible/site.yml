@@ -1,0 +1,16 @@
+---
+# Configuration management for the lab LXCs (docs/08).
+# Run after `terraform apply`:  ansible-playbook site.yml
+# Target a single tier:         ansible-playbook site.yml --limit web
+- name: Configure Blazor web nodes (VLAN 10)
+  hosts: web
+  roles:
+    - dotnet-runtime
+    - nfs-mounts
+    - blazor-app
+
+- name: Configure PostgreSQL node (VLAN 20)
+  hosts: postgres
+  roles:
+    - nfs-mounts
+    - postgres

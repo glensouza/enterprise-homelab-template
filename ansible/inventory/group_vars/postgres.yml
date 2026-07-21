@@ -1,0 +1,14 @@
+---
+# PostgreSQL LXC (10.10.20.110).
+nfs_mounts:
+  - path: /mnt/synology/postgres-data
+    src: "{{ nas_server }}:/volume1/postgres-data"
+
+# pgBackRest PITR (docs/10 section 4). The repo lives on the NAS mount so WAL
+# archives and backups survive loss of the LXC itself.
+pgbackrest_stanza: roadrunner
+pgbackrest_repo_path: /mnt/synology/postgres-data/pgbackrest
+pgbackrest_repo_mount: /mnt/synology/postgres-data
+postgres_version: "16"
+postgres_data_dir: "/var/lib/postgresql/{{ postgres_version }}/main"
+postgres_conf_dir: "/etc/postgresql/{{ postgres_version }}/main"

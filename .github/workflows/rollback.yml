@@ -1,0 +1,90 @@
+name: Rollback Blazor App
+
+# Automated rollback to any of the last 5 releases (symlink flip), with an
+# optional database restore from the pre-migration pg_dump taken at deploy time.
+#
+# SAFETY MODEL (see docs/10-rollback.md and ADR 16):
+#  - Manual trigger + `production` environment approval = the human gate.
+#  - DB restore additionally requires typing RESTORE in the confirm field.
+#  - Restore is non-destructive: dump is loaded into a FRESH database, sanity
+#    checked, then databases are RENAME-swapped. The previous database is kept
+#    as roadrunner_db_failed_<timestamp> - nothing is ever DROPed here.
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 'Full git SHA of the release to roll back to'
+        required: true
+        type: string
+      restore_database:
+        description: 'Also restore the database from a pre-migration pg_dump'
+        type: boolean
+        default: false
+      backup_file:
+        description: 'Dump filename in /mnt/synology/postgres-data/backups (required when restoring the DB)'
+        required: false
+        type: string
+      confirm:
+        description: 'Type RESTORE to confirm the database rollback'
+        required: false
+        type: string
+
+env:
+  PG_HOST: 10.10.20.110
+  WEB01: 10.10.10.101
+  WEB02: 10.10.10.102
+
+jobs:
+  rollback:
+    runs-on: self-hosted
+    environment: production
+    steps:
+    - name: Validate inputs
+      run: |
+        if [ "${{ inputs.restore_database }}" = "true" ]; then
+          [ "${{ inputs.confirm }}" = "RESTORE" ] || { echo "ABORTED: type RESTORE in the confirm field to proceed with a database restore."; exit 1; }
+          [[ "${{ inputs.backup_file }}" =~ ^[A-Za-z0-9._-]+\.sql\.gz$ ]] || { echo "ABORTED: backup_file must be a plain *.sql.gz filename (no paths)."; exit 1; }
+        fi
+
+    - name: Stop app services (before DB restore)
+      if: inputs.restore_database
+      run: |
+        ssh root@${{ env.WEB01 }} "systemctl stop blazor-app.service"
+        ssh root@${{ env.WEB02 }} "systemctl stop blazor-app.service"
+
+    - name: Restore database into a fresh database
+      if: inputs.restore_database
+      run: |
+        BK="/mnt/synology/postgres-data/backups/${{ inputs.backup_file }}"
+        TS=$(date +%Y%m%d-%H%M%S)
+        echo "restore_db=roadrunner_db_restore_$TS" >> "$GITHUB_ENV"
+        echo "failed_db=roadrunner_db_failed_$TS" >> "$GITHUB_ENV"
+        ssh root@${{ env.PG_HOST }} "test -f '$BK' || { echo 'Dump not found: $BK'; exit 1; }"
+        ssh root@${{ env.PG_HOST }} "sudo -u postgres createdb roadrunner_db_restore_$TS"
+        ssh root@${{ env.PG_HOST }} "gunzip -c '$BK' | sudo -u postgres psql -v ON_ERROR_STOP=1 roadrunner_db_restore_$TS"
+
+    - name: Sanity-check restored database
+      if: inputs.restore_database
+      run: |
+        ssh root@${{ env.PG_HOST }} "sudo -u postgres psql -d ${{ env.restore_db }} -tAc \"SELECT count(*) FROM information_schema.tables WHERE table_schema='public'\"" | \
+          awk '{ if ($1 < 1) { print "ABORTED: restored database has no tables"; exit 1 } print "Restored database has " $1 " public tables" }'
+
+    - name: Rename-swap databases (old DB preserved, nothing dropped)
+      if: inputs.restore_database
+      run: |
+        ssh root@${{ env.PG_HOST }} "sudo -u postgres psql -c 'ALTER DATABASE roadrunner_db RENAME TO ${{ env.failed_db }}'"
+        ssh root@${{ env.PG_HOST }} "sudo -u postgres psql -c 'ALTER DATABASE ${{ env.restore_db }} RENAME TO roadrunner_db'"
+        echo "Previous database preserved as ${{ env.failed_db }} - drop it manually only after verification."
+
+    - name: Rollback Blazor LXC 01
+      run: |
+        RELEASE=/var/www/roadrunner/releases/${{ inputs.sha }}
+        ssh root@${{ env.WEB01 }} "test -d $RELEASE || { echo 'Release $RELEASE not found on LXC 01'; exit 1; }"
+        ssh root@${{ env.WEB01 }} "ln -sfn $RELEASE /var/www/roadrunner/current && systemctl restart blazor-app.service && sleep 5 && curl -fsS http://localhost:5000/health"
+
+    # Only proceeds if LXC 01 came back healthy - one node always stays up.
+    - name: Rollback Blazor LXC 02
+      run: |
+        RELEASE=/var/www/roadrunner/releases/${{ inputs.sha }}
+        ssh root@${{ env.WEB02 }} "test -d $RELEASE || { echo 'Release $RELEASE not found on LXC 02'; exit 1; }"
+        ssh root@${{ env.WEB02 }} "ln -sfn $RELEASE /var/www/roadrunner/current && systemctl restart blazor-app.service && sleep 5 && curl -fsS http://localhost:5000/health"

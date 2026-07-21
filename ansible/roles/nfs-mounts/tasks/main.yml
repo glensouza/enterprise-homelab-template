@@ -1,0 +1,24 @@
+---
+# Mounts the Synology NAS NFS exports via /etc/fstab (docs/02, docs/04).
+# Mount points are defined per group in inventory/group_vars/.
+- name: Install NFS client
+  ansible.builtin.apt:
+    name: nfs-common
+    update_cache: true
+    state: present
+
+- name: Create mount points
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ nfs_mounts }}"
+
+- name: Mount NAS exports (persistent via fstab)
+  ansible.posix.mount:
+    path: "{{ item.path }}"
+    src: "{{ item.src }}"
+    fstype: nfs
+    opts: "defaults,_netdev{{ ',' + item.opts if item.opts is defined else '' }}"
+    state: mounted
+  loop: "{{ nfs_mounts }}"

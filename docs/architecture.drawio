@@ -1,144 +1,140 @@
-<mxfile host="65bd71144e">
-    <diagram id="arch" name="Architecture">
-        <mxGraphModel dx="901" dy="759" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
-            <root>
-                <mxCell id="0"/>
-                <mxCell id="1" parent="0"/>
-                <mxCell id="vlan10" value="VLAN 10: Web / Ingress (10.10.10.x)" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#f5f5f5;strokeColor=#666666;" parent="1" vertex="1">
-                    <mxGeometry x="40" y="40" width="750" height="300" as="geometry"/>
-                </mxCell>
-                <mxCell id="2" value="Kemp VIP (Sticky L7)&#xa;10.10.10.199&#xa;[Let&#39;s Encrypt SSL]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="vlan10">
-                    <mxGeometry x="310" y="115" width="120" height="60" as="geometry"/>
-                </mxCell>
-                <mxCell id="3" value="Let&#39;s Encrypt / Cloudflare API&#xa;(DNS-01 Challenge)" style="ellipse;shape=cloud;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="vlan10">
-                    <mxGeometry x="530" y="104" width="220" height="80" as="geometry"/>
-                </mxCell>
-                <mxCell id="4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;entryX=0.123;entryY=0.513;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="vlan10" source="2" target="3">
-                    <mxGeometry relative="1" as="geometry">
-                        <mxPoint x="550" y="80" as="targetPoint"/>
-                        <Array as="points">
-                            <mxPoint x="557" y="145"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-                <mxCell id="cloudflare" value="Cloudflare Tunnel&#xa;10.10.10.5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="vlan10" vertex="1">
-                    <mxGeometry x="310" y="40" width="120" height="50" as="geometry"/>
-                </mxCell>
-                <mxCell id="blazor1" value="Blazor LXC 01&#xa;10.10.10.101" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" parent="vlan10" vertex="1">
-                    <mxGeometry x="150" y="210" width="120" height="60" as="geometry"/>
-                </mxCell>
-                <mxCell id="blazor2" value="Blazor LXC 02&#xa;10.10.10.102" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" parent="vlan10" vertex="1">
-                    <mxGeometry x="472" y="210" width="120" height="60" as="geometry"/>
-                </mxCell>
-                <mxCell id="nas" value="Synology NAS&#xa;10.10.10.90" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#f8cecc;strokeColor=#b85450;" parent="vlan10" vertex="1">
-                    <mxGeometry x="20" y="100" width="100" height="80" as="geometry"/>
-                </mxCell>
-                <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="vlan10" source="2" target="blazor2" edge="1">
-                    <mxGeometry relative="1" as="geometry">
-                        <mxPoint x="430" y="140" as="sourcePoint"/>
-                        <Array as="points">
-                            <mxPoint x="530" y="160"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-                <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="vlan10" source="2" target="blazor1" edge="1">
-                    <mxGeometry relative="1" as="geometry">
-                        <mxPoint x="310" y="140" as="sourcePoint"/>
-                        <Array as="points">
-                            <mxPoint x="210" y="150"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-                <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="vlan10" source="cloudflare" target="2" edge="1">
-                    <mxGeometry relative="1" as="geometry">
-                        <mxPoint x="370" y="115" as="targetPoint"/>
-                    </mxGeometry>
-                </mxCell>
-                <mxCell id="vlan20" value="VLAN 20: Backend / Data (10.10.20.x)" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#fff2cc;strokeColor=#d6b656;" parent="1" vertex="1">
-                    <mxGeometry x="40" y="380" width="740" height="170" as="geometry"/>
-                </mxCell>
-                <mxCell id="postgres" value="PostgreSQL (pgvector)&#xa;10.10.20.110" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#ffffff;strokeColor=#333333;" parent="vlan20" vertex="1">
-                    <mxGeometry x="120" y="50" width="130" height="80" as="geometry"/>
-                </mxCell>
-                <mxCell id="garnet" value="Garnet Cache &amp; Backplane&#xa;10.10.20.111" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#ffffff;strokeColor=#333333;" parent="vlan20" vertex="1">
-                    <mxGeometry x="300" y="50" width="140" height="80" as="geometry"/>
-                </mxCell>
-                <mxCell id="rabbitmq" value="RabbitMQ&#xa;10.10.20.112" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;" parent="vlan20" vertex="1">
-                    <mxGeometry x="490" y="60" width="120" height="60" as="geometry"/>
-                </mxCell>
-                <mxCell id="w1_pg" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="blazor1" target="postgres" edge="1">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="220" y="370"/>
-                            <mxPoint x="220" y="370"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-                <mxCell id="w1_gar" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="blazor1" target="garnet" edge="1">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="220" y="350"/>
-                            <mxPoint x="410" y="350"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-                <mxCell id="w1_rmq" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="blazor1" target="rabbitmq" edge="1">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="220" y="350"/>
-                            <mxPoint x="590" y="350"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-                <mxCell id="w1_nas" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;dashed=1;" parent="1" source="blazor1" target="nas" edge="1">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="210" y="320"/>
-                            <mxPoint x="120" y="320"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-                <mxCell id="w2_pg" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="blazor2" target="postgres" edge="1">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="610" y="360"/>
-                            <mxPoint x="240" y="360"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-                <mxCell id="w2_gar" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="blazor2" target="garnet" edge="1">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="610" y="360"/>
-                            <mxPoint x="430" y="360"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-                <mxCell id="w2_rmq" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="blazor2" target="rabbitmq" edge="1">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="610" y="330"/>
-                            <mxPoint x="610" y="330"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-                <mxCell id="w2_nas" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;dashed=1;" parent="1" source="blazor2" target="nas" edge="1">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="550" y="330"/>
-                            <mxPoint x="110" y="330"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-                <mxCell id="pg_nas" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;" parent="1" source="postgres" target="nas" edge="1">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="185" y="530"/>
-                            <mxPoint x="100" y="530"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-            </root>
-        </mxGraphModel>
-    </diagram>
+<mxfile host="app.diagrams.net" agent="opencode" version="24.0.0">
+  <diagram id="homelab-arch" name="Enterprise Homelab Architecture">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ===================== EXTERNAL ===================== -->
+        <mxCell id="internet" value="Internet Users" style="shape=cloud;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="40" y="360" width="140" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="cloudflare" value="Cloudflare Edge&#10;(Tunnel + DNS)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="230" y="365" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="github" value="GitHub Actions CI/CD&#10;(self-hosted runner)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="180" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="letsencrypt" value="Let's Encrypt&#10;(ACME DNS-01 via&#10;Cloudflare API)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="420" y="40" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="localdev" value="Local Dev Machine&#10;Aspire AppHost orchestrates Docker:&#10;Postgres (pgvector) + Garnet + RabbitMQ&#10;Aspire Dashboard (OTLP telemetry)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="720" width="340" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- ===================== VLAN 10 ===================== -->
+        <mxCell id="vlan10" value="VLAN 10 - Web / Ingress Tier (10.10.10.0/24)" style="swimlane;html=1;startSize=30;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="440" y="160" width="480" height="480" as="geometry" />
+        </mxCell>
+        <mxCell id="cloudflared" value="Cloudflared Tunnel LXC&#10;10.10.10.5 (Node 1)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="vlan10">
+          <mxGeometry x="40" y="50" width="180" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="kemp" value="Kemp LoadMaster VIP 10.10.10.199&#10;L7 LB | TLS termination (LE wildcard)&#10;Sticky sessions | /health probes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontStyle=1" vertex="1" parent="vlan10">
+          <mxGeometry x="40" y="140" width="400" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="web01" value="Blazor Web 01&#10;10.10.10.101:5000 (Node 1)&#10;.NET 10 systemd | HTTP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="vlan10">
+          <mxGeometry x="40" y="250" width="190" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="web02" value="Blazor Web 02&#10;10.10.10.102:5000 (Node 2)&#10;.NET 10 systemd | HTTP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="vlan10">
+          <mxGeometry x="250" y="250" width="190" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="synology" value="Synology NAS&#10;10.10.10.90&#10;NFS: vzdump backups | /mnt/synology/media (IBlobStore)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="vlan10">
+          <mxGeometry x="40" y="360" width="400" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- ===================== VLAN 20 ===================== -->
+        <mxCell id="vlan20" value="VLAN 20 - Backend / Data Tier (10.10.20.0/24)" style="swimlane;html=1;startSize=30;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="980" y="160" width="300" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="postgres" value="PostgreSQL + pgvector&#10;10.10.20.110:5432 (Node 1)&#10;EF Core | Migration bundles" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="vlan20">
+          <mxGeometry x="40" y="50" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="garnet" value="Microsoft Garnet&#10;10.10.20.111:6379 (Node 1)&#10;Cache + SignalR backplane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="vlan20">
+          <mxGeometry x="40" y="130" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="rabbitmq" value="RabbitMQ&#10;10.10.20.112:5672 (Node 1)&#10;Wolverine transport" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="vlan20">
+          <mxGeometry x="40" y="210" width="220" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- ===================== VLAN 30 ===================== -->
+        <mxCell id="vlan30" value="VLAN 30 - Management / Infrastructure (10.10.30.0/24)" style="swimlane;html=1;startSize=30;fontStyle=1;fillColor=#ffe6cc;strokeColor=#d79b00;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="980" y="500" width="300" height="340" as="geometry" />
+        </mxCell>
+        <mxCell id="pve1" value="Proxmox Node 1&#10;10.10.30.10" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d79b00;" vertex="1" parent="vlan30">
+          <mxGeometry x="40" y="50" width="220" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="pve2" value="Proxmox Node 2&#10;10.10.30.11" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d79b00;" vertex="1" parent="vlan30">
+          <mxGeometry x="40" y="105" width="220" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="infisical" value="Infisical 10.10.30.116 (Node 2)&#10;Agent renders /etc/roadrunner/roadrunner.env" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d79b00;" vertex="1" parent="vlan30">
+          <mxGeometry x="40" y="160" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="kuma" value="Uptime Kuma&#10;10.10.30.117 (Node 2)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d79b00;" vertex="1" parent="vlan30">
+          <mxGeometry x="40" y="220" width="220" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="grafana" value="Grafana Alloy + Loki + Grafana&#10;10.10.30.118 (Node 2)&#10;OTLP collector / logs / dashboards" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d79b00;" vertex="1" parent="vlan30">
+          <mxGeometry x="40" y="275" width="220" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- ===================== EDGES: ingress path ===================== -->
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;" edge="1" parent="1" source="internet" target="cloudflare">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="outbound tunnel&#10;(no inbound ports)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;" edge="1" parent="1" source="cloudflared" target="cloudflare">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="HTTPS :443" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;" edge="1" parent="1" source="cloudflared" target="kemp">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="HTTP :5000 sticky" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="kemp" target="web01">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="HTTP :5000 sticky" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="kemp" target="web02">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ===================== EDGES: web to data tier ===================== -->
+        <mxCell id="e6" value="5432" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;" edge="1" parent="1" source="web02" target="postgres">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" value="6379" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;" edge="1" parent="1" source="web02" target="garnet">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" value="5672" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;" edge="1" parent="1" source="web02" target="rabbitmq">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ===================== EDGES: ops flows ===================== -->
+        <mxCell id="e9" value="OTLP (logs/metrics/traces)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;exitX=0.5;exitY=1;" edge="1" parent="1" source="web02" target="grafana">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" value="rsync publish +&#10;systemctl restart (SSH)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;" edge="1" parent="1" source="github" target="web01">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" value="EF migration bundle" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;entryX=0;entryY=0.5;" edge="1" parent="1" source="github" target="postgres">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" value="secrets env file" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;entryX=0.5;entryY=1;" edge="1" parent="1" source="infisical" target="web02">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" value="cert issue/renew" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;" edge="1" parent="1" source="kemp" target="letsencrypt">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e14" value="vzdump NFS backups" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;exitX=0;exitY=0.5;" edge="1" parent="1" source="pve1" target="synology">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e15" value="NFS media mount" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="web01" target="synology">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e16" value="monitors /health" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;" edge="1" parent="1" source="kuma" target="kemp">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="legend" value="Legend&#10;Solid = request/data path&#10;Dashed = ops/CI-CD/secrets/telemetry&#10;UniFi firewall: VLAN 10 may only reach&#10;5432 / 6379 / 5672 on VLAN 20; VLAN 20 &amp; 30&#10;blocked from all but explicit allows" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;verticalAlign=top;spacingLeft=8;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="440" y="720" width="340" height="120" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
 </mxfile>

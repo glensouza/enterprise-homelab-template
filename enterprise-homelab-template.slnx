@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RoadrunnerAuction.AppHost/RoadrunnerAuction.AppHost.csproj" />
+    <Project Path="src/RoadrunnerAuction/RoadrunnerAuction.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RoadrunnerAuction.Tests/RoadrunnerAuction.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,5 @@
+---
+# Blazor web nodes mount the media share only (see docs/04 matrix).
+nfs_mounts:
+  - path: /mnt/synology/media
+    src: "{{ nas_server }}:/volume1/media"

@@ -427,3 +427,17 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Terraform (docs/08) — state and secrets stay local
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+!*.tfvars.example
+.terraform.lock.hcl
+
+# Ansible — generated inventory is rebuilt by `terraform apply`
+ansible/inventory/terraform-hosts.yml
+*.retry

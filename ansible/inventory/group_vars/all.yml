@@ -1,0 +1,4 @@
+---
+# Shared across all LXCs.
+nas_server: 10.10.10.90
+dotnet_channel: "10.0"

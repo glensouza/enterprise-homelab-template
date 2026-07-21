@@ -14,9 +14,9 @@
 
 ---
 
-## ADR 03: Poly-Cloud Storage Abstraction via FluentStorage
-* **Decision:** Use the `FluentStorage` NuGet package inside C# Blazor apps.
-* **Rationale:** Vendor Lock-In Prevention and flexibility to swap between local Synology disks and cloud blobs.
+## ADR 03: App-Owned Blob Storage Abstraction (IBlobStore)
+* **Decision:** Define an application-owned `IBlobStore` interface with a `LocalDiskBlobStore` implementation (`System.IO` against the Synology NAS mount, configured via `BlobStorage:RootPath`). The third-party `FluentStorage` package has been removed.
+* **Rationale:** FluentStorage is unmaintained. An app-owned interface is the genuinely cloud-agnostic pattern: Azure Blob / S3 / GCS adapters can be added later behind DI without changing application code.
 
 ---
 
@@ -38,9 +38,9 @@
 
 ---
 
-## ADR 07: Message Brokering Abstraction via MassTransit
-* **Decision:** Use MassTransit for all asynchronous messaging and background processing, backed by RabbitMQ in the home lab.
-* **Rationale:** Allows application code to rely on generic `IBus` and `IConsumer` interfaces. If the application migrates to Azure or AWS, the RabbitMQ transport can be swapped to Azure Service Bus or Amazon SQS purely via configuration in `Program.cs`.
+## ADR 07: Message Brokering Abstraction via Wolverine
+* **Decision:** Use Wolverine for all asynchronous messaging and background processing, backed by RabbitMQ in the home lab. MassTransit has been removed.
+* **Rationale:** MassTransit v9 went commercial. Wolverine provides the same transport-agnostic, `IBus`-style abstraction (`IMessageBus`) while remaining free/open-source and lighter weight — handlers are plain static classes discovered automatically. If the application migrates to Azure or AWS, the RabbitMQ transport can be swapped to Azure Service Bus or Amazon SQS purely via configuration in `Program.cs`.
 
 ---
 
@@ -49,9 +49,9 @@
 * **Rationale:** Blazor Server holds circuit state in application RAM. Sticky Sessions ensure a user's persistent WebSocket connection remains anchored to their assigned Blazor LXC node. If a cross-node broadcast occurs (e.g., live auction bid update), Garnet synchronizes the SignalR hubs across `Web 01` and `Web 02` instantaneously.
 
 ---
-## ADR 09: Structured Logging with Grafana Loki
-* **Decision:** Centralize application and system logs using Grafana Loki on VLAN 30, pushing logs directly from .NET using Serilog.
-* **Rationale:** Blazor Server apps spread across multiple LXC nodes (`Web 01`, `Web 02`) make SSH/`journalctl` debugging unscalable. Loki provides a cloud-agnostic, low-overhead centralized tracing mechanism.
+## ADR 09: Full Observability via OpenTelemetry (OTLP)
+* **Decision:** Emit logs, metrics, and traces from the application via OpenTelemetry, exported over OTLP (`UseOtlpExporter` driven by `OTEL_EXPORTER_OTLP_ENDPOINT`). Serilog and `Serilog.Sinks.Grafana.Loki` have been removed.
+* **Rationale:** Three signals instead of logs alone, using a vendor-neutral wire protocol. Locally the OTLP endpoint is the Aspire Dashboard; in production it is Grafana Alloy on VLAN 30, which fans out to Loki/Tempo/Prometheus. Blazor Server apps spread across multiple LXC nodes (`Web 01`, `Web 02`) make SSH/`journalctl` debugging unscalable.
 
 ---
 ## ADR 10: Deep Health Checks for Kemp L7
@@ -64,15 +64,40 @@
 * **Rationale:** Prevents database lock contention and schema race conditions when both HA nodes start simultaneously.
 
 ---
-## ADR 12: Secrets Management via Infisical SDK
-* **Decision:** Inject Infisical SDK into the application bootstrap to resolve credentials dynamically.
-* **Rationale:** Eliminates plain-text passwords in `appsettings.json` and secures them within the isolated VLAN 30 Infisical vault.
-
----
-### Source Material & Attribution
-Decisions regarding Serilog/Loki derive from Grafana Labs guidelines. EF Bundle architecture follows Microsoft's Production Deployment guidelines for Entity Framework Core.
+## ADR 12: Secrets Delivery via Infisical Agent & systemd EnvironmentFile
+* **Decision:** The Infisical Agent on VLAN 30 renders `/etc/roadrunner/roadrunner.env`, which systemd loads via `EnvironmentFile=`. The `Infisical.Sdk` package has been removed from application code; the app fails fast with a descriptive error if connection strings are missing.
+* **Rationale:** No SDK or authentication code lives inside the app, and the pattern works identically for any process type (not just .NET). Secrets still never appear in `appsettings.json` and remain secured within the isolated VLAN 30 Infisical vault.
 
 ---
 ## ADR 13: Let's Encrypt Wildcard Certificates via DNS-01 & Kemp LoadMaster
 * **Decision:** Utilize the native Let's Encrypt ACMEv2 client built into the Kemp LoadMaster to automatically request and renew wildcard certificates (`*.yourdomain.com`) using the DNS-01 challenge against the Cloudflare API.
 * **Rationale:** The DNS-01 challenge allows for the issuance of trusted certificates for internal, non-publicly routable networks without opening firewall ports. By terminating SSL at the Kemp LoadMaster, all Blazor backend LXCs are offloaded from certificate management, avoiding "Not Secure" browser warnings for internal admin endpoints.
+
+---
+## ADR 14: Local Orchestration via .NET Aspire AppHost
+* **Decision:** Use a .NET Aspire AppHost (`src/RoadrunnerAuction.AppHost`) for local development orchestration, replacing `docker-compose.local.yml` (deleted).
+* **Rationale:** Aspire provisions the PostgreSQL (pgvector), Garnet, and RabbitMQ containers with data volumes and injects connection strings into the app dynamically as `ConnectionStrings__roadrunnerdb` / `__cache` / `__messaging` — no static local configuration to drift. Integration tests reuse the exact same dependency graph via `Aspire.Hosting.Testing`, guaranteeing local dev and CI test against identical infrastructure.
+
+---
+## ADR 15: HAProxy + Keepalived as the Documented Load-Balancer Alternative
+* **Decision:** Document HAProxy + Keepalived as the free, open-source alternative to the Kemp LoadMaster (ADR 05): HAProxy stick tables provide Blazor Server session persistence, and Keepalived (VRRP) provides load-balancer redundancy.
+* **Rationale:** Kemp remains the current choice, but if licensing becomes an issue, HAProxy + Keepalived delivers equivalent L7 health checking, sticky sessions, and VIP failover at zero license cost.
+
+---
+## ADR 16: Rollback via Symlinked Releases, Pre-Migration pg_dump & Guarded Automated DB Restore
+* **Decision:** Deploys publish into `/var/www/roadrunner/releases/<git-sha>` and atomically flip a `current` symlink (last 5 releases retained per node). The manual `rollback.yml` workflow re-points the symlink and restarts, health-gated per node. Before every EF migration bundle execution, CI takes a `pg_dump` of the database to the Synology NAS. Database restore is **automated in the same workflow** behind two human gates: `production` environment approval and a typed `RESTORE` confirmation. The restore is non-destructive — the dump is loaded into a fresh database, sanity-checked, and the databases are RENAME-swapped; the previous database is preserved as `roadrunner_db_failed_<timestamp>` and dropped only by explicit manual action after verification.
+* **Rationale:** In-place `rsync --delete` deploys made the previous version unrecoverable, and forward-only migrations had no safety net. Symlink flips make app rollback a seconds-long operation; the pre-migration dump bounds database data loss to writes made after the deploy began. Automating the restore removes error-prone manual SSH during an incident, while the approval + typed-confirmation gates satisfy the RED RULE that destructive database operations never run unattended.
+
+---
+## ADR 17: Infrastructure as Code via Terraform (bpg/proxmox + paultyng/unifi) & Ansible
+* **Decision:** All LXCs, UniFi VLANs, and LAN IN firewall rules are declared in `terraform/` (`bpg/proxmox` for Proxmox VE, `paultyng/unifi` for the UDM-Pro). LXC configuration — .NET runtime, NFS mounts, systemd units, pgBackRest — is converged by `ansible/` over SSH. Terraform renders the Ansible inventory on every apply, so the pipeline is `terraform apply && ansible-playbook site.yml`. systemd unit files are copied by Ansible verbatim from `src/systemd/` (one canonical copy). The Kemp LoadMaster remains GUI-managed (no supported provider).
+* **Rationale:** Manual `pct` / community-script provisioning and hand-built firewall rules were the last unreproducible part of the lab and could not be reviewed in a PR. Declarative IaC makes the whole environment reproducible, idempotent, and diff-able; keeping the LXC matrix (`lxc.tf`) as a code mirror of the `docs/04` matrix enforces the docs-as-source-of-truth workflow.
+
+---
+## ADR 18: pgBackRest Continuous WAL Archiving for PITR
+* **Decision:** The PostgreSQL LXC runs pgBackRest (configured by `ansible/roles/postgres`) with `archive_command` pushing WAL to a repo on the Synology NAS (`/mnt/synology/postgres-data/pgbackrest`, `archive_timeout=60s`), plus scheduled full (weekly) and differential (nightly) backups via systemd timers (`repo1-retention-full=2`, `repo1-retention-diff=7`). Point-in-time recovery (`pgbackrest --delta --type=time restore`) is documented in `docs/10` section 4. The pre-migration `pg_dump` and its prune timer are retained as a logical, schema-level belt-and-braces copy.
+* **Rationale:** The ADR 16 `pg_dump` restore path loses every write between the dump and the restore — unacceptable for an auction workload with live bids. Continuous WAL archiving bounds data loss to at most ~60 seconds of in-flight transactions, effectively eliminating the rollback data-loss window, while pgBackRest's retention/expire handles repo pruning automatically.
+
+---
+### Source Material & Attribution
+Observability decisions derive from OpenTelemetry and Grafana Labs guidelines. EF Bundle architecture follows Microsoft's Production Deployment guidelines for Entity Framework Core. PITR architecture follows pgBackRest user documentation; IaC layout follows the bpg/proxmox and paultyng/unifi provider registry specs.

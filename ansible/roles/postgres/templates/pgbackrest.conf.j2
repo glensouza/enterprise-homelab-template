@@ -1,0 +1,16 @@
+# Managed by Ansible (roles/postgres) — manual edits will be overwritten.
+[global]
+repo1-path={{ pgbackrest_repo_path }}
+repo1-retention-full=2
+repo1-retention-diff=7
+repo1-bundle=y
+repo1-block=y
+process-max=2
+spool-path=/var/spool/pgbackrest
+log-level-console=info
+log-level-file=detail
+start-fast=y
+
+[{{ pgbackrest_stanza }}]
+pg1-path={{ postgres_data_dir }}
+pg1-port=5432
