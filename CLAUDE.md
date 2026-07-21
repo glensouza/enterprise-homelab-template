@@ -44,12 +44,17 @@ This is a production-grade template for hosting **.NET 10 Blazor Server** apps o
 | `src/RoadrunnerAuction.AppHost` | .NET Aspire orchestration host — entry point for local dev; provisions all backing containers |
 | `src/systemd` | **Canonical** systemd units (`blazor-app.service`, `pg-dump-prune.*`) — Ansible copies them verbatim; never edit units on an LXC |
 | `terraform/` | bpg/proxmox LXCs + paultyng/unifi VLANs & firewall — code mirror of `docs/04` / `docs/05` |
-| `ansible/` | LXC configuration: .NET runtime, NFS mounts, systemd units, pgBackRest |
+| `ansible/` | LXC configuration: .NET runtime, NFS mounts, systemd units, pgBackRest, Technitium DNS, step-ca, preview host |
+| `deploy/preview/` | Per-PR preview compose stack template (ADR 19) — rendered by `pr-preview.yml` |
 | `tests/RoadrunnerAuction.Tests` | bUnit component tests, Wolverine handler tests, Aspire integration tests |
 
 ### Deployment model
 
 Apps are deployed to native Debian LXCs and managed strictly via `systemd`. Deploys publish into immutable release directories `/var/www/roadrunner/releases/<sha>` and atomically flip a `current` symlink (last 5 kept per node) — app rollback is a symlink move plus restart, health-gated per node so one web node always keeps serving (ADR 16). The app exposes `/health` with deep checks (Postgres, Garnet, RabbitMQ) for Kemp L7 routing — always maintain it. TLS terminates at the Kemp LoadMaster (Let's Encrypt wildcard, DNS-01); app LXCs run plain HTTP on port 5000.
+
+### PR preview environments (non-prod)
+
+Every open PR gets an isolated ephemeral environment on the single non-prod preview host (VLAN 40, ADR 19) — a Docker compose stack (app + pgvector + Garnet + RabbitMQ) per PR, torn down automatically on merge/close. Local-only access via Technitium wildcard DNS (`*.pr.roadrunner.internal`) and trusted HTTPS from the internal step-ca ACME CA (ADR 20) — no public exposure, no per-PR DNS/cert bookkeeping. Full guide: `docs/11-pr-preview-environments.md`. **Docker is allowed ONLY on the preview LXC** — production stays Docker-free (ADR 02).
 
 ### Messaging
 
@@ -91,17 +96,25 @@ Static IPs outside DHCP ranges (docs/05). **Keep this matrix, `docs/04`, and `te
 | Infisical — Node 2 | `10.10.30.116` |
 | Uptime Kuma — Node 2 | `10.10.30.117` |
 | Grafana Loki / Observability — Node 2 | `10.10.30.118` |
+| Technitium DNS (wildcard `*.pr.roadrunner.internal`) — Node 2 | `10.10.30.119` |
+| step-ca internal PKI (ACME, port 4443) — Node 2 | `10.10.30.121` |
+
+### VLAN 40 — Non-Prod / Preview (`10.10.40.x`)
+| Host | IP |
+|------|----|
+| PR Preview host (Docker + Caddy, one compose stack per open PR) — Node 2 | `10.10.40.120` |
 
 ## Infrastructure as Code (ADR 17)
 
 The whole lab is `terraform apply && ansible-playbook site.yml` — see `docs/08-infrastructure-as-code.md`:
 
-- **Terraform** (`terraform/`): `bpg/proxmox` for the 9 LXCs, `paultyng/unifi` for the VLAN 10/20/30 networks and the LAN IN firewall matrix. `lxc.tf` / `unifi.tf` are code mirrors of `docs/04` / `docs/05` — change all three together. Apply renders the Ansible inventory.
-- **Ansible** (`ansible/`): converges the web nodes (dotnet-runtime, nfs-mounts, blazor-app) and the Postgres node (nfs-mounts, pgBackRest + pg-dump-prune). Units are copied verbatim from `src/systemd/` — edit them there and re-run the playbook.
+- **Terraform** (`terraform/`): `bpg/proxmox` for the 12 LXCs, `paultyng/unifi` for the VLAN 10/20/30/40 networks and the LAN IN firewall matrix. `lxc.tf` / `unifi.tf` are code mirrors of `docs/04` / `docs/05` — change all three together. Apply renders the Ansible inventory.
+- **Ansible** (`ansible/`): converges the web nodes (dotnet-runtime, nfs-mounts, blazor-app), the Postgres node (nfs-mounts, pgBackRest + pg-dump-prune), and the preview infrastructure (technitium DNS, step-ca PKI, resolver, docker + preview-host on VLAN 40). Units are copied verbatim from `src/systemd/` — edit them there and re-run the playbook.
 - **Kemp LoadMaster** remains GUI-managed (no supported Terraform provider).
 
 ## CI/CD & deployments
 
+- **PR previews:** `pr-preview.yml` (on PR open/sync, self-hosted runner, `preview` environment) deploys an isolated compose stack per PR to the preview host (`10.10.40.120`); `pr-preview-cleanup.yml` (on PR close) tears it down (`docker compose down -v` + Caddy site removal). Details in `docs/11`.
 - **Migrations:** GitHub Actions MUST generate and execute EF Core Migration Bundles BEFORE deploying web apps to prevent race conditions.
 - **Versioning:** Semantic versioning (MAJOR.MINOR.PATCH) with `version.txt` as the source of truth for MAJOR.MINOR. On every PR opening/reopening against `main`, `bump-minor.yml` auto-bumps the MINOR by 1 (relative to `main`'s current version) and pushes a commit. On deploy (`deploy-blazor.yml`), the PATCH counter is auto-incremented via a persistent state file on the self-hosted runner (`~/.roadrunner/deploy-build-state`) — it resets to 0 when MAJOR.MINOR changes. The full `X.Y.Z` version is injected into the binary via `/p:Version=X.Y.Z` and read at runtime by `VersionService` (from `AssemblyInformationalVersionAttribute`). To manually seed/reset the state file:
   ```bash

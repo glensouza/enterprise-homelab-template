@@ -1,0 +1,13 @@
+---
+# step-ca internal certificate authority (ADR 20).
+step_ca_name: Roadrunner Homelab CA
+step_ca_port: 4443
+# The CA serves TLS on its IP — keep the IP first so ACME clients
+# (Caddy acme_ca {{ step_ca_url }}) pass hostname verification.
+step_ca_dns_names: 10.10.30.121,step-ca
+step_ca_version: "0.28.2"
+step_cli_version: "0.28.6"
+
+# Generated once on the Ansible controller and reused on every run.
+# The credentials/ directory is git-ignored.
+step_ca_password: "{{ lookup('ansible.builtin.password', 'credentials/step-ca/password length=32') }}"

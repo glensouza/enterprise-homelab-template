@@ -441,3 +441,6 @@ crash.*.log
 # Ansible — generated inventory is rebuilt by `terraform apply`
 ansible/inventory/terraform-hosts.yml
 *.retry
+# Ansible — local CA password (group_vars/pki.yml) and fetched step-ca root cert
+ansible/credentials/
+ansible/fetched/

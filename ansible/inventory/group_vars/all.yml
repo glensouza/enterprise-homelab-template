@@ -2,3 +2,10 @@
 # Shared across all LXCs.
 nas_server: 10.10.10.90
 dotnet_channel: "10.0"
+
+# PR preview environments (ADR 19/20, docs/11).
+# `.internal` is ICANN-reserved for private use — never leaks publicly.
+preview_domain: pr.roadrunner.internal
+preview_host_ip: 10.10.40.120
+technitium_dns_server: 10.10.30.119
+step_ca_url: https://10.10.30.121:4443

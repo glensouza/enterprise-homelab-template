@@ -1,0 +1,3 @@
+---
+# Single non-prod PR preview host (ADR 19).
+caddy_admin_email: admin@roadrunner.internal

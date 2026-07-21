@@ -11,3 +11,15 @@ all:
       hosts:
         ${postgres_host.name}:
           ansible_host: ${postgres_host.ip}
+    preview:
+      hosts:
+        ${preview_host.name}:
+          ansible_host: ${preview_host.ip}
+    dns:
+      hosts:
+        ${dns_host.name}:
+          ansible_host: ${dns_host.ip}
+    pki:
+      hosts:
+        ${pki_host.name}:
+          ansible_host: ${pki_host.ip}

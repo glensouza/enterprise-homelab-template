@@ -21,8 +21,11 @@ Configure your LXCs with the following specifications. **Ensure you assign the c
 | **Cloudflared** | VLAN 10 (`10.10.10.5`)   | Node 1 | 1 | 512 MB  | *None* |
 | **Uptime Kuma** | VLAN 30 (`10.10.30.117`) | Node 2 | 1 | 1024 MB | *None* |
 | **Grafana Loki / Observability** | VLAN 30 (`10.10.30.118`) | Node 2 | 2 | 2048 MB | *None* |
+| **Technitium DNS** | VLAN 30 (`10.10.30.119`) | Node 2 | 1 | 1024 MB | *None* |
+| **step-ca (internal PKI)** | VLAN 30 (`10.10.30.121`) | Node 2 | 1 | 512 MB | *None* |
+| **PR Preview (non-prod)** | VLAN 40 (`10.10.40.120`) | Node 2 | 4 | 8192 MB | *None* |
 
-*Note: the Observability LXC hosts Grafana Alloy (OTLP receiver) + Loki + Grafana (see `docs/07-observability.md`).*
+*Note: the Observability LXC hosts Grafana Alloy (OTLP receiver) + Loki + Grafana (see `docs/07-observability.md`). The Technitium DNS, step-ca, and PR Preview LXCs implement ephemeral PR environments — see `docs/11-pr-preview-environments.md` (ADR 19/20). The PR Preview LXC runs Docker (non-prod exception to ADR 02) and is firewalled off from all production tiers (VLAN 40, `docs/05`).*
 
 ---
 

@@ -14,3 +14,21 @@
   roles:
     - nfs-mounts
     - postgres
+
+- name: Configure Technitium DNS (VLAN 30, ADR 20)
+  hosts: dns
+  roles:
+    - technitium
+
+- name: Configure step-ca internal PKI (VLAN 30, ADR 20)
+  hosts: pki
+  roles:
+    - resolver
+    - step-ca
+
+- name: Configure the PR preview host (VLAN 40, ADR 19)
+  hosts: preview
+  roles:
+    - resolver
+    - docker
+    - preview-host

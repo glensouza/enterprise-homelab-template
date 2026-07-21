@@ -1,0 +1,58 @@
+# Per-PR preview stack template (ADR 19, docs/11).
+# Rendered by .github/workflows/pr-preview.yml: the workflow writes an .env
+# file (PR_NUMBER, APP_IMAGE, APP_PORT, DB_PORT, DB_PASSWORD) next to this
+# file under /opt/previews/pr-<n>/ on the preview host and runs
+# `docker compose --env-file .env up -d`. Never commit real values.
+name: pr-${PR_NUMBER}
+
+services:
+  app:
+    image: ${APP_IMAGE}
+    restart: unless-stopped
+    environment:
+      ConnectionStrings__roadrunnerdb: Host=db;Port=5432;Database=roadrunner_pr${PR_NUMBER};Username=roadrunner;Password=${DB_PASSWORD}
+      ConnectionStrings__cache: cache:6379
+      ConnectionStrings__messaging: amqp://guest:guest@messaging:5672
+      BlobStorage__RootPath: /data/blobs
+    # Loopback-only: external traffic enters via Caddy on 443.
+    ports:
+      - "127.0.0.1:${APP_PORT}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_started
+      messaging:
+        condition: service_started
+    volumes:
+      - blobs:/data
+
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: roadrunner_pr${PR_NUMBER}
+      POSTGRES_USER: roadrunner
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    # Loopback-only, for the EF migration bundle executed on the host by CI.
+    ports:
+      - "127.0.0.1:${DB_PORT}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U roadrunner -d roadrunner_pr${PR_NUMBER}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  cache:
+    image: ghcr.io/microsoft/garnet:latest
+    restart: unless-stopped
+
+  messaging:
+    image: rabbitmq:3
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  blobs:

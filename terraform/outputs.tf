@@ -16,5 +16,17 @@ resource "local_file" "ansible_inventory" {
       name = "postgresql"
       ip   = split("/", local.lxcs["postgresql"].ip)[0]
     }
+    preview_host = {
+      name = "pr-preview"
+      ip   = split("/", local.lxcs["pr-preview"].ip)[0]
+    }
+    dns_host = {
+      name = "technitium-dns"
+      ip   = split("/", local.lxcs["technitium-dns"].ip)[0]
+    }
+    pki_host = {
+      name = "step-ca"
+      ip   = split("/", local.lxcs["step-ca"].ip)[0]
+    }
   })
 }

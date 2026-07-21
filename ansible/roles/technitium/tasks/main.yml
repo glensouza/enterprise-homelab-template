@@ -1,0 +1,42 @@
+---
+# Installs Technitium DNS Server (ADR 20, docs/11). One wildcard record
+# (*.{{ preview_domain }} -> {{ preview_host_ip }}) covers every PR preview,
+# so CI never has to create or delete DNS records.
+- name: Check whether Technitium is already installed
+  ansible.builtin.stat:
+    path: /etc/dns
+  register: technitium_dir
+
+- name: Download the Technitium install script
+  ansible.builtin.get_url:
+    url: https://download.technitium.com/dns/install.sh
+    dest: /tmp/technitium-install.sh
+    mode: "0755"
+  when: not technitium_dir.stat.exists
+
+- name: Run the Technitium install script
+  ansible.builtin.command: /tmp/technitium-install.sh
+  when: not technitium_dir.stat.exists
+
+- name: Enable and start Technitium DNS
+  ansible.builtin.systemd:
+    name: dns
+    enabled: true
+    state: started
+
+# Zone management is API-driven. Set technitium_api_token (create one in the
+# Technitium web UI on http://10.10.30.119:5380 after changing the default
+# admin password) to let Ansible create the zone + wildcard record.
+- name: Create the preview zone
+  ansible.builtin.uri:
+    url: "http://localhost:5380/api/zones/create?token={{ technitium_api_token }}&zone={{ preview_domain }}&type=Primary"
+    method: GET
+    status_code: 200
+  when: technitium_api_token is defined
+
+- name: Add the wildcard A record pointing at the preview host
+  ansible.builtin.uri:
+    url: "http://localhost:5380/api/zones/records/add?token={{ technitium_api_token }}&domain=*.{{ preview_domain }}&type=A&zone={{ preview_domain }}&ipAddress={{ preview_host_ip }}&overwrite=true"
+    method: GET
+    status_code: 200
+  when: technitium_api_token is defined

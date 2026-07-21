@@ -23,7 +23,11 @@ In the **UniFi Network Application**, navigate to **Settings > Networks** and cr
 3.  **Management / Infrastructure Tier (VLAN 30)**
     *   **Router:** UDM-Pro
     *   **Host Address:** `10.10.30.1/24`
-    *   **Purpose:** Houses Proxmox host IPs and infrastructure tools (Infisical, Uptime Kuma, Grafana/Alloy/Loki).
+    *   **Purpose:** Houses Proxmox host IPs and infrastructure tools (Infisical, Uptime Kuma, Grafana/Alloy/Loki, Technitium DNS, step-ca).
+4.  **Non-Prod / Preview Tier (VLAN 40)**
+    *   **Router:** UDM-Pro
+    *   **Host Address:** `10.10.40.1/24`
+    *   **Purpose:** Houses the single PR preview host (ADR 19, `docs/11`). May only reach Technitium DNS and the step-ca ACME endpoint on VLAN 30 — fully isolated from every production tier.
 
 ---
 
@@ -51,3 +55,11 @@ To isolate the environments, navigate to **Settings > Security > Firewall Rules*
 | **Drop** | VLAN 10 (Web) | VLAN 20 (Data Tier) | `Any` | Block all other Web -> Backend traffic. |
 | **Drop** | VLAN 10 (Web) | VLAN 30 (Management) | `Any` | Block Web -> Proxmox GUI / Management. |
 | **Accept** | VLAN 30 (Management)| `Any` | `Any` | Allow administrative/monitoring tools full access. |
+| **Accept** | VLAN 40 (Preview) | `10.10.30.119` (Technitium) | `53` | Allow preview host to resolve `*.pr.roadrunner.internal`. |
+| **Accept** | VLAN 40 (Preview) | `10.10.30.121` (step-ca) | `4443` | Allow Caddy to reach the ACME directory. |
+| **Accept** | `10.10.30.121` (step-ca) | VLAN 40 (Preview) | `80, 443` | Allow the CA to complete ACME HTTP-01/TLS-ALPN-01 validation. |
+| **Drop** | VLAN 40 (Preview) | VLAN 10 (Web) | `Any` | Isolate non-prod from the web tier. |
+| **Drop** | VLAN 40 (Preview) | VLAN 20 (Data Tier) | `Any` | Isolate non-prod from production data. |
+| **Drop** | VLAN 40 (Preview) | VLAN 30 (Management) | `Any` | Block all other Preview -> Management traffic. |
+
+*Note: access from the admin LAN to the preview host (HTTPS 443, and SSH from the self-hosted runner) is allowed by the UDM-Pro's default inter-VLAN permit; only VLAN-to-VLAN isolation is locked down above.*

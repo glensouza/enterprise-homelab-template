@@ -1,0 +1,5 @@
+---
+# Technitium DNS (ADR 20). Create an API token in the web UI
+# (http://10.10.30.119:5380, after changing the default admin password) and
+# uncomment to let Ansible manage the preview zone + wildcard record:
+# technitium_api_token: "<token>"

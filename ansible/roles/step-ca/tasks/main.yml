@@ -1,0 +1,56 @@
+---
+# Installs smallstep step-ca with an ACME provisioner (ADR 20, docs/11).
+# The CA issues short-lived certificates for pr-*.{{ preview_domain }} so
+# every PR preview gets trusted HTTPS with zero public exposure. Clients must
+# trust the root CA once (docs/11 section 5).
+- name: Download step-cli and step-ca packages
+  ansible.builtin.get_url:
+    url: "{{ item.url }}"
+    dest: "{{ item.dest }}"
+    mode: "0644"
+  loop:
+    - { url: "https://github.com/smallstep/cli/releases/download/v{{ step_cli_version }}/step-cli_{{ step_cli_version }}_amd64.deb", dest: /tmp/step-cli.deb }
+    - { url: "https://github.com/smallstep/certificates/releases/download/v{{ step_ca_version }}/step-ca_{{ step_ca_version }}_amd64.deb", dest: /tmp/step-ca.deb }
+
+- name: Install step-cli and step-ca
+  ansible.builtin.apt:
+    deb: "{{ item }}"
+    state: present
+  loop:
+    - /tmp/step-cli.deb
+    - /tmp/step-ca.deb
+
+- name: Store the CA key password
+  ansible.builtin.copy:
+    dest: /root/.step-ca-password
+    content: "{{ step_ca_password }}"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
+- name: Initialize step-ca with an ACME provisioner (first run only)
+  ansible.builtin.command: >
+    step ca init
+    --name "{{ step_ca_name }}"
+    --dns "{{ step_ca_dns_names }}"
+    --address ":{{ step_ca_port }}"
+    --provisioner admin
+    --password-file /root/.step-ca-password
+    --acme
+  args:
+    creates: /root/.step/config/ca.json
+
+- name: Enable and start step-ca
+  ansible.builtin.systemd:
+    name: step-ca
+    enabled: true
+    state: started
+
+- name: Fetch the root CA certificate to the Ansible controller
+  # Consumed by the preview-host role (Caddy acme_ca_root) and by admins
+  # installing the root into client trust stores (docs/11 section 5).
+  ansible.builtin.fetch:
+    src: /root/.step/certs/root_ca.crt
+    dest: fetched/step-ca/root_ca.crt
+    flat: true

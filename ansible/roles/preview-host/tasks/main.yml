@@ -1,0 +1,72 @@
+---
+# Prepares the single non-prod PR preview host (ADR 19, docs/11):
+# Caddy as the TLS-terminating reverse proxy in front of per-PR Docker
+# compose stacks (Docker itself is installed by the docker role).
+# CI writes one site file per open PR into /etc/caddy/pr-sites/ and reloads
+# Caddy; certificates are issued automatically by step-ca over ACME.
+- name: Install apt prerequisites for the Caddy repository
+  ansible.builtin.apt:
+    name: [debian-keyring, debian-archive-keyring, apt-transport-https, curl]
+    update_cache: true
+    state: present
+
+- name: Create apt keyring directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Add the Caddy apt GPG key
+  ansible.builtin.get_url:
+    url: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
+    dest: /etc/apt/keyrings/caddy-stable.asc
+    mode: "0644"
+
+- name: Add the Caddy apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/caddy-stable.asc] https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main"
+    state: present
+
+- name: Install Caddy
+  ansible.builtin.apt:
+    name: caddy
+    update_cache: true
+    state: present
+
+- name: Create preview directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - /opt/previews
+    - /etc/caddy/pr-sites
+    - /etc/caddy/pki
+
+- name: Install the step-ca root certificate for Caddy to trust
+  # Fetched to the controller by the step-ca role (which runs earlier in
+  # site.yml). Re-run the playbook whenever the CA is re-initialized.
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/fetched/step-ca/root_ca.crt"
+    dest: /etc/caddy/pki/root_ca.crt
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart caddy
+
+- name: Install the Caddyfile
+  ansible.builtin.template:
+    src: Caddyfile.j2
+    dest: /etc/caddy/Caddyfile
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart caddy
+
+- name: Enable and start Caddy
+  ansible.builtin.systemd:
+    name: caddy
+    enabled: true
+    state: started

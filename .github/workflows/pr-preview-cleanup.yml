@@ -1,0 +1,49 @@
+name: PR Preview Cleanup
+
+# ADR 19 / docs/11: when a PR is merged or closed, its compose stack
+# (containers + volumes, including the PR database), its Caddy site, and its
+# directory on the preview host are removed. DNS needs no cleanup — the
+# Technitium wildcard record covers every PR statically.
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+
+permissions:
+  pull-requests: write
+
+env:
+  PREVIEW_HOST: 10.10.40.120
+  PREVIEW_DOMAIN: pr.roadrunner.internal
+  PR_NUMBER: ${{ github.event.pull_request.number }}
+
+jobs:
+  teardown-preview:
+    runs-on: self-hosted
+    environment: preview
+    steps:
+    - name: Tear down the preview stack
+      shell: bash
+      run: |
+        ssh root@${PREVIEW_HOST} "
+          if [ -d /opt/previews/pr-${PR_NUMBER} ]; then
+            cd /opt/previews/pr-${PR_NUMBER} && docker compose --env-file .env down -v
+          fi
+          rm -rf /opt/previews/pr-${PR_NUMBER}
+          rm -f /etc/caddy/pr-sites/pr-${PR_NUMBER}.caddy
+          systemctl reload caddy
+          docker image prune -f
+        "
+
+    - name: Comment the teardown on the PR
+      uses: actions/github-script@v7
+      with:
+        script: |
+          await github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: `🧹 Preview environment \`pr-${process.env.PR_NUMBER}\` (https://pr-${process.env.PR_NUMBER}.${process.env.PREVIEW_DOMAIN}) has been torn down — containers, volumes (including the PR database), and the Caddy site were removed.`
+          });

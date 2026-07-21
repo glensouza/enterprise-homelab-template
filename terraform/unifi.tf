@@ -32,6 +32,15 @@ resource "unifi_network" "vlan30" {
   network_group = "LAN"
 }
 
+resource "unifi_network" "vlan40" {
+  name          = "NonProd-Preview"
+  purpose       = "corporate"
+  subnet        = "10.10.40.1/24"
+  vlan_id       = 40
+  dhcp_enabled  = false
+  network_group = "LAN"
+}
+
 # -----------------------------------------------------------------------------
 # 2. Firewall rules (LAN IN, evaluated top-to-bottom)
 # -----------------------------------------------------------------------------
@@ -127,5 +136,79 @@ resource "unifi_firewall_rule" "mgmt_to_any" {
   rule_index     = 2007
   protocol       = "all"
   src_network_id = unifi_network.vlan30.id
+  enabled        = true
+}
+
+# --- VLAN 40 (Non-Prod / Preview) isolation (ADR 19) -------------------------
+# The preview tier may only resolve DNS against Technitium and reach the
+# step-ca ACME endpoint — it is fully isolated from the production tiers.
+
+resource "unifi_firewall_rule" "preview_to_dns" {
+  name           = "Allow Preview -> Technitium DNS (53)"
+  action         = "accept"
+  ruleset        = "LAN_IN"
+  rule_index     = 2010
+  protocol       = "tcp_udp"
+  src_network_id = unifi_network.vlan40.id
+  dst_address    = "10.10.30.119"
+  dst_port       = "53"
+  enabled        = true
+}
+
+resource "unifi_firewall_rule" "preview_to_step_ca" {
+  name           = "Allow Preview -> step-ca ACME (4443)"
+  action         = "accept"
+  ruleset        = "LAN_IN"
+  rule_index     = 2011
+  protocol       = "tcp"
+  src_network_id = unifi_network.vlan40.id
+  dst_address    = "10.10.30.121"
+  dst_port       = "4443"
+  enabled        = true
+}
+
+resource "unifi_firewall_rule" "step_ca_to_preview" {
+  # ACME HTTP-01/TLS-ALPN-01 validation: the CA must reach the preview host.
+  name           = "Allow step-ca -> Preview (80,443)"
+  action         = "accept"
+  ruleset        = "LAN_IN"
+  rule_index     = 2012
+  protocol       = "tcp"
+  src_address    = "10.10.30.121"
+  dst_network_id = unifi_network.vlan40.id
+  dst_port       = "80,443"
+  enabled        = true
+}
+
+resource "unifi_firewall_rule" "drop_preview_to_web" {
+  name           = "Drop Preview -> Web"
+  action         = "drop"
+  ruleset        = "LAN_IN"
+  rule_index     = 2013
+  protocol       = "all"
+  src_network_id = unifi_network.vlan40.id
+  dst_network_id = unifi_network.vlan10.id
+  enabled        = true
+}
+
+resource "unifi_firewall_rule" "drop_preview_to_data" {
+  name           = "Drop Preview -> Data"
+  action         = "drop"
+  ruleset        = "LAN_IN"
+  rule_index     = 2014
+  protocol       = "all"
+  src_network_id = unifi_network.vlan40.id
+  dst_network_id = unifi_network.vlan20.id
+  enabled        = true
+}
+
+resource "unifi_firewall_rule" "drop_preview_to_mgmt" {
+  name           = "Drop Preview -> Management (all other)"
+  action         = "drop"
+  ruleset        = "LAN_IN"
+  rule_index     = 2015
+  protocol       = "all"
+  src_network_id = unifi_network.vlan40.id
+  dst_network_id = unifi_network.vlan30.id
   enabled        = true
 }

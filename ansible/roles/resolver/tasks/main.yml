@@ -1,0 +1,14 @@
+---
+# Points DNS at the Technitium server (ADR 20, docs/11) so the preview host
+# and step-ca can resolve the internal zone (pr-*.{{ preview_domain }} for
+# ACME validation). The VLAN gateway remains as a fallback resolver.
+- name: Configure resolv.conf
+  ansible.builtin.copy:
+    dest: /etc/resolv.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      nameserver {{ technitium_dns_server }}
+      nameserver {{ ansible_default_ipv4.gateway }}
+      search {{ preview_domain }}

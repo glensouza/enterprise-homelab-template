@@ -1,0 +1,15 @@
+# Docker build context for the PR preview image (ADR 19).
+# Keeps the context small; production deploys do not use Docker (ADR 02).
+**/.git/
+**/.vs/
+**/.vscode/
+**/bin/
+**/obj/
+**/TestResults/
+.github/
+.vs/
+docs/
+terraform/
+ansible/
+tests/
+*.md

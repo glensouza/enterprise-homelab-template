@@ -1,0 +1,13 @@
+{
+	email {{ caddy_admin_email }}
+	# Internal PKI (ADR 20): per-site certificates are issued by step-ca
+	# over ACME. The wildcard DNS record in Technitium routes every
+	# pr-*.{{ preview_domain }} hostname here, and step-ca validates
+	# HTTP-01/TLS-ALPN-01 challenges over the LAN (see terraform/unifi.tf).
+	acme_ca {{ step_ca_url }}/acme/acme/directory
+	acme_ca_root /etc/caddy/pki/root_ca.crt
+}
+
+# One file per open PR, written by the pr-preview GitHub Actions workflow:
+#   pr-<n>.{{ preview_domain }} { reverse_proxy 127.0.0.1:<port> }
+import /etc/caddy/pr-sites/*.caddy

@@ -1,0 +1,134 @@
+name: PR Preview Deploy
+
+# ADR 19 / docs/11: every open PR gets an isolated Docker compose stack on
+# the single non-prod preview host (10.10.40.120), reachable over trusted
+# HTTPS at https://pr-<n>.pr.roadrunner.internal (Technitium wildcard DNS +
+# step-ca certificates). Runs on the self-hosted runner because the preview
+# host lives on the private LAN. Teardown lives in pr-preview-cleanup.yml.
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches:
+      - main
+
+concurrency:
+  group: pr-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  pull-requests: write
+
+env:
+  PREVIEW_HOST: 10.10.40.120
+  PKI_HOST: 10.10.30.121
+  PREVIEW_DOMAIN: pr.roadrunner.internal
+  PR_NUMBER: ${{ github.event.pull_request.number }}
+
+jobs:
+  deploy-preview:
+    runs-on: self-hosted
+    environment: preview
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET 10
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+
+    # Tests gate the preview deploy, same as production (deploy-blazor.yml).
+    - name: Restore & Test
+      run: dotnet test -c Release
+
+    # Loopback ports on the preview host are derived from the PR number so
+    # concurrent PRs never collide (Caddy is the only public entrypoint).
+    - name: Compute per-PR ports and image tag
+      shell: bash
+      run: |
+        echo "APP_PORT=$((6000 + PR_NUMBER))" >> "$GITHUB_ENV"
+        echo "DB_PORT=$((15432 + PR_NUMBER))" >> "$GITHUB_ENV"
+        echo "APP_IMAGE=roadrunner-pr-${PR_NUMBER}:${GITHUB_SHA::8}" >> "$GITHUB_ENV"
+        echo "PREVIEW_URL=https://pr-${PR_NUMBER}.${PREVIEW_DOMAIN}" >> "$GITHUB_ENV"
+
+    - name: Build preview image
+      run: docker build -f src/RoadrunnerAuction/Dockerfile -t "${APP_IMAGE}" .
+
+    - name: Transfer image to the preview host
+      run: docker save "${APP_IMAGE}" | gzip | ssh root@${PREVIEW_HOST} "gunzip | docker load"
+
+    - name: Install EF Core CLI
+      run: dotnet tool install --global dotnet-ef
+
+    - name: Generate EF Core Migration Bundle
+      run: dotnet ef migrations bundle --project ./src/RoadrunnerAuction/RoadrunnerAuction.csproj --self-contained -r linux-x64 -o ./efbundle/efbundle
+
+    # Ephemeral per-PR database password: generated here, stored only in the
+    # .env file on the preview host. No GitHub secret needed — the stack is
+    # destroyed when the PR closes.
+    - name: Stage stack files on the preview host
+      shell: bash
+      run: |
+        DB_PASSWORD=$(openssl rand -hex 16)
+        echo "DB_PASSWORD=${DB_PASSWORD}" >> "$GITHUB_ENV"
+        ssh root@${PREVIEW_HOST} "mkdir -p /opt/previews/pr-${PR_NUMBER}"
+        scp deploy/preview/docker-compose.pr.yml root@${PREVIEW_HOST}:/opt/previews/pr-${PR_NUMBER}/docker-compose.yml
+        ssh root@${PREVIEW_HOST} "umask 077 && cat > /opt/previews/pr-${PR_NUMBER}/.env" << ENV_EOF
+        PR_NUMBER=${PR_NUMBER}
+        APP_IMAGE=${APP_IMAGE}
+        APP_PORT=${APP_PORT}
+        DB_PORT=${DB_PORT}
+        DB_PASSWORD=${DB_PASSWORD}
+        ENV_EOF
+
+    - name: Start the preview stack
+      run: ssh root@${PREVIEW_HOST} "cd /opt/previews/pr-${PR_NUMBER} && docker compose --env-file .env up -d --wait"
+
+    # Migrations run before the app is announced, mirroring the production
+    # pipeline (ADR 11). The bundle executes on the preview host against the
+    # loopback-published Postgres port.
+    - name: Execute Migration Bundle against the PR database
+      shell: bash
+      run: |
+        scp ./efbundle/efbundle root@${PREVIEW_HOST}:/opt/previews/pr-${PR_NUMBER}/efbundle
+        ssh root@${PREVIEW_HOST} "chmod +x /opt/previews/pr-${PR_NUMBER}/efbundle && /opt/previews/pr-${PR_NUMBER}/efbundle --connection 'Host=127.0.0.1;Port=${DB_PORT};Database=roadrunner_pr${PR_NUMBER};Username=roadrunner;Password=${DB_PASSWORD}'"
+
+    - name: Register the Caddy site and reload
+      run: |
+        ssh root@${PREVIEW_HOST} "cat > /etc/caddy/pr-sites/pr-${PR_NUMBER}.caddy && systemctl reload caddy" << CADDY_EOF
+        pr-${PR_NUMBER}.${PREVIEW_DOMAIN} {
+        	reverse_proxy 127.0.0.1:${APP_PORT}
+        }
+        CADDY_EOF
+
+    # First TLS handshake triggers ACME issuance from step-ca — allow time.
+    - name: Smoke test through trusted HTTPS
+      shell: bash
+      run: |
+        scp root@${PKI_HOST}:/root/.step/certs/root_ca.crt ./root_ca.crt
+        for i in $(seq 1 12); do
+          if curl -fsS --cacert ./root_ca.crt --resolve "pr-${PR_NUMBER}.${PREVIEW_DOMAIN}:443:${PREVIEW_HOST}" "https://pr-${PR_NUMBER}.${PREVIEW_DOMAIN}/health"; then
+            exit 0
+          fi
+          echo "Waiting for preview to come up (attempt $i)..."
+          sleep 10
+        done
+        echo "Preview failed the /health smoke test"
+        exit 1
+
+    - name: Comment the preview URL on the PR
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const url = process.env.PREVIEW_URL;
+          const body = `🚀 Preview environment deployed: ${url}\n\n` +
+            `Stack: \`pr-${process.env.PR_NUMBER}\` on \`${process.env.PREVIEW_HOST}\` ` +
+            `(image \`${process.env.APP_IMAGE}\`).\n` +
+            `It is torn down automatically when this PR is merged or closed.`;
+          await github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body
+          });
