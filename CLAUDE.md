@@ -103,6 +103,11 @@ The whole lab is `terraform apply && ansible-playbook site.yml` — see `docs/08
 ## CI/CD & deployments
 
 - **Migrations:** GitHub Actions MUST generate and execute EF Core Migration Bundles BEFORE deploying web apps to prevent race conditions.
+- **Versioning:** Semantic versioning (MAJOR.MINOR.PATCH) with `version.txt` as the source of truth for MAJOR.MINOR. On every PR opening/reopening against `main`, `bump-minor.yml` auto-bumps the MINOR by 1 (relative to `main`'s current version) and pushes a commit. On deploy (`deploy-blazor.yml`), the PATCH counter is auto-incremented via a persistent state file on the self-hosted runner (`~/.roadrunner/deploy-build-state`) — it resets to 0 when MAJOR.MINOR changes. The full `X.Y.Z` version is injected into the binary via `/p:Version=X.Y.Z` and read at runtime by `VersionService` (from `AssemblyInformationalVersionAttribute`). To manually seed/reset the state file:
+  ```bash
+  mkdir -p ~/.roadrunner
+  printf 'MAJOR_MINOR=1.0\nPATCH=0\n' > ~/.roadrunner/deploy-build-state
+  ```
 - **Rollback:** `rollback.yml` (manual, `production` approval + typed `RESTORE` confirmation) flips symlinks per node and can restore the pre-migration `pg_dump` into a fresh database with a non-destructive RENAME-swap — nothing is ever DROPed. pgBackRest continuous WAL archiving to the NAS provides PITR (~60s max loss) — procedure in `docs/10-rollback.md` section 4.
 
 ## C# Coding Conventions

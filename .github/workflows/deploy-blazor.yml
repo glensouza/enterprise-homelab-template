@@ -22,8 +22,42 @@ jobs:
     - name: Restore & Test
       run: dotnet test -c Release
 
+    # Resolve semantic version: MAJOR.MINOR from version.txt, auto-incrementing
+    # PATCH via a persistent state file on the runner (~/.roadrunner/deploy-build-state).
+    # When version.txt changes (minor bump), PATCH resets to 0.
+    - name: Resolve version
+      shell: bash
+      run: |
+        MAJOR_MINOR=$(cat version.txt | tr -d '[:space:]')
+        STATE_FILE="${HOME}/.roadrunner/deploy-build-state"
+        mkdir -p "$(dirname "$STATE_FILE")"
+
+        if [ -f "$STATE_FILE" ]; then
+          PREV_MAJOR_MINOR=$(grep '^MAJOR_MINOR=' "$STATE_FILE" | cut -d= -f2)
+          PREV_PATCH=$(grep '^PATCH=' "$STATE_FILE" | cut -d= -f2)
+        else
+          PREV_MAJOR_MINOR=""
+          PREV_PATCH=0
+        fi
+
+        if [ "${MAJOR_MINOR}" = "${PREV_MAJOR_MINOR}" ]; then
+          PATCH=$((PREV_PATCH + 1))
+        else
+          PATCH=0
+        fi
+
+        VERSION="${MAJOR_MINOR}.${PATCH}"
+
+        cat > "$STATE_FILE" << STATE_EOF
+        MAJOR_MINOR=${MAJOR_MINOR}
+        PATCH=${PATCH}
+        STATE_EOF
+
+        echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+        echo "Resolved version: ${VERSION}"
+
     - name: Publish App
-      run: dotnet publish ./src/RoadrunnerAuction/RoadrunnerAuction.csproj -c Release -o ./publish /p:UseAppHost=false
+      run: dotnet publish ./src/RoadrunnerAuction/RoadrunnerAuction.csproj -c Release -o ./publish /p:UseAppHost=false /p:Version=${{ env.VERSION }}
 
     - name: Install EF Core CLI
       run: dotnet tool install --global dotnet-ef

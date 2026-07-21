@@ -4,6 +4,7 @@ using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using RoadrunnerAuction.Data;
+using RoadrunnerAuction.Services;
 using RoadrunnerAuction.Storage;
 using StackExchange.Redis;
 using Wolverine;
@@ -87,7 +88,10 @@ builder.Services.AddHealthChecks()
     .AddRedis(cacheConnectionString)
     .AddRabbitMQ(_ => new RabbitMQ.Client.ConnectionFactory { Uri = new Uri(rabbitConnectionString) }.CreateConnectionAsync());
 
-// 8. BLAZOR WEBSOCKET TIMEOUTS
+// 8. VERSION: exposed via VersionService (reads assembly version injected at publish by /p:Version)
+builder.Services.AddSingleton<VersionService>();
+
+// 9. BLAZOR WEBSOCKET TIMEOUTS
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.AddServerSideBlazor(options =>
 {

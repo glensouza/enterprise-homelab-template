@@ -1,0 +1,52 @@
+name: Bump Minor Version on PR
+
+on:
+  pull_request:
+    types: [opened, reopened]
+    branches:
+      - main
+
+jobs:
+  bump-minor:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.head.ref != 'main'
+    permissions:
+      contents: write
+    steps:
+    - name: Checkout PR branch
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Bump minor version
+      shell: bash
+      run: |
+        git fetch origin main
+
+        MAIN_VERSION=$(git show origin/main:version.txt | tr -d '[:space:]')
+        MAIN_MAJOR=$(printf '%s' "${MAIN_VERSION}" | cut -d. -f1)
+        MAIN_MINOR=$(printf '%s' "${MAIN_VERSION}" | cut -d. -f2)
+
+        PR_VERSION=$(cat version.txt | tr -d '[:space:]')
+        PR_MAJOR=$(printf '%s' "${PR_VERSION}" | cut -d. -f1)
+        PR_MINOR=$(printf '%s' "${PR_VERSION}" | cut -d. -f2)
+
+        NEW_MINOR=$((MAIN_MINOR + 1))
+        NEW_VERSION="${MAIN_MAJOR}.${NEW_MINOR}"
+
+        if [ "${PR_MAJOR}.${PR_MINOR}" != "${MAIN_MAJOR}.${MAIN_MINOR}" ]; then
+          if [ "${PR_MAJOR}" -eq "${MAIN_MAJOR}" ] && [ "${PR_MINOR}" -gt "${MAIN_MINOR}" ]; then
+            echo "PR branch already has version ahead of main (${PR_VERSION} > ${MAIN_VERSION}) — skipping bump."
+            exit 0
+          fi
+          echo "PR branch version (${PR_VERSION}) differs from main (${MAIN_VERSION}) — skipping bump."
+          exit 0
+        fi
+
+        printf '%s\n' "${NEW_VERSION}" > version.txt
+
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add version.txt
+        git commit -m "chore: bump minor version to ${NEW_VERSION}"
+        git push

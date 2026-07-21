@@ -1,0 +1,12 @@
+@inherits LayoutComponentBase
+@inject RoadrunnerAuction.Services.VersionService VersionService
+
+<div class="page">
+    <main>
+        @Body
+    </main>
+</div>
+
+<footer class="version-footer">
+    @VersionService.GetVersion()
+</footer>
