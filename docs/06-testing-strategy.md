@@ -20,6 +20,11 @@ Relational behavior is verified against the real database, not a fake.
 * **Docker Required:** These tests need a running Docker daemon; they execute in PR CI on `ubuntu-latest`, where Docker is available.
 * **EF Core InMemory is NOT used for verifying relational behavior anymore.** The InMemory provider does not enforce relational semantics, constraints, transactions, or provider-specific behavior (e.g., Npgsql/pgvector mappings), so green tests against it can hide failures that only appear against real PostgreSQL.
 
+## 4. Pre-Merge Environments (PR Previews)
+Automated tests verify units and provider behavior; they do not verify the fully assembled system (migrations + messaging + cache + UI over real HTTPS). Every open PR therefore gets an ephemeral, fully-integrated preview environment on the non-prod preview host (VLAN 40) — the exact compose equivalent of the production dependency graph — deployed by `pr-preview.yml` after the test suite passes, and torn down on merge/close by `pr-preview-cleanup.yml` (ADR 19/20).
+* **Scope:** manual exploratory testing, stakeholder review, and migration smoke-testing against real PostgreSQL/Garnet/RabbitMQ before merge. The workflow itself smoke-tests `/health` over the trusted internal CA chain.
+* **Isolation guarantee:** VLAN 40 is firewalled from all production tiers; preview data is disposable and destroyed with the environment. Full guide: `docs/11-pr-preview-environments.md`.
+
 ---
 ### Source Material & Attribution
 bUnit testing guidelines, Wolverine handler documentation, and Microsoft Aspire testing documentation (`Aspire.Hosting.Testing`).

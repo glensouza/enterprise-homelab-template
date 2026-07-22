@@ -58,8 +58,10 @@ To isolate the environments, navigate to **Settings > Security > Firewall Rules*
 | **Accept** | VLAN 40 (Preview) | `10.10.30.119` (Technitium) | `53` | Allow preview host to resolve `*.pr.roadrunner.internal`. |
 | **Accept** | VLAN 40 (Preview) | `10.10.30.121` (step-ca) | `4443` | Allow Caddy to reach the ACME directory. |
 | **Accept** | `10.10.30.121` (step-ca) | VLAN 40 (Preview) | `80, 443` | Allow the CA to complete ACME HTTP-01/TLS-ALPN-01 validation. |
+| **Accept** | `10.10.40.120` (Preview host) | `10.10.20.110` (Postgres) | `5432` | pgAdmin (admin tooling, ADR 21) -> production database. |
+| **Accept** | `10.10.40.120` (Preview host) | `10.10.20.111` (Garnet) | `6379` | RedisInsight (admin tooling, ADR 21) -> production cache. |
 | **Drop** | VLAN 40 (Preview) | VLAN 10 (Web) | `Any` | Isolate non-prod from the web tier. |
-| **Drop** | VLAN 40 (Preview) | VLAN 20 (Data Tier) | `Any` | Isolate non-prod from production data. |
+| **Drop** | VLAN 40 (Preview) | VLAN 20 (Data Tier) | `Any` | Isolate non-prod from production data (all other). |
 | **Drop** | VLAN 40 (Preview) | VLAN 30 (Management) | `Any` | Block all other Preview -> Management traffic. |
 
 *Note: access from the admin LAN to the preview host (HTTPS 443, and SSH from the self-hosted runner) is allowed by the UDM-Pro's default inter-VLAN permit; only VLAN-to-VLAN isolation is locked down above.*

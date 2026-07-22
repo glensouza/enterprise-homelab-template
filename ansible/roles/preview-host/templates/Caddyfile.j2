@@ -11,3 +11,6 @@
 # One file per open PR, written by the pr-preview GitHub Actions workflow:
 #   pr-<n>.{{ preview_domain }} { reverse_proxy 127.0.0.1:<port> }
 import /etc/caddy/pr-sites/*.caddy
+
+# Static admin-tooling sites (ADR 21), rendered by Ansible.
+import /etc/caddy/sites/*.caddy

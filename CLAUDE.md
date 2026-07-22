@@ -56,6 +56,10 @@ Apps are deployed to native Debian LXCs and managed strictly via `systemd`. Depl
 
 Every open PR gets an isolated ephemeral environment on the single non-prod preview host (VLAN 40, ADR 19) — a Docker compose stack (app + pgvector + Garnet + RabbitMQ) per PR, torn down automatically on merge/close. Local-only access via Technitium wildcard DNS (`*.pr.roadrunner.internal`) and trusted HTTPS from the internal step-ca ACME CA (ADR 20) — no public exposure, no per-PR DNS/cert bookkeeping. Full guide: `docs/11-pr-preview-environments.md`. **Docker is allowed ONLY on the preview LXC** — production stays Docker-free (ADR 02).
 
+### Admin plane (ADR 21)
+
+Every LXC runs **Cockpit** (`https://<host>.roadrunner.internal:9090`) with a step-ca-signed cert distributed by Ansible (renewal = re-run the playbook). The preview host also runs an always-on ops stack — **Portainer, Dozzle, Watchtower (ops containers only), pgAdmin, RedisInsight** — behind Caddy at `<service>.roadrunner.internal`. Technitium serves the `roadrunner.internal` zone: one A record per LXC + service CNAMEs. pgAdmin/RedisInsight reach prod Postgres/Garnet through two targeted firewall exceptions (`terraform/unifi.tf`); nothing here is publicly exposed.
+
 ### Messaging
 
 Wolverine (ADR 07) backs all async messaging over RabbitMQ; handlers are plain static classes discovered automatically — test them by direct method invocation. The transport can be swapped to Azure Service Bus / SQS purely via configuration.
@@ -109,7 +113,7 @@ Static IPs outside DHCP ranges (docs/05). **Keep this matrix, `docs/04`, and `te
 The whole lab is `terraform apply && ansible-playbook site.yml` — see `docs/08-infrastructure-as-code.md`:
 
 - **Terraform** (`terraform/`): `bpg/proxmox` for the 12 LXCs, `paultyng/unifi` for the VLAN 10/20/30/40 networks and the LAN IN firewall matrix. `lxc.tf` / `unifi.tf` are code mirrors of `docs/04` / `docs/05` — change all three together. Apply renders the Ansible inventory.
-- **Ansible** (`ansible/`): converges the web nodes (dotnet-runtime, nfs-mounts, blazor-app), the Postgres node (nfs-mounts, pgBackRest + pg-dump-prune), and the preview infrastructure (technitium DNS, step-ca PKI, resolver, docker + preview-host on VLAN 40). Units are copied verbatim from `src/systemd/` — edit them there and re-run the playbook.
+- **Ansible** (`ansible/`): converges the web nodes (dotnet-runtime, nfs-mounts, blazor-app), the Postgres node (nfs-mounts, pgBackRest + pg-dump-prune), the preview infrastructure (technitium DNS, step-ca PKI, resolver, docker + preview-host incl. the ops stack on VLAN 40), and fleet-wide Cockpit (`hosts: all`, runs last — needs the certs the step-ca play fetches). Units are copied verbatim from `src/systemd/` — edit them there and re-run the playbook.
 - **Kemp LoadMaster** remains GUI-managed (no supported Terraform provider).
 
 ## CI/CD & deployments

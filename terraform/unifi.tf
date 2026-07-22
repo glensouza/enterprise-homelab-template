@@ -180,11 +180,38 @@ resource "unifi_firewall_rule" "step_ca_to_preview" {
   enabled        = true
 }
 
+# Targeted admin-tool access (ADR 21): pgAdmin and RedisInsight run on the
+# preview host and must reach the production database/cache. Everything else
+# from VLAN 40 to the production tiers remains dropped below.
+resource "unifi_firewall_rule" "preview_to_postgres" {
+  name           = "Allow Preview -> PostgreSQL (5432, pgAdmin)"
+  action         = "accept"
+  ruleset        = "LAN_IN"
+  rule_index     = 2013
+  protocol       = "tcp"
+  src_address    = "10.10.40.120"
+  dst_address    = "10.10.20.110"
+  dst_port       = "5432"
+  enabled        = true
+}
+
+resource "unifi_firewall_rule" "preview_to_garnet" {
+  name           = "Allow Preview -> Garnet (6379, RedisInsight)"
+  action         = "accept"
+  ruleset        = "LAN_IN"
+  rule_index     = 2014
+  protocol       = "tcp"
+  src_address    = "10.10.40.120"
+  dst_address    = "10.10.20.111"
+  dst_port       = "6379"
+  enabled        = true
+}
+
 resource "unifi_firewall_rule" "drop_preview_to_web" {
   name           = "Drop Preview -> Web"
   action         = "drop"
   ruleset        = "LAN_IN"
-  rule_index     = 2013
+  rule_index     = 2015
   protocol       = "all"
   src_network_id = unifi_network.vlan40.id
   dst_network_id = unifi_network.vlan10.id
@@ -192,10 +219,10 @@ resource "unifi_firewall_rule" "drop_preview_to_web" {
 }
 
 resource "unifi_firewall_rule" "drop_preview_to_data" {
-  name           = "Drop Preview -> Data"
+  name           = "Drop Preview -> Data (all other)"
   action         = "drop"
   ruleset        = "LAN_IN"
-  rule_index     = 2014
+  rule_index     = 2016
   protocol       = "all"
   src_network_id = unifi_network.vlan40.id
   dst_network_id = unifi_network.vlan20.id
@@ -206,7 +233,7 @@ resource "unifi_firewall_rule" "drop_preview_to_mgmt" {
   name           = "Drop Preview -> Management (all other)"
   action         = "drop"
   ruleset        = "LAN_IN"
-  rule_index     = 2015
+  rule_index     = 2017
   protocol       = "all"
   src_network_id = unifi_network.vlan40.id
   dst_network_id = unifi_network.vlan30.id

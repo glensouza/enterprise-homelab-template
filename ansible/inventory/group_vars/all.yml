@@ -3,8 +3,10 @@
 nas_server: 10.10.10.90
 dotnet_channel: "10.0"
 
-# PR preview environments (ADR 19/20, docs/11).
-# `.internal` is ICANN-reserved for private use — never leaks publicly.
+# Internal DNS zone for the lab itself (ADR 21) — per-host A records and
+# friendly service names. `.internal` is ICANN-reserved for private use —
+# never leaks publicly. PR previews live one level deeper (ADR 20).
+internal_domain: roadrunner.internal
 preview_domain: pr.roadrunner.internal
 preview_host_ip: 10.10.40.120
 technitium_dns_server: 10.10.30.119

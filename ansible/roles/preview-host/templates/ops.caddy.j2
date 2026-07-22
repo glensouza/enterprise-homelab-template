@@ -1,0 +1,18 @@
+# Static admin-tooling sites (ADR 21) — rendered by Ansible. Certificates are
+# issued by step-ca over ACME exactly like the per-PR sites. PR sites live in
+# /etc/caddy/pr-sites/ and are managed by CI, not Ansible.
+portainer.{{ internal_domain }} {
+	reverse_proxy 127.0.0.1:9000
+}
+
+dozzle.{{ internal_domain }} {
+	reverse_proxy 127.0.0.1:8080
+}
+
+pgadmin.{{ internal_domain }} {
+	reverse_proxy 127.0.0.1:8081
+}
+
+redisinsight.{{ internal_domain }} {
+	reverse_proxy 127.0.0.1:5540
+}

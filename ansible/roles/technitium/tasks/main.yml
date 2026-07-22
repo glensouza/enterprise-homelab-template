@@ -40,3 +40,27 @@
     method: GET
     status_code: 200
   when: technitium_api_token is defined
+
+# --- Lab zone (ADR 21): per-host A records + friendly service CNAMEs --------
+- name: Create the lab zone
+  ansible.builtin.uri:
+    url: "http://localhost:5380/api/zones/create?token={{ technitium_api_token }}&zone={{ internal_domain }}&type=Primary"
+    method: GET
+    status_code: 200
+  when: technitium_api_token is defined
+
+- name: Add a per-host A record for every LXC
+  ansible.builtin.uri:
+    url: "http://localhost:5380/api/zones/records/add?token={{ technitium_api_token }}&domain={{ item }}.{{ internal_domain }}&type=A&zone={{ internal_domain }}&ipAddress={{ hostvars[item].ansible_host }}&overwrite=true"
+    method: GET
+    status_code: 200
+  loop: "{{ groups['all'] }}"
+  when: technitium_api_token is defined
+
+- name: Add friendly service CNAME records
+  ansible.builtin.uri:
+    url: "http://localhost:5380/api/zones/records/add?token={{ technitium_api_token }}&domain={{ item.name }}.{{ internal_domain }}&type=CNAME&zone={{ internal_domain }}&cname={{ item.target }}.{{ internal_domain }}&overwrite=true"
+    method: GET
+    status_code: 200
+  loop: "{{ dns_service_cnames }}"
+  when: technitium_api_token is defined

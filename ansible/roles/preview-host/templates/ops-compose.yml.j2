@@ -1,0 +1,66 @@
+# Always-on admin tooling stack (ADR 21) — independent of the per-PR preview
+# stacks. Rendered by Ansible (preview-host role) to /opt/ops/docker-compose.yml.
+# UIs are exposed through Caddy on 443 (see ops.caddy.j2); all published ports
+# are loopback-only. Watchtower only touches labeled containers in THIS stack —
+# running PR preview stacks are never mutated.
+name: ops
+
+services:
+  portainer:
+    image: portainer/portainer-ce:latest
+    restart: unless-stopped
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    ports:
+      - "127.0.0.1:9000:9000"
+
+  dozzle:
+    image: amir20/dozzle:latest
+    restart: unless-stopped
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      WATCHTOWER_LABEL_ENABLE: "true"
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_SCHEDULE: "0 0 4 * * *"
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+    ports:
+      - "127.0.0.1:8081:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+  redisinsight:
+    image: redis/redisinsight:latest
+    restart: unless-stopped
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+    ports:
+      - "127.0.0.1:5540:5540"
+    volumes:
+      - redisinsight_data:/data
+
+volumes:
+  portainer_data:
+  pgadmin_data:
+  redisinsight_data:

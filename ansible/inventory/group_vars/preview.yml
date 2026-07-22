@@ -1,3 +1,9 @@
 ---
-# Single non-prod PR preview host (ADR 19).
+# Single non-prod PR preview host (ADR 19) + admin tooling (ADR 21).
 caddy_admin_email: admin@roadrunner.internal
+
+# pgAdmin bootstrap login (change later in the pgAdmin UI if desired).
+# Generated once on the Ansible controller and reused on every run;
+# the credentials/ directory is git-ignored.
+pgadmin_default_email: admin@roadrunner.internal
+pgadmin_default_password: "{{ lookup('ansible.builtin.password', 'credentials/pgadmin/password length=24') }}"

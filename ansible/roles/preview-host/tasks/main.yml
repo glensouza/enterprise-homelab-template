@@ -42,7 +42,9 @@
     mode: "0755"
   loop:
     - /opt/previews
+    - /opt/ops
     - /etc/caddy/pr-sites
+    - /etc/caddy/sites
     - /etc/caddy/pki
 
 - name: Install the step-ca root certificate for Caddy to trust
@@ -70,3 +72,35 @@
     name: caddy
     enabled: true
     state: started
+
+# --- Always-on admin tooling (ADR 21): Portainer, Dozzle, Watchtower,
+# pgAdmin, RedisInsight — one ops compose stack, UIs behind Caddy on 443.
+- name: Install the admin tooling Caddy sites
+  ansible.builtin.template:
+    src: ops.caddy.j2
+    dest: /etc/caddy/sites/ops.caddy
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart caddy
+
+- name: Install the ops compose stack
+  ansible.builtin.template:
+    src: ops-compose.yml.j2
+    dest: /opt/ops/docker-compose.yml
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install the ops stack environment
+  ansible.builtin.template:
+    src: ops.env.j2
+    dest: /opt/ops/.env
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Start the ops stack
+  ansible.builtin.command:
+    cmd: docker compose --env-file .env up -d
+    chdir: /opt/ops

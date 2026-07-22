@@ -32,3 +32,10 @@
     - resolver
     - docker
     - preview-host
+
+# Runs LAST: the step-ca play above generates and fetches the per-host
+# certificates this role installs.
+- name: Fleet-wide Cockpit with internal-CA certificates (ADR 21)
+  hosts: all
+  roles:
+    - cockpit

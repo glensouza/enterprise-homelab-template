@@ -28,5 +28,11 @@ resource "local_file" "ansible_inventory" {
       name = "step-ca"
       ip   = split("/", local.lxcs["step-ca"].ip)[0]
     }
+    # Every LXC without a dedicated Ansible group — included in `all` so
+    # Cockpit, internal DNS records, and step-ca certs cover the fleet (ADR 21).
+    infra_hosts = [
+      for name in ["cloudflared", "garnet", "rabbitmq", "infisical", "uptime-kuma", "observability"] :
+      { name = name, ip = split("/", local.lxcs[name].ip)[0] }
+    ]
   })
 }

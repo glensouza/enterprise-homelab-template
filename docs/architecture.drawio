@@ -50,7 +50,7 @@
                     <mxGeometry x="40" y="210" width="220" height="60" as="geometry"/>
                 </mxCell>
                 <mxCell id="vlan30" value="VLAN 30 - Management / Infrastructure (10.10.30.0/24)" style="swimlane;html=1;startSize=30;fontStyle=1;fillColor=#ffe6cc;strokeColor=#d79b00;verticalAlign=top;" parent="1" vertex="1">
-                    <mxGeometry x="980" y="500" width="300" height="340" as="geometry"/>
+                    <mxGeometry x="980" y="500" width="300" height="480" as="geometry"/>
                 </mxCell>
                 <mxCell id="pve1" value="Proxmox Node 1&#xa;10.10.30.10" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d79b00;" parent="vlan30" vertex="1">
                     <mxGeometry x="40" y="50" width="220" height="45" as="geometry"/>
@@ -66,6 +66,18 @@
                 </mxCell>
                 <mxCell id="grafana" value="Grafana Alloy + Loki + Grafana&#xa;10.10.30.118 (Node 2)&#xa;OTLP collector / logs / dashboards" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d79b00;" parent="vlan30" vertex="1">
                     <mxGeometry x="40" y="220" width="220" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="technitium" value="Technitium DNS&#xa;10.10.30.119 (Node 2)&#xa;roadrunner.internal + *.pr wildcard" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d79b00;" parent="vlan30" vertex="1">
+                    <mxGeometry x="40" y="339" width="220" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="stepca" value="step-ca internal PKI&#xa;10.10.30.121:4443 (Node 2)&#xa;ACME for previews + Cockpit certs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d79b00;" parent="vlan30" vertex="1">
+                    <mxGeometry x="40" y="399" width="220" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="vlan40" value="VLAN 40 - Non-Prod / Preview Tier (10.10.40.0/24)" style="swimlane;html=1;startSize=30;fontStyle=1;fillColor=#f8cecc;strokeColor=#b85450;verticalAlign=top;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="680" width="480" height="190" as="geometry"/>
+                </mxCell>
+                <mxCell id="previewhost" value="PR Preview LXC (non-prod)&#xa;10.10.40.120 (Node 2)&#xa;Docker: one compose stack per open PR&#xa;Caddy :443 TLS | ops stack: Portainer / Dozzle / pgAdmin / RedisInsight" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;" parent="vlan40" vertex="1">
+                    <mxGeometry x="40" y="50" width="400" height="90" as="geometry"/>
                 </mxCell>
                 <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;" parent="1" source="internet" target="cloudflare" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
@@ -170,8 +182,20 @@
                         <mxPoint as="offset"/>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="legend" value="Legend&#xa;Solid = request/data path&#xa;Dashed = ops/CI-CD/secrets/telemetry&#xa;UniFi firewall: VLAN 10 may only reach&#xa;5432 / 6379 / 5672 on VLAN 20; VLAN 20 &amp; 30&#xa;blocked from all but explicit allows" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;verticalAlign=top;spacingLeft=8;fontSize=11;" parent="1" vertex="1">
-                    <mxGeometry x="60" y="650" width="340" height="120" as="geometry"/>
+                <mxCell id="e17" value="PR preview deploy&#xa;(SSH, docker compose)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;" parent="1" source="github" target="previewhost" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e18" value="ACME :4443" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;" parent="1" source="previewhost" target="stepca" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e19" value="DNS :53" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;" parent="1" source="previewhost" target="technitium" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e20" value="pgAdmin 5432 / RedisInsight 6379&#xa;(only VLAN 40 -> prod exceptions)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;exitX=1;exitY=0.5;" parent="1" source="previewhost" target="postgres" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend" value="Legend&#xa;Solid = request/data path&#xa;Dashed = ops/CI-CD/secrets/telemetry&#xa;UniFi firewall: VLAN 10 may only reach&#xa;5432 / 6379 / 5672 on VLAN 20; VLAN 20 &amp; 30&#xa;blocked from all but explicit allows&#xa;VLAN 40 (non-prod) isolated from prod tiers —&#xa;only DNS/ACME to VLAN 30 + 2 admin-tool ports&#xa;Cockpit :9090 on every LXC (step-ca certs)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;verticalAlign=top;spacingLeft=8;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="650" width="340" height="160" as="geometry"/>
                 </mxCell>
             </root>
         </mxGraphModel>

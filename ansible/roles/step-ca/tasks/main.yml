@@ -2,7 +2,7 @@
 # Installs smallstep step-ca with an ACME provisioner (ADR 20, docs/11).
 # The CA issues short-lived certificates for pr-*.{{ preview_domain }} so
 # every PR preview gets trusted HTTPS with zero public exposure. Clients must
-# trust the root CA once (docs/11 section 5).
+# trust the root CA once (docs/11 section 4).
 - name: Download step-cli and step-ca packages
   ansible.builtin.get_url:
     url: "{{ item.url }}"
@@ -49,8 +49,52 @@
 
 - name: Fetch the root CA certificate to the Ansible controller
   # Consumed by the preview-host role (Caddy acme_ca_root) and by admins
-  # installing the root into client trust stores (docs/11 section 5).
+  # installing the root into client trust stores (docs/11 section 4).
   ansible.builtin.fetch:
     src: /root/.step/certs/root_ca.crt
     dest: fetched/step-ca/root_ca.crt
     flat: true
+
+# --- Fleet-wide Cockpit certificates (ADR 21) -------------------------------
+# Caddy/ACME certs come from the separate "acme" provisioner, so widening the
+# JWK provisioner's durations here does not affect the preview sites.
+
+- name: Allow year-long leaf certificates from the admin provisioner
+  ansible.builtin.command: >
+    step ca provisioner update admin
+    --x509-default-dur 8760h --x509-max-dur 8760h
+    --password-file /root/.step-ca-password
+  changed_when: false
+
+- name: Create the Cockpit certificate directory on the CA
+  ansible.builtin.file:
+    path: /root/cockpit-certs
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Issue a per-host Cockpit certificate for every LXC
+  # Signed centrally on the CA host — no firewall changes needed, and renewal
+  # is simply re-running this playbook (certs are valid for 1 year).
+  ansible.builtin.command: >
+    step ca certificate {{ item }}.{{ internal_domain }}
+    /root/cockpit-certs/{{ item }}.crt /root/cockpit-certs/{{ item }}.key
+    --provisioner admin --password-file /root/.step-ca-password
+    --not-after 8760h --force
+  loop: "{{ groups['all'] }}"
+
+- name: Combine key and chain into the Cockpit PEM format
+  ansible.builtin.shell: >
+    cat /root/cockpit-certs/{{ item }}.key
+    /root/cockpit-certs/{{ item }}.crt
+    > /root/cockpit-certs/{{ item }}.pem
+  loop: "{{ groups['all'] }}"
+
+- name: Fetch Cockpit certificates to the Ansible controller
+  # Consumed by the cockpit role, which installs them on each LXC.
+  ansible.builtin.fetch:
+    src: "/root/cockpit-certs/{{ item }}.pem"
+    dest: "fetched/step-ca/cockpit/{{ item }}.pem"
+    flat: true
+  loop: "{{ groups['all'] }}"
