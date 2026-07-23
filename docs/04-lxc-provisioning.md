@@ -6,26 +6,30 @@ This guide details the exact steps and resource allocations needed to provision 
 
 ---
 
-## 1. Master Infrastructure Matrix
+## 1. Master Infrastructure Matrix & Cluster Workload Strategy
 
-Configure your LXCs with the following specifications. **Ensure you assign the correct VLAN Tag in Proxmox Network settings upon creation.**
+### Proxmox Cluster Nodes:
+- **`pve4` (Node 1 - Primary)**: 8 vCPU / 16 GB RAM (`10.10.30.10`) — High-capacity node hosting primary database engines (PostgreSQL, Garnet, RabbitMQ), primary web apps (Blazor Web 01), back-office admin portals (Infisical), ingress connectors (Cloudflared), and the single non-prod Docker preview host.
+- **`pve3` (Node 2 - Secondary)**: 4 vCPU / 8 GB RAM (`10.10.30.11`) — Secondary utility & load-balancing node hosting secondary web app instances (Blazor Web 02), DNS (Technitium), PKI (step-ca), monitoring (Uptime Kuma), telemetry (Observability/Loki/Grafana), and CI/CD runner tasks.
 
-| Service Name | VLAN / IP Range | Proxmox Node | Cores | RAM | Synology NAS Mount Path |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Blazor Web 01** | VLAN 10 (`10.10.10.101`) | Node 1 | 2 | 1024 MB | `/volume1/media` |
-| **Blazor Web 02** | VLAN 10 (`10.10.10.102`) | Node 2 | 2 | 1024 MB | `/volume1/media` |
-| **PostgreSQL** | VLAN 20 (`10.10.20.110`) | Node 1 | 4 | 4096 MB | `/volume1/postgres-data` |
-| **Garnet** | VLAN 20 (`10.10.20.111`) | Node 1 | 2 | 2048 MB | *None* |
-| **RabbitMQ** | VLAN 20 (`10.10.20.112`) | Node 1 | 2 | 1024 MB | *None* |
-| **Infisical** | VLAN 30 (`10.10.30.116`) | Node 2 | 2 | 2048 MB | *None* |
-| **Cloudflared** | VLAN 10 (`10.10.10.5`)   | Node 1 | 1 | 512 MB  | *None* |
-| **Uptime Kuma** | VLAN 30 (`10.10.30.117`) | Node 2 | 1 | 1024 MB | *None* |
-| **Grafana Loki / Observability** | VLAN 30 (`10.10.30.118`) | Node 2 | 2 | 2048 MB | *None* |
-| **Technitium DNS** | VLAN 30 (`10.10.30.119`) | Node 2 | 1 | 1024 MB | *None* |
-| **step-ca (internal PKI)** | VLAN 30 (`10.10.30.121`) | Node 2 | 1 | 512 MB | *None* |
-| **PR Preview (non-prod)** | VLAN 40 (`10.10.40.120`) | Node 2 | 4 | 8192 MB | *None* |
+### Master Allocation Table:
 
-*Note: the Observability LXC hosts Grafana Alloy (OTLP receiver) + Loki + Grafana (see `docs/07-observability.md`). The Technitium DNS, step-ca, and PR Preview LXCs implement ephemeral PR environments — see `docs/11-pr-preview-environments.md` (ADR 19/20). The PR Preview LXC runs Docker (non-prod exception to ADR 02) and is firewalled off from all production tiers (VLAN 40, `docs/05`).*
+| Service Name | VLAN / IP Range | Target Proxmox Node | Cores | RAM | Synology NAS Mount Path | Allocation Rationale |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Blazor Web 01** | VLAN 10 (`10.10.10.101`) | **`pve4`** (Node 1) | 2 | 1024 MB | `/volume1/media` | Primary core web application instance |
+| **Blazor Web 02** | VLAN 10 (`10.10.10.102`) | **`pve3`** (Node 2) | 2 | 1024 MB | `/volume1/media` | Secondary load-balanced web app instance |
+| **Cloudflared** | VLAN 10 (`10.10.10.5`)   | **`pve4`** (Node 1) | 1 | 512 MB  | *None* | Primary ingress connector / Cloudflare tunnel |
+| **PostgreSQL** | VLAN 20 (`10.10.20.110`) | **`pve4`** (Node 1) | 4 | 4096 MB | `/volume1/postgres-data` | Primary database engine (PostgreSQL + pgvector) |
+| **Garnet** | VLAN 20 (`10.10.20.111`) | **`pve4`** (Node 1) | 2 | 2048 MB | *None* | Primary cache & SignalR scale-out backplane |
+| **RabbitMQ** | VLAN 20 (`10.10.20.112`) | **`pve4`** (Node 1) | 1 | 1024 MB | *None* | Primary message broker for Wolverine |
+| **Infisical** | VLAN 30 (`10.10.30.116`) | **`pve4`** (Node 1) | 2 | 1536 MB | *None* | Back-office admin portal for secret management |
+| **Uptime Kuma** | VLAN 30 (`10.10.30.117`) | **`pve3`** (Node 2) | 1 | 512 MB  | *None* | Utility monitoring container |
+| **Grafana Loki / Observability** | VLAN 30 (`10.10.30.118`) | **`pve3`** (Node 2) | 2 | 2048 MB | *None* | Utility telemetry receiver (Alloy + Loki + Grafana) |
+| **Technitium DNS** | VLAN 30 (`10.10.30.119`) | **`pve3`** (Node 2) | 1 | 512 MB  | *None* | Local DNS server (`roadrunner.internal`) |
+| **step-ca (internal PKI)** | VLAN 30 (`10.10.30.121`) | **`pve3`** (Node 2) | 1 | 512 MB  | *None* | Utility internal Certificate Authority |
+| **PR Preview (non-prod)** | VLAN 40 (`10.10.40.120`) | **`pve4`** (Node 1) | 2 | 4096 MB | *None* | Single non-prod Docker host (per-PR compose stacks + ops UIs) |
+
+*Note: The Observability LXC hosts Grafana Alloy (OTLP receiver) + Loki + Grafana (see `docs/07-observability.md`). The Technitium DNS, step-ca, and PR Preview LXCs implement ephemeral PR environments — see `docs/11-pr-preview-environments.md` (ADR 19/20). The PR Preview LXC runs Docker (non-prod exception to ADR 02) and is firewalled off from all production tiers (VLAN 40, `docs/05`).*
 
 ---
 

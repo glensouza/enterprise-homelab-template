@@ -54,15 +54,15 @@ variable "unifi_site" {
 # LXC shared settings
 # -----------------------------------------------------------------------------
 variable "proxmox_node_1" {
-  description = "Name of Proxmox node 1 (10.10.30.10)"
+  description = "Name of Proxmox node 1 (Primary: pve4 — 8 vCPU / 16 GB RAM — 10.10.30.10)"
   type        = string
-  default     = "pve-node-1"
+  default     = "pve4"
 }
 
 variable "proxmox_node_2" {
-  description = "Name of Proxmox node 2 (10.10.30.11)"
+  description = "Name of Proxmox node 2 (Secondary: pve3 — 4 vCPU / 8 GB RAM — 10.10.30.11)"
   type        = string
-  default     = "pve-node-2"
+  default     = "pve3"
 }
 
 variable "lxc_datastore" {

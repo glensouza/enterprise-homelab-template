@@ -74,39 +74,39 @@ No secrets in `appsettings.json` and no SDK in the app (ADR 12): the Infisical A
 
 ## Network topology
 
-Static IPs outside DHCP ranges (docs/05). **Keep this matrix, `docs/04`, and `terraform/lxc.tf` in sync.**
+Static IPs outside DHCP ranges (docs/05). Cluster nodes: **`pve4` (Node 1 - Primary: 8 vCPU / 16 GB RAM)** & **`pve3` (Node 2 - Secondary: 4 vCPU / 8 GB RAM)**. **Keep this matrix, `docs/04`, and `terraform/lxc.tf` in sync.**
 
 ### VLAN 10 — Web / Ingress (`10.10.10.x`)
-| Host | IP |
-|------|----|
-| Synology NAS | `10.10.10.90` |
-| Cloudflared Tunnel LXC | `10.10.10.5` |
-| Kemp LoadMaster VIP (sticky sessions, LE wildcard terminated here) | `10.10.10.199` |
-| Blazor Web 01 (Node 1) | `10.10.10.101` |
-| Blazor Web 02 (Node 2) | `10.10.10.102` |
+| Host | IP | Node Assignment |
+|------|----|-----------------|
+| Synology NAS | `10.10.10.90` | External Storage |
+| Cloudflared Tunnel LXC | `10.10.10.5` | `pve4` (Node 1 - Primary) |
+| Kemp LoadMaster VIP (sticky sessions, LE wildcard terminated here) | `10.10.10.199` | Hardware / Appliance |
+| Blazor Web 01 (Primary Web App) | `10.10.10.101` | `pve4` (Node 1 - Primary) |
+| Blazor Web 02 (Secondary Web App) | `10.10.10.102` | `pve3` (Node 2 - Secondary) |
 
 ### VLAN 20 — Backend / Data (`10.10.20.x`)
-| Host | IP |
-|------|----|
-| PostgreSQL (pgvector) — Node 1 | `10.10.20.110` |
-| Microsoft Garnet Cache — Node 1 | `10.10.20.111` |
-| RabbitMQ — Node 1 | `10.10.20.112` |
+| Host | IP | Node Assignment |
+|------|----|-----------------|
+| PostgreSQL (pgvector) | `10.10.20.110` | `pve4` (Node 1 - Primary) |
+| Microsoft Garnet Cache | `10.10.20.111` | `pve4` (Node 1 - Primary) |
+| RabbitMQ | `10.10.20.112` | `pve4` (Node 1 - Primary) |
 
 ### VLAN 30 — Management / Infrastructure (`10.10.30.x`)
-| Host | IP |
-|------|----|
-| Proxmox Node 1 | `10.10.30.10` |
-| Proxmox Node 2 | `10.10.30.11` |
-| Infisical — Node 2 | `10.10.30.116` |
-| Uptime Kuma — Node 2 | `10.10.30.117` |
-| Grafana Loki / Observability — Node 2 | `10.10.30.118` |
-| Technitium DNS (wildcard `*.pr.roadrunner.internal`) — Node 2 | `10.10.30.119` |
-| step-ca internal PKI (ACME, port 4443) — Node 2 | `10.10.30.121` |
+| Host | IP | Node Assignment |
+|------|----|-----------------|
+| Proxmox Node 1 (`pve4` - Primary) | `10.10.30.10` | Proxmox VE Host |
+| Proxmox Node 2 (`pve3` - Secondary) | `10.10.30.11` | Proxmox VE Host |
+| Infisical (Admin Portal) | `10.10.30.116` | `pve4` (Node 1 - Primary) |
+| Uptime Kuma | `10.10.30.117` | `pve3` (Node 2 - Secondary) |
+| Grafana Loki / Observability | `10.10.30.118` | `pve3` (Node 2 - Secondary) |
+| Technitium DNS (wildcard `*.pr.roadrunner.internal`) | `10.10.30.119` | `pve3` (Node 2 - Secondary) |
+| step-ca internal PKI (ACME, port 4443) | `10.10.30.121` | `pve3` (Node 2 - Secondary) |
 
 ### VLAN 40 — Non-Prod / Preview (`10.10.40.x`)
-| Host | IP |
-|------|----|
-| PR Preview host (Docker + Caddy, one compose stack per open PR) — Node 2 | `10.10.40.120` |
+| Host | IP | Node Assignment |
+|------|----|-----------------|
+| PR Preview host (Single Docker Host + Caddy + Ops Stack) | `10.10.40.120` | `pve4` (Node 1 - Primary) |
 
 ## Infrastructure as Code (ADR 17)
 

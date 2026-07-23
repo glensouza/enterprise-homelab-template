@@ -9,6 +9,14 @@ services:
   app:
     image: ${APP_IMAGE}
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.75'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
     environment:
       ConnectionStrings__roadrunnerdb: Host=db;Port=5432;Database=roadrunner_pr${PR_NUMBER};Username=roadrunner;Password=${DB_PASSWORD}
       ConnectionStrings__cache: cache:6379
@@ -30,6 +38,14 @@ services:
   db:
     image: pgvector/pgvector:pg16
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
+        reservations:
+          cpus: '0.25'
+          memory: 512M
     environment:
       POSTGRES_DB: roadrunner_pr${PR_NUMBER}
       POSTGRES_USER: roadrunner
@@ -48,10 +64,26 @@ services:
   cache:
     image: ghcr.io/microsoft/garnet:latest
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
 
   messaging:
     image: rabbitmq:3
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
 
 volumes:
   pgdata:

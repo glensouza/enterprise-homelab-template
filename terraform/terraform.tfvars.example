@@ -5,8 +5,8 @@ proxmox_api_token = "root@pam!terraform=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 unifi_username = "terraform"
 unifi_password = "changeme"
 
-proxmox_node_1 = "pve-node-1"
-proxmox_node_2 = "pve-node-2"
+proxmox_node_1 = "pve4"
+proxmox_node_2 = "pve3"
 
 # Upload once: pveam download local debian-12-standard_<ver>_amd64.tar.zst
 debian_template_id = "local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst"
