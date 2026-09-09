@@ -2,7 +2,7 @@
 # PostgreSQL LXC (10.10.20.110).
 nfs_mounts:
   - path: /mnt/synology/postgres-data
-    src: "{{ nas_server }}:/volume1/postgres-data"
+    src: "{{ nas_server }}:/volume1/homelab-postgres-data"
 
 # pgBackRest PITR (docs/10 section 4). The repo lives on the NAS mount so WAL
 # archives and backups survive loss of the LXC itself.

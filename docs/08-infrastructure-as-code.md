@@ -70,7 +70,7 @@ ansible-playbook site.yml --limit postgres
 ```
 
 *   **`dotnet-runtime`** — installs the ASP.NET Core 10 runtime from the Microsoft apt feed.
-*   **`nfs-mounts`** — mounts `/volume1/media` (web) and `/volume1/postgres-data` (postgres) from the Synology NAS via `/etc/fstab`.
+*   **`nfs-mounts`** — mounts `/volume1/homelab-media` (web) and `/volume1/homelab-postgres-data` (postgres) from the Synology NAS via `/etc/fstab`.
 *   **`blazor-app`** — creates `/var/www/roadrunner/releases`, `/etc/roadrunner/`, and installs `blazor-app.service`. The unit is copied verbatim from `src/systemd/` so the repo keeps **one canonical copy** — edit it there and re-run the playbook.
 *   **`postgres`** — installs and configures **pgBackRest** (WAL archiving + full/diff backup timers → PITR per `docs/10` section 4) and installs the `pg-dump-prune` timer, also copied verbatim from `src/systemd/`.
 *   **`technitium`**, **`step-ca`**, **`resolver`** — local DNS and internal PKI for the PR preview environments and fleet admin plane (ADR 20/21, `docs/11`).
