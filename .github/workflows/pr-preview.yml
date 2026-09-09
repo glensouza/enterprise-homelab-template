@@ -49,6 +49,10 @@ jobs:
       run: |
         echo "APP_PORT=$((6000 + PR_NUMBER))" >> "$GITHUB_ENV"
         echo "DB_PORT=$((15432 + PR_NUMBER))" >> "$GITHUB_ENV"
+        echo "FLOCI_PORT=$((24566 + PR_NUMBER))" >> "$GITHUB_ENV"
+        echo "FLOCI_AZ_PORT=$((24577 + PR_NUMBER))" >> "$GITHUB_ENV"
+        echo "FLOCI_GCP_PORT=$((24588 + PR_NUMBER))" >> "$GITHUB_ENV"
+        echo "FLOCI_OCI_PORT=$((24599 + PR_NUMBER))" >> "$GITHUB_ENV"
         echo "APP_IMAGE=roadrunner-pr-${PR_NUMBER}:${GITHUB_SHA::8}" >> "$GITHUB_ENV"
         echo "PREVIEW_URL=https://pr-${PR_NUMBER}.${PREVIEW_DOMAIN}" >> "$GITHUB_ENV"
 
@@ -80,6 +84,10 @@ jobs:
         APP_PORT=${APP_PORT}
         DB_PORT=${DB_PORT}
         DB_PASSWORD=${DB_PASSWORD}
+        FLOCI_PORT=${FLOCI_PORT}
+        FLOCI_AZ_PORT=${FLOCI_AZ_PORT}
+        FLOCI_GCP_PORT=${FLOCI_GCP_PORT}
+        FLOCI_OCI_PORT=${FLOCI_OCI_PORT}
         ENV_EOF
 
     - name: Start the preview stack
@@ -99,6 +107,18 @@ jobs:
         ssh root@${PREVIEW_HOST} "cat > /etc/caddy/pr-sites/pr-${PR_NUMBER}.caddy && systemctl reload caddy" << CADDY_EOF
         pr-${PR_NUMBER}.${PREVIEW_DOMAIN} {
         	reverse_proxy 127.0.0.1:${APP_PORT}
+        }
+        pr-${PR_NUMBER}-aws.${PREVIEW_DOMAIN} {
+        	reverse_proxy 127.0.0.1:${FLOCI_PORT}
+        }
+        pr-${PR_NUMBER}-azure.${PREVIEW_DOMAIN} {
+        	reverse_proxy 127.0.0.1:${FLOCI_AZ_PORT}
+        }
+        pr-${PR_NUMBER}-gcp.${PREVIEW_DOMAIN} {
+        	reverse_proxy 127.0.0.1:${FLOCI_GCP_PORT}
+        }
+        pr-${PR_NUMBER}-oci.${PREVIEW_DOMAIN} {
+        	reverse_proxy 127.0.0.1:${FLOCI_OCI_PORT}
         }
         CADDY_EOF
 

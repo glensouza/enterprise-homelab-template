@@ -1,6 +1,8 @@
 # PR Preview Environments (Non-Prod)
 
-Every open pull request against `main` gets its own isolated, fully-integrated environment — app + PostgreSQL (pgvector) + Garnet + RabbitMQ — reachable over trusted local HTTPS at **`https://pr-<number>.pr.roadrunner.internal`**. When the PR is merged or closed, the environment is destroyed automatically. Nothing is ever publicly exposed. See ADR 19 (preview model) and ADR 20 (internal DNS + PKI).
+Every open pull request against `main` gets its own isolated, fully-integrated environment — app + PostgreSQL (pgvector) + Garnet + RabbitMQ + the four Floci multi-cloud emulators (AWS/Azure/GCP/OCI) — reachable over trusted local HTTPS at **`https://pr-<number>.pr.roadrunner.internal`** (and `pr-<number>-{aws,azure,gcp,oci}.pr.roadrunner.internal` for the emulators). When the PR is merged or closed, the environment is destroyed automatically. Nothing is ever publicly exposed. See ADR 19 (preview model) and ADR 20 (internal DNS + PKI).
+
+Separately, the preview host also runs a **standing** Floci stack (persistent storage, Docker-socket-backed) deployed by Ansible, not CI - see section 8.
 
 ```text
 Developer LAN                    VLAN 30 (Management)                 VLAN 40 (Non-Prod)
@@ -32,6 +34,8 @@ Developer LAN                    VLAN 30 (Management)                 VLAN 40 (N
 | **Technitium DNS** | VLAN 30, `10.10.30.119` | Private zone `pr.roadrunner.internal` with a single wildcard A record `* → 10.10.40.120` (ADR 20). No per-PR DNS records, ever. |
 | **step-ca** | VLAN 30, `10.10.30.121:4443` | Internal CA with an ACME provisioner. Caddy auto-issues/renews a certificate per PR hostname. |
 | **CI** | `.github/workflows/pr-preview.yml` / `pr-preview-cleanup.yml` | Deploy on PR open/sync, teardown on PR close. |
+| **Floci (per-PR)** | preview host, inside each `pr-<n>` stack | Ephemeral AWS/Azure/GCP/OCI emulators (`deploy/preview/docker-compose.pr.yml`) for testing `S3BlobStore`/SQS transport code against a real cloud API surface (section 3, section 8). |
+| **Floci (standing)** | preview host, `/opt/floci/` | Always-on, persistent-storage version deployed by Ansible (section 8), independent of any PR. |
 
 Why a wildcard record instead of per-PR DNS entries: there is nothing to create on PR open and nothing to forget on merge — the entire DNS lifecycle for previews is one static record. The `.internal` TLD is ICANN-reserved for private use, so the zone can never collide with a public name.
 
@@ -54,9 +58,9 @@ Why a wildcard record instead of per-PR DNS entries: there is nothing to create 
 
 1. `dotnet test -c Release` — tests gate the preview, same as production.
 2. Builds `roadrunner-pr-<n>:<sha>` from `src/RoadrunnerAuction/Dockerfile`, `docker save | ssh … docker load`.
-3. Generates the EF Core migration bundle (ADR 11) and stages `/opt/previews/pr-<n>/` with `docker-compose.yml` (from `deploy/preview/docker-compose.pr.yml`) and a `.env` containing an ephemeral per-PR database password — no GitHub secrets required.
+3. Generates the EF Core migration bundle (ADR 11) and stages `/opt/previews/pr-<n>/` with `docker-compose.yml` (from `deploy/preview/docker-compose.pr.yml`) and a `.env` containing an ephemeral per-PR database password and the four Floci emulator ports — no GitHub secrets required.
 4. `docker compose up -d --wait`, then executes the migration bundle against the PR database (`roadrunner_pr<n>` on the loopback-published port `15432 + <n>`).
-5. Writes the Caddy site `pr-<n>.pr.roadrunner.internal → 127.0.0.1:<6000+n>` and reloads Caddy. The first TLS handshake triggers ACME issuance from step-ca.
+5. Writes the Caddy site file `pr-<n>.pr.roadrunner.internal → 127.0.0.1:<6000+n>` plus four more server blocks in the same file for the emulators (`pr-<n>-aws`/`-azure`/`-gcp`/`-oci`) and reloads Caddy. The first TLS handshake triggers ACME issuance from step-ca.
 6. Smoke-tests `https://pr-<n>.pr.roadrunner.internal/health` with the real certificate chain (`--cacert root_ca.crt`) and comments the URL on the PR.
 
 **Merge / close (`pr-preview-cleanup.yml`):**
@@ -89,7 +93,7 @@ scp root@10.10.30.121:/root/.step/certs/root_ca.crt .
 * **`NET::ERR_CERT_AUTHORITY_INVALID`** — the client doesn't trust the step-ca root (section 4).
 * **Hostname doesn't resolve** — the client isn't using Technitium for DNS (section 2, step 4).
 * **Caddy can't obtain a certificate** — check VLAN 40 → `10.10.30.121:4443` and step-ca → preview `80,443` firewall rules (`terraform/unifi.tf`, ADR 19), and that the step-ca LXC resolves `*.pr.roadrunner.internal` via Technitium (the `resolver` role).
-* **Port collisions** — app/DB ports are `6000 + <PR#>` / `15432 + <PR#>`; GitHub PR numbers are unique, so collisions are impossible in practice.
+* **Port collisions** — app/DB ports are `6000 + <PR#>` / `15432 + <PR#>`; the four Floci emulator ports are `24566/24577/24588/24599 + <PR#>` (mirroring their real ports 4566/4577/4588/4599). GitHub PR numbers are unique, so collisions are impossible in practice.
 
 ## 6. Deliberate simplifications vs. production
 
@@ -121,6 +125,18 @@ Alongside the per-PR stacks, the preview host runs an always-on **ops compose st
 *   **Watchtower** updates only the labeled ops containers nightly (04:00) — running PR preview stacks are deliberately never mutated mid-test.
 *   **Cockpit certificates:** the `step-ca` role issues one 1-year certificate per LXC (SAN `<host>.roadrunner.internal`) and the `cockpit` role installs it. Renewal = re-run `ansible-playbook site.yml` before expiry.
 *   **DNS records:** with `technitium_api_token` set (`ansible/inventory/group_vars/dns.yml`), Ansible manages the `roadrunner.internal` zone — per-host A records from the inventory and the service CNAMEs from `dns_service_cnames`. Manual equivalent: create the zone in the Technitium UI and mirror that list.
+
+---
+
+## 8. Standing Floci stack (multi-cloud emulators)
+
+Alongside the per-PR Floci services (ephemeral, memory-mode, no Docker socket - section 3), the preview host also runs an **always-on** Floci stack, deployed by Ansible's `preview-host` role (not CI), mirroring `../floci/README.md` section 4 "Stack 1 — Floci multi-cloud suite" verbatim: persistent storage per emulator and the host Docker socket mounted into all four containers, since Lambda/RDS/ECS/Azure Functions/Cloud Run/OKE emulation works by driving the host Docker daemon. That access is intentionally **not** extended to the per-PR services — an untrusted PR branch must never get a path to the host Docker daemon (ADR 19's per-PR isolation model).
+
+| URL | Service | Notes |
+| :--- | :--- | :--- |
+| `https://floci.roadrunner.internal` | `floci-ui` console | AWS, Azure, GCP only — OCI has no UI as of `floci-ui` v0.3.0 |
+
+The four emulators themselves (`floci`, `floci-az`, `floci-gcp`, `floci-oci`) are loopback-only on their standard ports (`4566`/`4577`/`4588`/`4599`) — reach them via `docker exec` on the preview host, or via the per-PR services (section 3) when testing a specific branch's `S3BlobStore`/SQS transport code against a real S3/SQS API surface. Update `/opt/floci/docker-compose.yml` by re-running `ansible-playbook site.yml --tags preview` after changing `ansible/roles/preview-host/templates/floci-compose.yml.j2`.
 
 ---
 ### Source Material & Attribution

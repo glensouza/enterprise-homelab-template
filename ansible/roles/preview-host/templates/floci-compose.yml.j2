@@ -1,0 +1,115 @@
+# Standing Floci multi-cloud emulator stack (AWS/Azure/GCP/OCI), rendered by
+# Ansible to /opt/floci/docker-compose.yml. Mirrors ../floci/README.md section
+# 4 "Stack 1 - Floci multi-cloud suite" verbatim - persistent storage mode and
+# the mounted Docker socket are intentional here (Lambda/RDS/ECS/Functions/OKE
+# emulation drives the host Docker daemon), unlike the ephemeral, socket-free
+# floci-* services CI stages per PR (ADR 19's per-PR isolation model does not
+# extend host Docker access to untrusted PR branches).
+name: floci-cloud
+
+services:
+  floci-ui:
+    image: floci/floci-ui:latest
+    container_name: floci-ui
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4500:4500"
+    environment:
+      PORT: "4500"
+      FLOCI_ENDPOINT: http://floci:4566
+      FLOCI_AZURE_ENDPOINT: http://floci-az:4577
+      FLOCI_AZURE_ACCOUNT_NAME: devstoreaccount1
+      FLOCI_GCP_ENDPOINT: http://floci-gcp:4588
+      FLOCI_GCP_PROJECT: floci-local
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+    depends_on:
+      floci:
+        condition: service_healthy
+      floci-az:
+        condition: service_healthy
+      floci-gcp:
+        condition: service_healthy
+    networks:
+      - floci
+
+  floci:
+    image: floci/floci:latest
+    container_name: floci
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4566:4566"
+    environment:
+      FLOCI_HOSTNAME: floci
+      FLOCI_DEFAULT_REGION: us-east-1
+      FLOCI_STORAGE_MODE: persistent
+      FLOCI_SERVICES_LAMBDA_DOCKER_NETWORK: floci
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - floci_aws:/app/data
+    networks:
+      floci:
+        aliases:
+          - localhost.floci.io
+
+  floci-az:
+    image: floci/floci-az:latest
+    container_name: floci-az
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4577:4577"
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:9093:9093"
+    environment:
+      FLOCI_AZ_HOSTNAME: floci-az
+      FLOCI_AZ_BASE_URL: http://floci-az:4577
+      FLOCI_AZ_STORAGE_MODE: persistent
+      FLOCI_AZ_SERVICES_SERVICE_BUS_MOCKED: "false"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - floci_az:/app/data
+    networks:
+      - floci
+
+  floci-gcp:
+    image: floci/floci-gcp:latest
+    container_name: floci-gcp
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4588:4588"
+    environment:
+      FLOCI_GCP_HOSTNAME: floci-gcp
+      FLOCI_GCP_BASE_URL: http://floci-gcp:4588
+      FLOCI_GCP_DEFAULT_PROJECT_ID: floci-local
+      FLOCI_GCP_STORAGE_MODE: persistent
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - floci_gcp:/app/data
+    networks:
+      - floci
+
+  floci-oci:
+    image: floci/floci-oci:latest
+    container_name: floci-oci
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4599:4599"
+    environment:
+      FLOCI_OCI_HOSTNAME: floci-oci
+      FLOCI_OCI_STORAGE_MODE: persistent
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - floci_oci:/app/data
+    networks:
+      - floci
+
+networks:
+  floci:
+    name: floci
+
+volumes:
+  floci_aws:
+  floci_az:
+  floci_gcp:
+  floci_oci:

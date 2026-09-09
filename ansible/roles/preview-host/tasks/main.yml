@@ -43,6 +43,7 @@
   loop:
     - /opt/previews
     - /opt/ops
+    - /opt/floci
     - /etc/caddy/pr-sites
     - /etc/caddy/sites
     - /etc/caddy/pki
@@ -104,3 +105,30 @@
   ansible.builtin.command:
     cmd: docker compose --env-file .env up -d
     chdir: /opt/ops
+
+# --- Standing Floci multi-cloud emulator stack (docs/11, ADR 19): AWS, Azure,
+# GCP and OCI emulators used by S3BlobStore/SQS transport demos. Separate from
+# the ephemeral, docker-socket-free floci-* services CI stages per PR in
+# deploy/preview/docker-compose.pr.yml - this is the persistent, always-on
+# version from ../floci/README.md section 4, deployed by Ansible (not CI).
+- name: Install the Floci Caddy site
+  ansible.builtin.template:
+    src: floci.caddy.j2
+    dest: /etc/caddy/sites/floci.caddy
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart caddy
+
+- name: Install the standing Floci compose stack
+  ansible.builtin.template:
+    src: floci-compose.yml.j2
+    dest: /opt/floci/docker-compose.yml
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Start the Floci stack
+  ansible.builtin.command:
+    cmd: docker compose up -d
+    chdir: /opt/floci

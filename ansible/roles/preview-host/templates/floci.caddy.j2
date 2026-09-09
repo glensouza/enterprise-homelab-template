@@ -1,0 +1,7 @@
+# Standing Floci console site (docs/11, ADR 19/21) - rendered by Ansible.
+# Fronts floci-ui (AWS/Azure/GCP console; OCI has no UI as of floci-ui v0.3.0,
+# see ../floci/README.md). Certificates issued by step-ca over ACME exactly
+# like the ops-stack and per-PR sites.
+floci.{{ internal_domain }} {
+	reverse_proxy 127.0.0.1:4500
+}

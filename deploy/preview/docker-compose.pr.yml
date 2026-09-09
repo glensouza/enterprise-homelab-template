@@ -1,7 +1,8 @@
 # Per-PR preview stack template (ADR 19, docs/11).
 # Rendered by .github/workflows/pr-preview.yml: the workflow writes an .env
-# file (PR_NUMBER, APP_IMAGE, APP_PORT, DB_PORT, DB_PASSWORD) next to this
-# file under /opt/previews/pr-<n>/ on the preview host and runs
+# file (PR_NUMBER, APP_IMAGE, APP_PORT, DB_PORT, DB_PASSWORD, FLOCI_PORT,
+# FLOCI_AZ_PORT, FLOCI_GCP_PORT, FLOCI_OCI_PORT) next to this file under
+# /opt/previews/pr-<n>/ on the preview host and runs
 # `docker compose --env-file .env up -d`. Never commit real values.
 name: pr-${PR_NUMBER}
 
@@ -76,6 +77,80 @@ services:
   messaging:
     image: rabbitmq:3
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  # Floci multi-cloud emulators (S2-01/S2-09): ephemeral, memory-mode, no
+  # Docker socket - unlike the standing Floci stack (ansible/roles/preview-host,
+  # ../../floci/README.md), a per-PR stack must not hand an untrusted PR branch
+  # access to the host Docker daemon (ADR 19's per-PR isolation model), so the
+  # Lambda/RDS/ECS-class features that need the socket are unavailable here;
+  # object storage (S3BlobStore) and SQS transport demos don't need them.
+  floci:
+    image: floci/floci:latest
+    restart: unless-stopped
+    environment:
+      FLOCI_HOSTNAME: floci
+      FLOCI_DEFAULT_REGION: us-east-1
+    ports:
+      - "127.0.0.1:${FLOCI_PORT}:4566"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  floci-az:
+    image: floci/floci-az:latest
+    restart: unless-stopped
+    environment:
+      FLOCI_AZ_HOSTNAME: floci-az
+      FLOCI_AZ_BASE_URL: http://floci-az:4577
+    ports:
+      - "127.0.0.1:${FLOCI_AZ_PORT}:4577"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  floci-gcp:
+    image: floci/floci-gcp:latest
+    restart: unless-stopped
+    environment:
+      FLOCI_GCP_HOSTNAME: floci-gcp
+      FLOCI_GCP_BASE_URL: http://floci-gcp:4588
+      FLOCI_GCP_DEFAULT_PROJECT_ID: floci-local
+    ports:
+      - "127.0.0.1:${FLOCI_GCP_PORT}:4588"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  floci-oci:
+    image: floci/floci-oci:latest
+    restart: unless-stopped
+    environment:
+      FLOCI_OCI_HOSTNAME: floci-oci
+    ports:
+      - "127.0.0.1:${FLOCI_OCI_PORT}:4599"
     deploy:
       resources:
         limits:

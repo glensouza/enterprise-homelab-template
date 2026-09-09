@@ -12,3 +12,4 @@ dns_service_cnames:
   - { name: dozzle, target: pr-preview }
   - { name: pgadmin, target: pr-preview }
   - { name: redisinsight, target: pr-preview }
+  - { name: floci, target: pr-preview }
