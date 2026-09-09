@@ -2,7 +2,7 @@
 @using RoadrunnerAuction.Data
 @using RoadrunnerAuction.Services
 @using Wolverine
-@implements IAsyncDisposable
+@implements IDisposable
 @inject IDbContextFactory<AuctionDbContext> DbContextFactory
 @inject IMessageBus MessageBus
 @inject IBidsClient BidsClient
@@ -65,9 +65,8 @@ else
     private async Task PlaceBidAsync(int equipmentId, decimal amount)
         => await MessageBus.PublishAsync(new ProcessBidMessage { EquipmentId = equipmentId, BidAmount = amount });
 
-    public async ValueTask DisposeAsync()
-    {
-        BidsClient.BidPlaced -= OnBidPlaced;
-        await BidsClient.DisposeAsync();
-    }
+    // Unsubscribe only. IBidsClient is a scoped DI service, so the container owns its
+    // lifetime and disposes it when the circuit ends - disposing it here as well would
+    // tear down a service this component did not create.
+    public void Dispose() => BidsClient.BidPlaced -= OnBidPlaced;
 }

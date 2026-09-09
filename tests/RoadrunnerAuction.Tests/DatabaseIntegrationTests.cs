@@ -30,11 +30,19 @@ public class DatabaseIntegrationTests
             .Options;
         await using var db = new AuctionDbContext(options);
 
-        await db.Database.EnsureCreatedAsync();
-        db.EquipmentDirectory.Add(new Equipment { Model = "CAT D9", CurrentBid = 125000m });
+        // MigrateAsync, not EnsureCreatedAsync: EnsureCreated is a no-op when the database
+        // already contains ANY table, so once Wolverine's envelope schema exists in
+        // roadrunnerdb it silently skips the app's tables and every query fails with 42P01.
+        // Applying the real migrations also matches how production is provisioned (ADR 11).
+        await db.Database.MigrateAsync();
+
+        // Unique per run - the AppHost keeps a persistent data volume, so a fixed literal
+        // would accumulate rows across runs and break SingleAsync on the second one.
+        var model = $"CAT D9 {Guid.NewGuid():N}";
+        db.EquipmentDirectory.Add(new Equipment { Model = model, CurrentBid = 125000m });
         await db.SaveChangesAsync();
 
-        var saved = await db.EquipmentDirectory.SingleAsync(e => e.Model == "CAT D9");
+        var saved = await db.EquipmentDirectory.SingleAsync(e => e.Model == model);
         Assert.Equal(125000m, saved.CurrentBid);
     }
 }

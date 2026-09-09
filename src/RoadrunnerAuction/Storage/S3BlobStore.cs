@@ -9,16 +9,10 @@ namespace RoadrunnerAuction.Storage;
 /// S3-compatible endpoint - e.g. the Floci emulator in the PR preview stack -
 /// by setting BlobStorage:S3:ServiceUrl and ForcePathStyle.
 /// </summary>
-public class S3BlobStore : IBlobStore
+public class S3BlobStore(IAmazonS3 client, string bucketName) : IBlobStore
 {
-    private readonly IAmazonS3 _client;
-    private readonly string _bucketName;
-
-    public S3BlobStore(IAmazonS3 client, string bucketName)
-    {
-        _client = client;
-        _bucketName = bucketName;
-    }
+    private readonly IAmazonS3 _client = client;
+    private readonly string _bucketName = bucketName;
 
     public Task WriteTextAsync(string path, string content, CancellationToken cancellationToken = default)
         => _client.PutObjectAsync(new PutObjectRequest

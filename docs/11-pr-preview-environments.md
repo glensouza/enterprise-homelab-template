@@ -34,7 +34,7 @@ Developer LAN                    VLAN 30 (Management)                 VLAN 40 (N
 | **Technitium DNS** | VLAN 30, `10.10.30.119` | Private zone `pr.roadrunner.internal` with a single wildcard A record `* → 10.10.40.120` (ADR 20). No per-PR DNS records, ever. |
 | **step-ca** | VLAN 30, `10.10.30.121:4443` | Internal CA with an ACME provisioner. Caddy auto-issues/renews a certificate per PR hostname. |
 | **CI** | `.github/workflows/pr-preview.yml` / `pr-preview-cleanup.yml` | Deploy on PR open/sync, teardown on PR close. |
-| **Floci (per-PR)** | preview host, inside each `pr-<n>` stack | Ephemeral AWS/Azure/GCP/OCI emulators (`deploy/preview/docker-compose.pr.yml`) for testing `S3BlobStore`/SQS transport code against a real cloud API surface (section 3, section 8). |
+| **Floci (per-PR)** | preview host, inside each `pr-<n>` stack | Ephemeral AWS/Azure/GCP/OCI emulators (`deploy/preview/docker-compose.pr.yml`). The preview app is wired to the AWS one by default, so `S3BlobStore` runs for real on every PR (section 3, section 8). |
 | **Floci (standing)** | preview host, `/opt/floci/` | Always-on, persistent-storage version deployed by Ansible (section 8), independent of any PR. |
 
 Why a wildcard record instead of per-PR DNS entries: there is nothing to create on PR open and nothing to forget on merge — the entire DNS lifecycle for previews is one static record. The `.internal` TLD is ICANN-reserved for private use, so the zone can never collide with a public name.
@@ -59,7 +59,7 @@ Why a wildcard record instead of per-PR DNS entries: there is nothing to create 
 1. `dotnet test -c Release` — tests gate the preview, same as production.
 2. Builds `roadrunner-pr-<n>:<sha>` from `src/RoadrunnerAuction/Dockerfile`, `docker save | ssh … docker load`.
 3. Generates the EF Core migration bundle (ADR 11) and stages `/opt/previews/pr-<n>/` with `docker-compose.yml` (from `deploy/preview/docker-compose.pr.yml`) and a `.env` containing an ephemeral per-PR database password and the four Floci emulator ports — no GitHub secrets required.
-4. `docker compose up -d --wait`, then executes the migration bundle against the PR database (`roadrunner_pr<n>` on the loopback-published port `15432 + <n>`).
+4. `docker compose up -d --wait`, then executes the migration bundle against the PR database (`roadrunner_pr<n>` on the loopback-published port `15432 + <n>`). The one-shot `floci-init` service creates the bucket `roadrunner-auction-pr<n>` in the AWS emulator first — the app waits on it (`service_completed_successfully`), because `S3BlobStore` never creates buckets (real S3 rarely grants `CreateBucket` to an app identity).
 5. Writes the Caddy site file `pr-<n>.pr.roadrunner.internal → 127.0.0.1:<6000+n>` plus four more server blocks in the same file for the emulators (`pr-<n>-aws`/`-azure`/`-gcp`/`-oci`) and reloads Caddy. The first TLS handshake triggers ACME issuance from step-ca.
 6. Smoke-tests `https://pr-<n>.pr.roadrunner.internal/health` with the real certificate chain (`--cacert root_ca.crt`) and comments the URL on the PR.
 
@@ -135,6 +135,17 @@ Alongside the per-PR Floci services (ephemeral, memory-mode, no Docker socket - 
 | URL | Service | Notes |
 | :--- | :--- | :--- |
 | `https://floci.roadrunner.internal` | `floci-ui` console | AWS, Azure, GCP only — OCI has no UI as of `floci-ui` v0.3.0 |
+
+### Which cloud services the preview app actually uses
+
+| Setting | Preview default | Why |
+| :--- | :--- | :--- |
+| `BlobStorage__Provider` | `s3` | Every PR exercises `S3BlobStore` (ADR 03) against the Floci AWS emulator instead of the local-disk path. "Simulate Photo Upload" on the home page writes through it. |
+| `BlobStorage__S3__ServiceUrl` | `http://floci:4566` | Compose-internal name; the emulator is also published on `24566 + <PR#>` for the host and on `pr-<n>-aws.pr.roadrunner.internal` through Caddy. |
+| `Messaging__Transport` | `rabbitmq` | Unchanged, so the RabbitMQ demo still works. To test the SQS transport (ADR 07) on a branch, set `Messaging__Transport: sqs` and `Messaging__Sqs__ServiceUrl: http://floci:4566` on the `app` service. |
+| `Realtime__HubBaseUrl` | `http://localhost:8080` | Keeps each circuit's `/hubs/bids` connection inside its own container rather than routing back out through Caddy. |
+
+Emulator credentials are the fixed `test`/`test` pair Floci accepts — they are not secrets and are intentionally in the compose file.
 
 The four emulators themselves (`floci`, `floci-az`, `floci-gcp`, `floci-oci`) are loopback-only on their standard ports (`4566`/`4577`/`4588`/`4599`) — reach them via `docker exec` on the preview host, or via the per-PR services (section 3) when testing a specific branch's `S3BlobStore`/SQS transport code against a real S3/SQS API surface. Update `/opt/floci/docker-compose.yml` by re-running `ansible-playbook site.yml --tags preview` after changing `ansible/roles/preview-host/templates/floci-compose.yml.j2`.
 

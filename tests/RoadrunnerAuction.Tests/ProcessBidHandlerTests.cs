@@ -56,6 +56,29 @@ public class ProcessBidHandlerTests
             Times.Once);
     }
 
+    [Theory]
+    [InlineData(40000)] // strictly lower than the standing bid
+    [InlineData(50000)] // equal to it - a redelivery of the message that set it
+    public async Task Handle_BidThatDoesNotBeatCurrent_Is_Ignored(int bidAmount)
+    {
+        await using var db = CreateContext();
+        db.EquipmentDirectory.Add(new Equipment { Id = 1, Model = "CAT D9", CurrentBid = 50000m });
+        await db.SaveChangesAsync();
+        var (hubContext, clientProxy) = CreateHubContext();
+
+        await ProcessBidHandler.Handle(
+            new ProcessBidMessage { EquipmentId = 1, BidAmount = bidAmount },
+            db,
+            hubContext,
+            NullLogger<AuctionDbContext>.Instance);
+
+        var equipment = await db.EquipmentDirectory.FindAsync(1);
+        Assert.Equal(50000m, equipment!.CurrentBid);
+        clientProxy.Verify(
+            p => p.SendCoreAsync(It.IsAny<string>(), It.IsAny<object?[]>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
     [Fact]
     public async Task Handle_UnknownEquipment_Throws()
     {

@@ -75,6 +75,21 @@ jobs:
     - name: Execute Migration Bundle
       run: ./publish/efbundle --connection "${{ secrets.EFBUNDLE_CONNECTION }}"
 
+    # Wolverine keeps its own envelope-storage schema (wolverine.*), separate from the
+    # app's EF Core schema. Applied here, once, for the same reason ADR 11 forbids
+    # Database.Migrate() on boot: two HA web nodes must never race on schema creation.
+    # Idempotent (CREATE TABLE IF NOT EXISTS), so re-running a deploy is safe.
+    - name: Apply Wolverine Envelope Schema
+      env:
+        ConnectionStrings__roadrunnerdb: ${{ secrets.EFBUNDLE_CONNECTION }}
+        # db-apply talks to Postgres only. These two exist purely to satisfy the
+        # fail-fast check in Program.cs section 1 - nothing dials them, because the
+        # cache/broker clients are lazy and the web host never starts under db-apply.
+        ConnectionStrings__cache: unused-by-db-apply:6379
+        ConnectionStrings__messaging: amqp://unused-by-db-apply:5672
+        ASPNETCORE_ENVIRONMENT: Production
+      run: dotnet ./publish/RoadrunnerAuction.dll db-apply
+
     # Symlinked releases: deploy into releases/<sha>, flip 'current', restart, health-gate.
     # Keeps the last 5 releases per node for instant rollback (see rollback.yml).
     - name: Deploy to Blazor LXC 01

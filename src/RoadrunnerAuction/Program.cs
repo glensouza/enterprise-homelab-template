@@ -1,5 +1,6 @@
 using Amazon.Runtime;
 using Amazon.S3;
+using JasperFx;
 using JasperFx.Resources;
 using Microsoft.EntityFrameworkCore;
 using OpenTelemetry;
@@ -134,7 +135,8 @@ builder.Host.UseWolverine(options =>
 });
 // Local dev only: auto-creates Wolverine's own "wolverine" schema (envelope
 // storage) on startup for convenience. Production applies it as a deliberate,
-// once-per-deploy step (`dotnet <app>.dll db-apply`) - never on concurrent
+// once-per-deploy step (`dotnet RoadrunnerAuction.dll db-apply`, run by
+// deploy-blazor.yml before any node is deployed) - never on concurrent
 // multi-node boot, for the same race-condition reason ADR 11 forbids
 // Database.Migrate() on boot for the app's own EF Core schema.
 if (builder.Environment.IsDevelopment())
@@ -180,4 +182,9 @@ app.MapHealthChecks("/health"); // Kemp probes this endpoint
 app.MapHub<RoadrunnerAuction.Hubs.BidsHub>("/hubs/bids");
 app.MapRazorComponents<RoadrunnerAuction.Components.App>().AddInteractiveServerRenderMode();
 
-app.Run();
+// RunJasperFxCommands, not Run(): with no arguments this starts the web host exactly
+// like app.Run(), but it also exposes JasperFx/Wolverine's CLI - notably
+// `dotnet RoadrunnerAuction.dll db-apply`, which provisions Wolverine's envelope
+// storage schema once per deploy (ADR 07). Without this the documented production
+// step silently just booted the web app and the wolverine.* tables never existed.
+return await app.RunJasperFxCommands(args);

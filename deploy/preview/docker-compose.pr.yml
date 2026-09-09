@@ -22,7 +22,22 @@ services:
       ConnectionStrings__roadrunnerdb: Host=db;Port=5432;Database=roadrunner_pr${PR_NUMBER};Username=roadrunner;Password=${DB_PASSWORD}
       ConnectionStrings__cache: cache:6379
       ConnectionStrings__messaging: amqp://guest:guest@messaging:5672
+      # Preview runs the S3 path (ADR 03) against the Floci AWS emulator below, so every
+      # PR exercises S3BlobStore for real instead of the local-disk implementation that
+      # production uses. Credentials are the emulator's fixed test pair, not secrets.
+      BlobStorage__Provider: s3
+      BlobStorage__S3__ServiceUrl: http://floci:4566
+      BlobStorage__S3__ForcePathStyle: "true"
+      BlobStorage__S3__BucketName: roadrunner-auction-pr${PR_NUMBER}
+      BlobStorage__S3__AccessKey: test
+      BlobStorage__S3__SecretKey: test
       BlobStorage__RootPath: /data/blobs
+      # Keep the circuit's own hub connection on this container instead of routing it
+      # back out through Caddy (see SignalRBidsClient).
+      Realtime__HubBaseUrl: http://localhost:8080
+      # To exercise the SQS transport (ADR 07) on a branch, add:
+      #   Messaging__Transport: sqs
+      #   Messaging__Sqs__ServiceUrl: http://floci:4566
     # Loopback-only: external traffic enters via Caddy on 443.
     ports:
       - "127.0.0.1:${APP_PORT}:8080"
@@ -33,6 +48,8 @@ services:
         condition: service_started
       messaging:
         condition: service_started
+      floci-init:
+        condition: service_completed_successfully
     volumes:
       - blobs:/data
 
@@ -108,6 +125,24 @@ services:
         reservations:
           cpus: '0.1'
           memory: 128M
+
+  # One-shot: S3BlobStore never creates buckets (real S3 rarely grants CreateBucket to
+  # an app identity), so the per-PR bucket has to exist before the app starts.
+  floci-init:
+    image: amazon/aws-cli:latest
+    restart: "no"
+    environment:
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: us-east-1
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      until aws --endpoint-url http://floci:4566 s3 mb s3://roadrunner-auction-pr${PR_NUMBER} 2>/dev/null
+         || aws --endpoint-url http://floci:4566 s3 ls s3://roadrunner-auction-pr${PR_NUMBER} >/dev/null 2>&1; do
+        echo "waiting for the floci AWS emulator..."; sleep 2;
+      done; echo "bucket roadrunner-auction-pr${PR_NUMBER} ready"
+    depends_on:
+      - floci
 
   floci-az:
     image: floci/floci-az:latest

@@ -20,11 +20,16 @@ public static class MessagingTransportConfigurator
     public const string ServiceBus = "servicebus";
 
     /// <summary>
-    /// Durable outbox/inbox (ADR 07): every message is written to Postgres in the
-    /// same transaction as the business change before it ever touches the broker.
-    /// If the broker is unreachable the message sits in wolverine.wolverine_outgoing_envelopes
-    /// and is retried automatically once it recovers - nothing is lost. Applies
-    /// uniformly regardless of which transport is selected.
+    /// Durable outbox/inbox (ADR 07): every outgoing message is persisted to Postgres
+    /// (wolverine.wolverine_outgoing_envelopes) before it is handed to the broker, and
+    /// retried automatically once the broker recovers - a broker outage delays delivery
+    /// instead of losing messages. Applies uniformly regardless of transport.
+    ///
+    /// Note the exact guarantee: the envelope is written in Wolverine's OWN transaction,
+    /// not enlisted in the caller's EF Core transaction. Making the send atomic with a
+    /// business change additionally requires WolverineFx.EntityFrameworkCore and
+    /// UseEntityFrameworkCoreTransactions(); nothing here publishes from inside a
+    /// database transaction today, so that dependency is deliberately not taken on.
     /// </summary>
     public static void ConfigureDurability(WolverineOptions options, string dbConnectionString)
     {

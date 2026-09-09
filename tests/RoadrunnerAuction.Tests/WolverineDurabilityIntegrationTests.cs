@@ -38,11 +38,12 @@ public class WolverineDurabilityIntegrationTests
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync();
         await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT to_regclass('wolverine.wolverine_outgoing_envelopes')";
+        // ::text matters - to_regclass returns PostgreSQL's `regclass` OID type, which
+        // Npgsql has no CLR mapping for and throws on when read back.
+        command.CommandText = "SELECT to_regclass('wolverine.wolverine_outgoing_envelopes')::text";
         var envelopeTable = await command.ExecuteScalarAsync();
 
-        Assert.NotNull(envelopeTable);
-        Assert.NotEqual(DBNull.Value, envelopeTable);
+        Assert.Equal("wolverine.wolverine_outgoing_envelopes", envelopeTable);
 
         await wolverineHost.StopAsync();
     }

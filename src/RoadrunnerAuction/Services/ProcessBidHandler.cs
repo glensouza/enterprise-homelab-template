@@ -24,6 +24,18 @@ public static class ProcessBidHandler
         if (equipment is null)
             throw new InvalidOperationException($"Cannot process bid: equipment {message.EquipmentId} does not exist.");
 
+        // An auction bid must beat the standing bid. Messages can arrive late or be
+        // redelivered by the durable inbox, so a stale bid is expected traffic, not an
+        // error - log and drop it rather than throwing, which would send a perfectly
+        // valid-but-late message around the retry/dead-letter loop forever.
+        if (message.BidAmount <= equipment.CurrentBid)
+        {
+            logger.LogInformation(
+                "Ignored bid of {BidAmount:C} for equipment {Model} (Id {EquipmentId}): does not beat the current bid of {CurrentBid:C}",
+                message.BidAmount, equipment.Model, message.EquipmentId, equipment.CurrentBid);
+            return;
+        }
+
         equipment.CurrentBid = message.BidAmount;
         await db.SaveChangesAsync(cancellationToken);
 

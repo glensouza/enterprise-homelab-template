@@ -54,7 +54,7 @@ Apps are deployed to native Debian LXCs and managed strictly via `systemd`. Depl
 
 ### PR preview environments (non-prod)
 
-Every open PR gets an isolated ephemeral environment on the single non-prod preview host (VLAN 40, ADR 19) — a Docker compose stack (app + pgvector + Garnet + RabbitMQ) per PR, torn down automatically on merge/close. Local-only access via Technitium wildcard DNS (`*.pr.roadrunner.internal`) and trusted HTTPS from the internal step-ca ACME CA (ADR 20) — no public exposure, no per-PR DNS/cert bookkeeping. Full guide: `docs/11-pr-preview-environments.md`. **Docker is allowed ONLY on the preview LXC** — production stays Docker-free (ADR 02).
+Every open PR gets an isolated ephemeral environment on the single non-prod preview host (VLAN 40, ADR 19) — a Docker compose stack (app + pgvector + Garnet + RabbitMQ + the four Floci multi-cloud emulators) per PR, torn down automatically on merge/close. The preview app runs `BlobStorage:Provider=s3` against the Floci AWS emulator, so every PR exercises `S3BlobStore` for real. The preview host also runs a **standing** Floci stack deployed by Ansible, independent of any PR. Local-only access via Technitium wildcard DNS (`*.pr.roadrunner.internal`) and trusted HTTPS from the internal step-ca ACME CA (ADR 20) — no public exposure, no per-PR DNS/cert bookkeeping. Full guide: `docs/11-pr-preview-environments.md`. **Docker is allowed ONLY on the preview LXC** — production stays Docker-free (ADR 02).
 
 ### Admin plane (ADR 21)
 
@@ -66,7 +66,7 @@ Wolverine (ADR 07) backs all async messaging over RabbitMQ; handlers are plain s
 
 ### Data & scale-out
 
-PostgreSQL (pgvector) is the store; Garnet is both cache and the Blazor Server SignalR backplane (`AddStackExchangeRedis`), with Kemp sticky sessions anchoring circuits to a node (ADR 08). EF Core Migration Bundles run in CI **before** app deploys — never `Database.Migrate()` on boot (ADR 11).
+PostgreSQL (pgvector) is the store; Garnet is both cache and the Blazor Server SignalR backplane (`AddStackExchangeRedis`), with Kemp sticky sessions anchoring circuits to a node (ADR 08). EF Core Migration Bundles run in CI **before** app deploys — never `Database.Migrate()` on boot (ADR 11). Wolverine keeps a *separate* envelope-storage schema (`wolverine.*`) for the durable outbox; CI applies it with `dotnet RoadrunnerAuction.dll db-apply` in the same pre-deploy step, for the same anti-race reason.
 
 ### Secrets & observability
 
@@ -119,7 +119,7 @@ The whole lab is `terraform apply && ansible-playbook site.yml` — see `docs/08
 ## CI/CD & deployments
 
 - **PR previews:** `pr-preview.yml` (on PR open/sync, self-hosted runner, `preview` environment) deploys an isolated compose stack per PR to the preview host (`10.10.40.120`); `pr-preview-cleanup.yml` (on PR close) tears it down (`docker compose down -v` + Caddy site removal). Details in `docs/11`.
-- **Migrations:** GitHub Actions MUST generate and execute EF Core Migration Bundles BEFORE deploying web apps to prevent race conditions.
+- **Migrations:** GitHub Actions MUST generate and execute EF Core Migration Bundles BEFORE deploying web apps to prevent race conditions. The same pre-deploy stage runs `dotnet RoadrunnerAuction.dll db-apply` to apply Wolverine's `wolverine.*` envelope schema (idempotent; the app itself only self-provisions it in Development).
 - **Versioning:** Semantic versioning (MAJOR.MINOR.PATCH) with `version.txt` as the source of truth for MAJOR.MINOR. On every PR opening/reopening against `main`, `bump-minor.yml` auto-bumps the MINOR by 1 (relative to `main`'s current version) and pushes a commit. On deploy (`deploy-blazor.yml`), the PATCH counter is auto-incremented via a persistent state file on the self-hosted runner (`~/.roadrunner/deploy-build-state`) — it resets to 0 when MAJOR.MINOR changes. The full `X.Y.Z` version is injected into the binary via `/p:Version=X.Y.Z` and read at runtime by `VersionService` (from `AssemblyInformationalVersionAttribute`). To manually seed/reset the state file:
   ```bash
   mkdir -p ~/.roadrunner
@@ -141,7 +141,7 @@ Follow these patterns consistently:
 
 ## Configuration
 
-Local development needs no manual config — the AppHost injects all connection strings. In production the required environment keys (rendered by the Infisical Agent) are: `ConnectionStrings__roadrunnerdb`, `ConnectionStrings__cache`, `ConnectionStrings__messaging`, `OTEL_EXPORTER_OTLP_ENDPOINT`. GitHub Actions needs the `EFBUNDLE_CONNECTION` secret (real Postgres connection string for the migration bundle) and a `production` environment with a required reviewer. Never put credentials in workflow files.
+Local development needs no manual config — the AppHost injects all connection strings. In production the required environment keys (rendered by the Infisical Agent) are: `ConnectionStrings__roadrunnerdb`, `ConnectionStrings__cache`, `ConnectionStrings__messaging`, `OTEL_EXPORTER_OTLP_ENDPOINT`. Optional, all defaulted in `appsettings.json`: `BlobStorage:Provider` (`local` | `s3`), `Messaging:Transport` (`rabbitmq` | `sqs` | `servicebus`), `Realtime:HubBaseUrl`. GitHub Actions needs the `EFBUNDLE_CONNECTION` secret (real Postgres connection string for the migration bundle) and a `production` environment with a required reviewer. Never put credentials in workflow files.
 
 ## Safety guardrails (RED RULES)
 
