@@ -13,6 +13,7 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
     <PackageReference Include="Testcontainers.Floci" />
+    <PackageReference Include="WolverineFx.RuntimeCompilation" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -23,5 +24,12 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\RoadrunnerAuction\RoadrunnerAuction.csproj" />
     <ProjectReference Include="..\..\src\RoadrunnerAuction.AppHost\RoadrunnerAuction.AppHost.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Disables xUnit test-collection parallelization: several tests each boot a
+         full Aspire AppHost (Postgres + RabbitMQ + Garnet) or a Testcontainers
+         container; running them concurrently multiplies peak Docker memory usage
+         and caused real hangs/OOM stalls under load. -->
+    <None Update="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

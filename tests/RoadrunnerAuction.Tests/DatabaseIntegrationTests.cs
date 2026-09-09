@@ -31,9 +31,10 @@ public class DatabaseIntegrationTests
         await using var db = new AuctionDbContext(options);
 
         await db.Database.EnsureCreatedAsync();
-        db.EquipmentDirectory.Add(new Equipment { Model = "CAT D9" });
+        db.EquipmentDirectory.Add(new Equipment { Model = "CAT D9", CurrentBid = 125000m });
         await db.SaveChangesAsync();
 
-        Assert.True(await db.EquipmentDirectory.AnyAsync(e => e.Model == "CAT D9"));
+        var saved = await db.EquipmentDirectory.SingleAsync(e => e.Model == "CAT D9");
+        Assert.Equal(125000m, saved.CurrentBid);
     }
 }

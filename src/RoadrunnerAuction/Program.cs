@@ -1,5 +1,6 @@
 using Amazon.Runtime;
 using Amazon.S3;
+using JasperFx.Resources;
 using Microsoft.EntityFrameworkCore;
 using OpenTelemetry;
 using OpenTelemetry.Logs;
@@ -10,7 +11,6 @@ using RoadrunnerAuction.Services;
 using RoadrunnerAuction.Storage;
 using StackExchange.Redis;
 using Wolverine;
-using Wolverine.RabbitMQ;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -36,7 +36,14 @@ string RequireConnectionString(string name)
 
 var dbConnectionString = RequireConnectionString("roadrunnerdb");
 var cacheConnectionString = RequireConnectionString("cache");
-var rabbitConnectionString = RequireConnectionString("messaging");
+
+// Messaging:Transport selects the Wolverine broker (rabbitmq | sqs | servicebus,
+// default rabbitmq). ConnectionStrings:messaging (RabbitMQ AMQP URI) is only
+// required when the rabbitmq transport is selected.
+var messagingTransport = builder.Configuration["Messaging:Transport"] ?? MessagingTransportConfigurator.RabbitMq;
+var rabbitConnectionString = messagingTransport == MessagingTransportConfigurator.RabbitMq
+    ? RequireConnectionString("messaging")
+    : null;
 
 // 2. OBSERVABILITY: OpenTelemetry logs, metrics, and traces.
 //    OTLP endpoint comes from OTEL_EXPORTER_OTLP_ENDPOINT (Aspire Dashboard locally,
@@ -66,9 +73,12 @@ builder.Services.AddDbContextFactory<AuctionDbContext>(options =>
     options.UseNpgsql(dbConnectionString));
 
 // 4. CACHE & SIGNALR BACKPLANE (Garnet, RESP-compatible)
+//    BidsHub rides this same backplane, so a bid placed on Web 01 fans out to
+//    every circuit connected to Web 02 (ADR 08) - see LiveBids.razor.
 builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
     ConnectionMultiplexer.Connect(cacheConnectionString));
 builder.Services.AddSignalR().AddStackExchangeRedis(cacheConnectionString);
+builder.Services.AddScoped<IBidsClient, SignalRBidsClient>();
 
 // 5. STORAGE: app-owned IBlobStore abstraction (ADR 03). BlobStorage:Provider
 //    selects the implementation - "local" (default, Synology NAS mount) or
@@ -106,20 +116,41 @@ switch (blobStorageProvider)
         break;
 }
 
-// 6. MESSAGING: Wolverine over RabbitMQ. Transport-agnostic - swap
-//    UseRabbitMq for Azure Service Bus / SQS via config when migrating cloud.
+// 6. MESSAGING: Wolverine. Messaging:Transport (rabbitmq | sqs | servicebus)
+//    selects the broker purely via configuration - handlers (ProcessBidHandler)
+//    never change (ADR 07). See MessagingTransportConfigurator.
+var messagingSettings = new MessagingTransportSettings
+{
+    Transport = messagingTransport,
+    RabbitMqConnectionString = rabbitConnectionString,
+    SqsServiceUrl = builder.Configuration["Messaging:Sqs:ServiceUrl"],
+    SqsRegion = builder.Configuration["Messaging:Sqs:Region"],
+    ServiceBusConnectionString = builder.Configuration["Messaging:ServiceBus:ConnectionString"],
+};
 builder.Host.UseWolverine(options =>
 {
-    options.UseRabbitMq(new Uri(rabbitConnectionString)).AutoProvision();
-    options.PublishMessage<ProcessBidMessage>().ToRabbitQueue("bids");
-    options.ListenToRabbitQueue("bids");
+    MessagingTransportConfigurator.ConfigureDurability(options, dbConnectionString);
+    MessagingTransportConfigurator.Configure(options, messagingSettings);
 });
+// Local dev only: auto-creates Wolverine's own "wolverine" schema (envelope
+// storage) on startup for convenience. Production applies it as a deliberate,
+// once-per-deploy step (`dotnet <app>.dll db-apply`) - never on concurrent
+// multi-node boot, for the same race-condition reason ADR 11 forbids
+// Database.Migrate() on boot for the app's own EF Core schema.
+if (builder.Environment.IsDevelopment())
+{
+    builder.Host.UseResourceSetupOnStartup();
+}
 
 // 7. DEEP HEALTH CHECKS (For Kemp L7)
-builder.Services.AddHealthChecks()
+var healthChecksBuilder = builder.Services.AddHealthChecks()
     .AddNpgSql(dbConnectionString)
-    .AddRedis(cacheConnectionString)
-    .AddRabbitMQ(_ => new RabbitMQ.Client.ConnectionFactory { Uri = new Uri(rabbitConnectionString) }.CreateConnectionAsync());
+    .AddRedis(cacheConnectionString);
+if (messagingTransport == MessagingTransportConfigurator.RabbitMq)
+{
+    healthChecksBuilder.AddRabbitMQ(_ =>
+        new RabbitMQ.Client.ConnectionFactory { Uri = new Uri(rabbitConnectionString!) }.CreateConnectionAsync());
+}
 
 // 8. VERSION: exposed via VersionService (reads assembly version injected at publish by /p:Version)
 builder.Services.AddSingleton<VersionService>();
@@ -146,6 +177,7 @@ if (!app.Environment.IsDevelopment())
 app.UseStaticFiles();
 app.UseAntiforgery();
 app.MapHealthChecks("/health"); // Kemp probes this endpoint
+app.MapHub<RoadrunnerAuction.Hubs.BidsHub>("/hubs/bids");
 app.MapRazorComponents<RoadrunnerAuction.Components.App>().AddInteractiveServerRenderMode();
 
 app.Run();
