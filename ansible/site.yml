@@ -33,6 +33,13 @@
     - docker
     - preview-host
 
+# Stub pipeline (DEMO-AUDIT.md R7) — enough for a real trace on screen; the
+# full build-out is the on-camera subject of S1-09.
+- name: Configure observability (VLAN 30)
+  hosts: observability
+  roles:
+    - observability
+
 # Runs LAST: the step-ca play above generates and fetches the per-host
 # certificates this role installs.
 - name: Fleet-wide Cockpit with internal-CA certificates (ADR 21)

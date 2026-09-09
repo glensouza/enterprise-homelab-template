@@ -23,6 +23,10 @@ all:
       hosts:
         ${pki_host.name}:
           ansible_host: ${pki_host.ip}
+    observability:
+      hosts:
+        ${observability_host.name}:
+          ansible_host: ${observability_host.ip}
     infra:
       hosts:
 %{ for host in infra_hosts ~}

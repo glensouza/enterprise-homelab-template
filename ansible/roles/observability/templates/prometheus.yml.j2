@@ -1,0 +1,10 @@
+# Managed by Ansible (roles/observability) — manual edits will be overwritten.
+global:
+  scrape_interval: 15s
+
+# App metrics arrive via Alloy's remote_write (config.alloy.j2), not scraped
+# here. This self-scrape is just enough to prove Prometheus is alive on screen.
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

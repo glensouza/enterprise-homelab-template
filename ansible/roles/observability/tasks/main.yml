@@ -1,0 +1,148 @@
+---
+# STUB (DEMO-AUDIT.md R7, docs/07-observability.md section 3). Gets a real
+# OTLP -> Alloy -> Loki/Tempo/Prometheus -> Grafana pipeline running on the
+# observability LXC so a trace actually appears on screen. Dashboards-as-code,
+# alerting, retention tuning, and the ADR entry are deliberately left out —
+# that build-out is the on-camera subject of S1-09 and shouldn't be
+# pre-empted here.
+
+- name: Install apt prerequisites
+  ansible.builtin.apt:
+    name: [apt-transport-https, software-properties-common, gnupg2, curl]
+    update_cache: true
+    state: present
+
+- name: Create apt keyring directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Add Grafana apt GPG key
+  ansible.builtin.get_url:
+    url: https://apt.grafana.com/gpg.key
+    dest: /etc/apt/keyrings/grafana.asc
+    mode: "0644"
+
+- name: Add Grafana apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/grafana.asc] https://apt.grafana.com stable main"
+    state: present
+
+- name: Install Grafana, Loki, Tempo, Alloy
+  ansible.builtin.apt:
+    name: [grafana, loki, tempo, alloy]
+    update_cache: true
+    state: present
+
+# --- Prometheus (no official apt package — official tarball release) --------
+- name: Create prometheus system user
+  ansible.builtin.user:
+    name: prometheus
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
+- name: Create Prometheus directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: prometheus
+    group: prometheus
+    mode: "0755"
+  loop:
+    - /etc/prometheus
+    - /var/lib/prometheus
+
+- name: Download and unpack Prometheus
+  ansible.builtin.unarchive:
+    src: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.linux-amd64.tar.gz"
+    dest: /opt
+    remote_src: true
+    creates: "/opt/prometheus-{{ prometheus_version }}.linux-amd64"
+
+- name: Symlink prometheus/promtool binaries onto PATH
+  ansible.builtin.file:
+    src: "/opt/prometheus-{{ prometheus_version }}.linux-amd64/{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
+    state: link
+  loop: [prometheus, promtool]
+
+- name: Configure Prometheus
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: /etc/prometheus/prometheus.yml
+    owner: prometheus
+    group: prometheus
+    mode: "0644"
+  notify: restart prometheus
+
+- name: Install Prometheus systemd unit
+  ansible.builtin.template:
+    src: prometheus.service.j2
+    dest: /etc/systemd/system/prometheus.service
+    mode: "0644"
+  notify: [systemd daemon-reload, restart prometheus]
+
+# --- Loki / Tempo / Alloy / Grafana configs ----------------------------------
+- name: Create Loki data directory
+  ansible.builtin.file:
+    path: /var/lib/loki
+    state: directory
+    owner: loki
+    group: loki
+    mode: "0755"
+
+- name: Configure Loki
+  ansible.builtin.template:
+    src: loki-config.yml.j2
+    dest: /etc/loki/config.yml
+    mode: "0644"
+  notify: restart loki
+
+- name: Create Tempo data directory
+  ansible.builtin.file:
+    path: /var/lib/tempo
+    state: directory
+    owner: tempo
+    group: tempo
+    mode: "0755"
+
+- name: Configure Tempo
+  ansible.builtin.template:
+    src: tempo.yml.j2
+    dest: /etc/tempo/config.yml
+    mode: "0644"
+  notify: restart tempo
+
+- name: Configure Alloy
+  # Public-facing OTLP endpoint (docs/07): both Blazor nodes point
+  # OTEL_EXPORTER_OTLP_ENDPOINT here.
+  ansible.builtin.template:
+    src: config.alloy.j2
+    dest: /etc/alloy/config.alloy
+    mode: "0644"
+  notify: restart alloy
+
+- name: Provision Grafana datasources (Prometheus/Loki/Tempo)
+  ansible.builtin.template:
+    src: datasources.yml.j2
+    dest: /etc/grafana/provisioning/datasources/observability.yml
+    mode: "0644"
+  notify: restart grafana-server
+
+- name: Flush handlers so every service starts with its final config
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start the observability stack
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop:
+    - prometheus
+    - loki
+    - tempo
+    - alloy
+    - grafana-server

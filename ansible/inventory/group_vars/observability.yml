@@ -1,0 +1,4 @@
+---
+# Observability LXC — stub pipeline (DEMO-AUDIT.md R7, roles/observability).
+prometheus_version: "2.55.1"
+observability_retention: 24h

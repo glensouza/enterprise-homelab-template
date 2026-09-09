@@ -1,0 +1,26 @@
+# Managed by Ansible (roles/observability) — manual edits will be overwritten.
+# OTLP receiver here is deliberately NOT 4317/4318 — Alloy owns those ports as
+# the app-facing endpoint (docs/07); Tempo only receives from Alloy, locally.
+server:
+  http_listen_port: 3200
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 127.0.0.1:4327
+        http:
+          endpoint: 127.0.0.1:4328
+
+storage:
+  trace:
+    backend: local
+    local:
+      path: /var/lib/tempo/traces
+    wal:
+      path: /var/lib/tempo/wal
+
+compactor:
+  compaction:
+    block_retention: {{ observability_retention | default('24h') }}

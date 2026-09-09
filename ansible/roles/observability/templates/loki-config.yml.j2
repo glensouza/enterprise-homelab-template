@@ -1,0 +1,31 @@
+# Managed by Ansible (roles/observability) — manual edits will be overwritten.
+# Single-binary, filesystem-backed Loki — fine for a stub, not for real
+# production log volume (see docs/07 note on this role).
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+
+common:
+  path_prefix: /var/lib/loki
+  storage:
+    filesystem:
+      chunks_directory: /var/lib/loki/chunks
+      rules_directory: /var/lib/loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+limits_config:
+  retention_period: {{ observability_retention | default('24h') }}

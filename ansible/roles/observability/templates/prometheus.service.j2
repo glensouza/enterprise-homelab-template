@@ -1,0 +1,16 @@
+# Managed by Ansible (roles/observability) — manual edits will be overwritten.
+[Unit]
+Description=Prometheus
+After=network.target
+
+[Service]
+User=prometheus
+Group=prometheus
+ExecStart=/usr/local/bin/prometheus \
+  --config.file=/etc/prometheus/prometheus.yml \
+  --storage.tsdb.path=/var/lib/prometheus \
+  --web.enable-remote-write-receiver
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
