@@ -45,10 +45,10 @@ Why a wildcard record instead of per-PR DNS entries: there is nothing to create 
 
 1. **Terraform:** `terraform apply` creates VLAN 40 + firewall rules and the three LXCs (`pr-preview`, `technitium-dns`, `step-ca`) — see `terraform/lxc.tf` / `unifi.tf` and `docs/08`.
 2. **Ansible:** `ansible-playbook site.yml` converges the new hosts:
-   * `dns` → `technitium` role (installs the server; zone/record via API if `technitium_api_token` is set in `ansible/inventory/group_vars/dns.yml`)
+   * `dns` → `technitium` role (installs the server; zone/record via API if `technitium_api_token` is set in `ansible/inventory/group_vars/dns/secrets.yml`)
    * `pki` → `resolver` + `step-ca` roles (initializes the CA with an ACME provisioner, fetches `root_ca.crt` to `ansible/fetched/step-ca/`)
    * `preview` → `resolver` + `docker` + `preview-host` roles (Docker Engine, Caddy wired to the step-ca ACME directory)
-3. **Technitium:** browse `http://10.10.30.119:5380`, change the default `admin` password, and either set `technitium_api_token` in `group_vars/dns.yml` and re-run the playbook, or manually create primary zone `pr.roadrunner.internal` with an A record `*` → `10.10.40.120`.
+3. **Technitium:** browse `http://10.10.30.119:5380`, change the default `admin` password, and either copy `group_vars/dns/secrets.yml.example` to `group_vars/dns/secrets.yml` (git-ignored), set `technitium_api_token` there, and re-run the playbook, or manually create primary zone `pr.roadrunner.internal` with an A record `*` → `10.10.40.120`.
 4. **Client DNS:** devices that browse previews must resolve via Technitium — set `10.10.30.119` as the DNS server on the admin LAN's DHCP scope (or per-device).
 5. **GitHub:** create a `preview` environment (no required reviewers needed). The self-hosted runner needs Docker CLI, SSH access to `10.10.40.120` / `10.10.30.121`, and `openssl`.
 
@@ -124,7 +124,7 @@ Alongside the per-PR stacks, the preview host runs an always-on **ops compose st
 *   **pgAdmin / RedisInsight server entries:** add prod PostgreSQL as `10.10.20.110:5432` and prod Garnet as `10.10.20.111:6379` (two targeted firewall exceptions allow exactly this — see `terraform/unifi.tf` and `docs/05`). Per-PR preview databases stay loopback-only by design; inspect them with `docker exec -it pr-<n>-db-1 psql -U roadrunner roadrunner_pr<n>` (via SSH or the Portainer console).
 *   **Watchtower** updates only the labeled ops containers nightly (04:00) — running PR preview stacks are deliberately never mutated mid-test.
 *   **Cockpit certificates:** the `step-ca` role issues one 1-year certificate per LXC (SAN `<host>.roadrunner.internal`) and the `cockpit` role installs it. Renewal = re-run `ansible-playbook site.yml` before expiry.
-*   **DNS records:** with `technitium_api_token` set (`ansible/inventory/group_vars/dns.yml`), Ansible manages the `roadrunner.internal` zone — per-host A records from the inventory and the service CNAMEs from `dns_service_cnames`. Manual equivalent: create the zone in the Technitium UI and mirror that list.
+*   **DNS records:** with `technitium_api_token` set (`ansible/inventory/group_vars/dns/secrets.yml`, git-ignored), Ansible manages the `roadrunner.internal` zone — per-host A records from the inventory and the service CNAMEs from `dns_service_cnames` (`group_vars/dns/vars.yml`). Manual equivalent: create the zone in the Technitium UI and mirror that list.
 
 ---
 

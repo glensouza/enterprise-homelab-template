@@ -446,3 +446,6 @@ ansible/inventory/terraform-hosts.yml
 # Ansible — local CA password (group_vars/pki.yml) and fetched step-ca root cert
 ansible/credentials/
 ansible/fetched/
+# Ansible — per-group secrets a human must supply (e.g. group_vars/dns/secrets.yml)
+ansible/inventory/group_vars/*/secrets.yml
+!ansible/inventory/group_vars/*/secrets.yml.example

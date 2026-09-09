@@ -1,8 +1,8 @@
 ---
-# Technitium DNS (ADR 20/21). Create an API token in the web UI
-# (http://10.10.30.119:5380, after changing the default admin password) and
-# uncomment to let Ansible manage zones and records:
-# technitium_api_token: "<token>"
+# Technitium DNS (ADR 20/21). technitium_api_token lives in the sibling
+# secrets.yml (git-ignored, human-supplied) — see secrets.yml.example.
+# Without it, the technitium role skips zone/record management and you
+# create the zones by hand (docs/11 section 2 step 3).
 
 # Friendly service names (CNAMEs) in the {{ internal_domain }} zone.
 # Hosts themselves get per-host A records automatically (one per LXC in the

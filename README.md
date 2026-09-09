@@ -69,7 +69,7 @@ A new adopter must complete these steps before the first deployment:
 5. **GitHub secrets:** Set `EFBUNDLE_CONNECTION` to the real PostgreSQL connection string used by the migration bundle. Never put credentials in workflow files.
 6. **GitHub environments:** Create a `production` environment with yourself as required reviewer — every deploy and rollback then needs explicit approval. Also create a `preview` environment (no reviewers) for the PR preview workflows.
 7. **Self-hosted runner:** Register a runner with network access to the LXCs, `rsync`, Docker CLI, `openssl`, and key-based SSH to the web, Postgres, preview (`10.10.40.120`), and PKI (`10.10.30.121`) LXCs.
-8. **Internal DNS & PKI (PR previews + admin UIs):** per `docs/11` — set the Technitium admin password, create the zones (or set `technitium_api_token` in `ansible/inventory/group_vars/dns.yml` and re-run the playbook), point client DNS at Technitium, and distribute the step-ca root certificate to client trust stores (GPO instructions included).
+8. **Internal DNS & PKI (PR previews + admin UIs):** per `docs/11` — set the Technitium admin password, create the zones (or copy `ansible/inventory/group_vars/dns/secrets.yml.example` to `secrets.yml`, git-ignored, set `technitium_api_token` there, and re-run the playbook), point client DNS at Technitium, and distribute the step-ca root certificate to client trust stores (GPO instructions included).
 9. **Observability:** Point `OTEL_EXPORTER_OTLP_ENDPOINT` at Grafana Alloy on your observability LXC (`docs/07-observability.md`).
 10. **Smoke test:** Push to `main`, approve the deployment, verify `https://app.yourdomain.com/health` reports healthy behind the Kemp VIP. Then open a test PR and confirm its preview URL comes up green-padlock.
 
