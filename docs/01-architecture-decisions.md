@@ -15,8 +15,8 @@
 ---
 
 ## ADR 03: App-Owned Blob Storage Abstraction (IBlobStore)
-* **Decision:** Define an application-owned `IBlobStore` interface with a `LocalDiskBlobStore` implementation (`System.IO` against the Synology NAS mount, configured via `BlobStorage:RootPath`). The third-party `FluentStorage` package has been removed.
-* **Rationale:** FluentStorage is unmaintained. An app-owned interface is the genuinely cloud-agnostic pattern: Azure Blob / S3 / GCS adapters can be added later behind DI without changing application code.
+* **Decision:** Define an application-owned `IBlobStore` interface with two implementations selected at startup by `BlobStorage:Provider` (`local` | `s3`, default `local`): `LocalDiskBlobStore` (`System.IO` against the Synology NAS mount, configured via `BlobStorage:RootPath`) and `S3BlobStore` (`AWSSDK.S3`, configured via `BlobStorage:S3:ServiceUrl`, `ForcePathStyle`, and `BucketName`). Leaving `ServiceUrl` blank targets real Amazon S3 via the default AWS credential chain (IAM role / env / profile) and `BlobStorage:S3:Region`; setting it points `AmazonS3Client` at any S3-compatible endpoint - notably the `floci` emulator in the PR preview stack (ADR 19) - authenticated with `BlobStorage:S3:AccessKey`/`SecretKey`. The third-party `FluentStorage` package has been removed.
+* **Rationale:** FluentStorage is unmaintained. An app-owned interface is the genuinely cloud-agnostic pattern: Azure Blob / S3 / GCS adapters can be added later behind DI without changing application code. `S3BlobStore` is verified in CI against the real S3 API surface (bucket create, put/get/delete) via `Testcontainers.Floci`, rather than mocking the AWS SDK.
 
 ---
 
