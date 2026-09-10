@@ -46,11 +46,22 @@
   args:
     creates: /root/.step/config/ca.json
 
+- name: Install step-ca.service (canonical copy lives in src/systemd/)
+  # The step-ca .deb package ships only the binary - confirmed live, no
+  # systemd unit at all ("Could not find the requested service step-ca").
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../src/systemd/step-ca.service"
+    dest: /etc/systemd/system/step-ca.service
+    owner: root
+    group: root
+    mode: "0644"
+
 - name: Enable and start step-ca
   ansible.builtin.systemd:
     name: step-ca
     enabled: true
     state: started
+    daemon_reload: true
 
 - name: Fetch the root CA certificate to the Ansible controller
   # Consumed by the preview-host role (Caddy acme_ca_root) and by admins

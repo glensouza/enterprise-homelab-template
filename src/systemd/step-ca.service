@@ -1,0 +1,15 @@
+[Unit]
+Description=Smallstep step-ca (internal Certificate Authority)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/step-ca /root/.step/config/ca.json --password-file=/root/.step-ca-password
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Install]
+WantedBy=multi-user.target
