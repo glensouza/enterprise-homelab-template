@@ -1,0 +1,4 @@
+# Force LF regardless of the checkout platform — a CRLF shebang line breaks
+# `bash script.sh` on Linux/macOS with a "bad interpreter" error.
+*.sh text eol=lf
+.githooks/* text eol=lf

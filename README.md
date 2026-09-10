@@ -48,9 +48,13 @@ enterprise-homelab-template/
 ├── deploy/preview/                    # Per-PR preview compose template (docs/11)
 ├── tests/
 │   └── RoadrunnerAuction.Tests/       
+├── .githooks/
+│   └── pre-commit                     # Local gitleaks scan on staged changes (opt-in, see below)
+├── .gitleaks.toml                     # gitleaks config: default rules + *.example allowlist
 └── .github/
     └── workflows/
         ├── pr-build-test.yml          # PR restore/build/test (ubuntu-latest)
+        ├── secret-scan.yml            # gitleaks over full history, every push/PR to main
         ├── pr-preview.yml             # Deploy isolated preview env per PR (self-hosted, docs/11)
         ├── pr-preview-cleanup.yml     # Tear down the preview env on PR merge/close
         ├── bump-minor.yml             # Auto-bump MINOR version on PR open against main
@@ -82,6 +86,16 @@ dotnet run --project src/RoadrunnerAuction.AppHost
 ```
 
 The .NET Aspire AppHost provisions the PostgreSQL (pgvector), Garnet, and RabbitMQ containers and injects their connection strings into the Blazor app automatically. The Aspire Dashboard shows unified logs, metrics, and traces via OpenTelemetry.
+
+## Secret Scanning
+
+Every push/PR to `main` runs [gitleaks](https://github.com/gitleaks/gitleaks) over the full commit history (`.github/workflows/secret-scan.yml`) — the hard backstop regardless of local setup. For faster local feedback, install `gitleaks` and enable the pre-commit hook once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+It scans staged changes before each commit and warns (without blocking) if `gitleaks` isn't installed locally. See `LAB-RUNBOOK.md` in the sibling video-scripts repo — "Handling secrets" — for where each category of credential actually lives (`terraform.tfvars`, `ansible/credentials/`, per-group `secrets.yml`, or nowhere in the repo at all).
 
 ---
 ### Source Material & Attribution

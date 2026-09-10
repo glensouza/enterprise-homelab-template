@@ -1,0 +1,12 @@
+title = "enterprise-homelab-template gitleaks config"
+
+# Start from gitleaks' built-in rule set (AWS/Azure/GCP keys, private keys,
+# generic high-entropy secrets, etc.) rather than maintaining our own list.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Template/example files are placeholders, never real secrets (LAB-RUNBOOK.md 'Handling secrets')"
+paths = [
+  '''(^|/)[^/]+\.example$''',
+]

@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Secret scan on staged changes (gitleaks). Enable once per clone:
+#   git config core.hooksPath .githooks
+# Soft-fails (warns, doesn't block) if gitleaks isn't installed locally —
+# the "Secret Scan" GitHub Actions workflow is the hard backstop either way.
+set -euo pipefail
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "warning: gitleaks not installed — skipping local secret scan (CI still enforces this)." >&2
+  echo "         install: https://github.com/gitleaks/gitleaks#installing" >&2
+  exit 0
+fi
+
+repo_root="$(git rev-parse --show-toplevel)"
+gitleaks protect --staged --redact --verbose --config "${repo_root}/.gitleaks.toml"
