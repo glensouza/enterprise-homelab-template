@@ -6,8 +6,8 @@ variable "proxmox_api_url" {
   type        = string
 }
 
-variable "proxmox_api_token" {
-  description = "API token in the form 'user@realm!tokenid=uuid' (create under Datacenter > Permissions > API Tokens; disable privilege separation)"
+variable "proxmox_password" {
+  description = "root@pam password. Not an API token: Proxmox hardcodes several container operations (privileged containers, any features flag but nesting, bind-type mount points) to root@pam-only regardless of an API token's assigned role - confirmed live creating/updating blazor-web-01/02 and postgresql, which bind-mount NFS shares from the host (ADR 17). The provider's own docs confirm auth is all-or-nothing (api_token takes precedence over username/password if both are set), so this applies to every Terraform-managed Proxmox resource, not just those three."
   type        = string
   sensitive   = true
 }

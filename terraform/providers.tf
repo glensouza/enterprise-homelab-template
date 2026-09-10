@@ -1,7 +1,13 @@
 provider "proxmox" {
-  endpoint  = var.proxmox_api_url
-  api_token = var.proxmox_api_token
-  insecure  = var.proxmox_tls_insecure
+  endpoint = var.proxmox_api_url
+  insecure = var.proxmox_tls_insecure
+
+  # root@pam password (ticket auth), not an API token - see variables.tf's
+  # proxmox_password description for why. The provider's own docs confirm
+  # auth is all-or-nothing (api_token, if set, takes precedence over
+  # username/password), so this is deliberately the only credential here.
+  username = "root@pam"
+  password = var.proxmox_password
 
   # Used by the provider for file uploads (e.g. snippets). An explicit key
   # file (not ssh-agent) since this runs unattended from the devops LXC's

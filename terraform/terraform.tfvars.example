@@ -1,8 +1,13 @@
 # Copy to terraform.tfvars and fill in. NEVER commit terraform.tfvars.
 # proxmox_api_url points at pve1, the cluster master (not proxmox_node_1/2 below —
 # the Proxmox API is cluster-aware, so any member node works, and pve1 never hosts an LXC).
-proxmox_api_url   = "https://10.10.10.101:8006/"
-proxmox_api_token = "root@pam!terraform=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+proxmox_api_url = "https://10.10.10.101:8006/"
+
+# root@pam password, not an API token — Proxmox hardcodes several container
+# operations (privileged containers, non-nesting features, bind-type mount
+# points) to root@pam-only regardless of an API token's role. This is the
+# same password you use to log into the Proxmox VE web GUI as root.
+proxmox_password = "changeme"
 
 unifi_username = "terraform"
 unifi_password = "changeme"

@@ -31,7 +31,7 @@ env:
   # Only variables with NO default in variables.tf — see terraform-plan.yml
   # for why the ones with safe defaults are deliberately left unset here.
   TF_VAR_proxmox_api_url: ${{ vars.PROXMOX_API_URL }}
-  TF_VAR_proxmox_api_token: ${{ secrets.PROXMOX_API_TOKEN }}
+  TF_VAR_proxmox_password: ${{ secrets.PROXMOX_PASSWORD }}
   TF_VAR_unifi_username: ${{ vars.UNIFI_USERNAME }}
   TF_VAR_unifi_password: ${{ secrets.UNIFI_PASSWORD }}
   TF_VAR_debian_template_id: ${{ vars.DEBIAN_TEMPLATE_ID }}
