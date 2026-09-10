@@ -30,11 +30,11 @@ Use the **Rollback Blazor App** workflow (`rollback.yml`, `workflow_dispatch`) i
 ### Manual equivalent (if CI is unavailable)
 
 ```bash
-ssh root@10.10.10.101
+ssh root@10.10.50.101
 ln -sfn /var/www/roadrunner/releases/<SHA> /var/www/roadrunner/current
 systemctl restart blazor-app.service
 curl -fsS http://localhost:5000/health
-# repeat on 10.10.10.102 after verifying 01 is healthy
+# repeat on 10.10.50.102 after verifying 01 is healthy
 ```
 
 ## 3. Database Rollback (Automated, Double-Gated)
@@ -60,7 +60,7 @@ After verifying the system, drop `roadrunner_db_failed_<ts>` manually — that f
 ### Manual fallback (if CI is unavailable)
 
 1. Roll back the **app first** (section 2) so the running code matches the old schema.
-2. Stop both app services: `ssh root@10.10.10.10{1,2} systemctl stop blazor-app.service`
+2. Stop both app services: `ssh root@10.10.50.10{1,2} systemctl stop blazor-app.service`
 3. On the Postgres LXC, restore into a fresh database and swap:
 ```bash
 ssh root@10.10.20.110
@@ -89,7 +89,7 @@ pgBackRest runs on the PostgreSQL LXC (`10.10.20.110`) with continuous WAL archi
 
 Use this to recover to any point in time — e.g. just before a bad migration ran — instead of the RENAME-swap in section 3:
 
-1. Stop both app services: `ssh root@10.10.10.10{1,2} systemctl stop blazor-app.service`
+1. Stop both app services: `ssh root@10.10.50.10{1,2} systemctl stop blazor-app.service`
 2. On the Postgres LXC, stop PostgreSQL and restore to the target time:
 ```bash
 ssh root@10.10.20.110

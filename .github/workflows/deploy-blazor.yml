@@ -95,15 +95,15 @@ jobs:
     - name: Deploy to Blazor LXC 01
       run: |
         RELEASE=/var/www/roadrunner/releases/${GITHUB_SHA}
-        ssh root@10.10.10.101 "mkdir -p $RELEASE"
-        rsync -avz --delete ./publish/ root@10.10.10.101:$RELEASE/
-        ssh root@10.10.10.101 "ln -sfn $RELEASE /var/www/roadrunner/current && systemctl restart blazor-app.service && sleep 5 && curl -fsS http://localhost:5000/health"
-        ssh root@10.10.10.101 "cd /var/www/roadrunner/releases && ls -1t | tail -n +6 | xargs -r rm -rf"
+        ssh root@10.10.50.101 "mkdir -p $RELEASE"
+        rsync -avz --delete ./publish/ root@10.10.50.101:$RELEASE/
+        ssh root@10.10.50.101 "ln -sfn $RELEASE /var/www/roadrunner/current && systemctl restart blazor-app.service && sleep 5 && curl -fsS http://localhost:5000/health"
+        ssh root@10.10.50.101 "cd /var/www/roadrunner/releases && ls -1t | tail -n +6 | xargs -r rm -rf"
 
     - name: Deploy to Blazor LXC 02
       run: |
         RELEASE=/var/www/roadrunner/releases/${GITHUB_SHA}
-        ssh root@10.10.10.102 "mkdir -p $RELEASE"
-        rsync -avz --delete ./publish/ root@10.10.10.102:$RELEASE/
-        ssh root@10.10.10.102 "ln -sfn $RELEASE /var/www/roadrunner/current && systemctl restart blazor-app.service && sleep 5 && curl -fsS http://localhost:5000/health"
-        ssh root@10.10.10.102 "cd /var/www/roadrunner/releases && ls -1t | tail -n +6 | xargs -r rm -rf"
+        ssh root@10.10.50.102 "mkdir -p $RELEASE"
+        rsync -avz --delete ./publish/ root@10.10.50.102:$RELEASE/
+        ssh root@10.10.50.102 "ln -sfn $RELEASE /var/www/roadrunner/current && systemctl restart blazor-app.service && sleep 5 && curl -fsS http://localhost:5000/health"
+        ssh root@10.10.50.102 "cd /var/www/roadrunner/releases && ls -1t | tail -n +6 | xargs -r rm -rf"

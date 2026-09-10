@@ -7,7 +7,7 @@ Before creating LXCs, the Synology NAS must be attached to the Proxmox Datacente
 1. In Synology DSM, enable **NFS** and create a shared folder named `homelab-proxmox-backups`.
 2. In the Proxmox GUI, go to **Datacenter** -> **Storage** -> **Add** -> **NFS**.
 3. **ID:** `synology-backups`
-4. **Server:** `10.10.10.90` (VLAN 10)
+4. **Server:** `10.10.10.90` (existing LAN — pre-existing hardware, not part of the Terraform-managed VLAN 50)
 5. **Export:** `/volume1/homelab-proxmox-backups`
 6. **Content:** Select **VZDump backup file**.
 

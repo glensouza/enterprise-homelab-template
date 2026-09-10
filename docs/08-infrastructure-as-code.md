@@ -36,7 +36,7 @@ ansible/
 ## 1. Terraform (Infrastructure Provisioning)
 
 *   **Provider:** `bpg/proxmox` (Proxmox VE 8/9, full SDN and API-token support).
-*   **UniFi Automation:** `paultyng/unifi` scripts the VLAN 10/20/30 networks and the LAN IN firewall rule matrix from `docs/05` directly into code (`unifi.tf`).
+*   **UniFi Automation:** `paultyng/unifi` scripts the VLAN 50/20/30 networks and the LAN IN firewall rule matrix from `docs/05` directly into code (`unifi.tf`).
 *   **LXC matrix:** `lxc.tf` is a `for_each` over a single `locals` map — the code-level mirror of the `docs/04` master matrix. Change IPs/resources there and `terraform apply` converges.
 
 ### First-time setup

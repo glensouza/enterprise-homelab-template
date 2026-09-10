@@ -16,9 +16,9 @@ This guide details the exact steps and resource allocations needed to provision 
 
 | Service Name | VLAN / IP Range | Target Proxmox Node | Cores | RAM | Synology NAS Mount Path | Allocation Rationale |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Blazor Web 01** | VLAN 10 (`10.10.10.101`) | **`pve4`** (Node 1) | 2 | 1024 MB | `/volume1/homelab-media` | Primary core web application instance |
-| **Blazor Web 02** | VLAN 10 (`10.10.10.102`) | **`pve3`** (Node 2) | 2 | 1024 MB | `/volume1/homelab-media` | Secondary load-balanced web app instance |
-| **Cloudflared** | VLAN 10 (`10.10.10.5`)   | **`pve4`** (Node 1) | 1 | 512 MB  | *None* | Primary ingress connector / Cloudflare tunnel |
+| **Blazor Web 01** | VLAN 50 (`10.10.50.101`) | **`pve4`** (Node 1) | 2 | 1024 MB | `/volume1/homelab-media` | Primary core web application instance |
+| **Blazor Web 02** | VLAN 50 (`10.10.50.102`) | **`pve3`** (Node 2) | 2 | 1024 MB | `/volume1/homelab-media` | Secondary load-balanced web app instance |
+| **Cloudflared** | VLAN 50 (`10.10.50.5`)   | **`pve4`** (Node 1) | 1 | 512 MB  | *None* | Primary ingress connector / Cloudflare tunnel |
 | **PostgreSQL** | VLAN 20 (`10.10.20.110`) | **`pve4`** (Node 1) | 4 | 4096 MB | `/volume1/homelab-postgres-data` | Primary database engine (PostgreSQL + pgvector) |
 | **Garnet** | VLAN 20 (`10.10.20.111`) | **`pve4`** (Node 1) | 2 | 2048 MB | *None* | Primary cache & SignalR scale-out backplane |
 | **RabbitMQ** | VLAN 20 (`10.10.20.112`) | **`pve4`** (Node 1) | 1 | 1024 MB | *None* | Primary message broker for Wolverine |

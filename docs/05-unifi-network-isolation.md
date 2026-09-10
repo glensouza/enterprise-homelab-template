@@ -12,10 +12,12 @@ To avoid IP addressing conflicts and DHCP exhaustion on the UDM-Pro, **all LXCs 
 
 In the **UniFi Network Application**, navigate to **Settings > Networks** and create the following networks:
 
-1.  **Web / Ingress Tier (VLAN 10)**
+1.  **Web / Ingress Tier (VLAN 50)**
     *   **Router:** UDM-Pro
-    *   **Host Address:** `10.10.10.1/24`
-    *   **Purpose:** Houses the Cloudflare Tunnel, the Kemp VIP (`10.10.10.199`), the Synology NAS (`10.10.10.90`), and the Blazor Web LXCs.
+    *   **Host Address:** `10.10.50.1/24`
+    *   **Purpose:** Houses the Cloudflare Tunnel LXC and the Blazor Web LXCs. The Kemp VIP
+        (`10.10.10.199`) and the Synology NAS (`10.10.10.90`) are pre-existing, non-Terraform-managed
+        hardware and stay on the existing `10.10.10.0/24` LAN rather than moving into this VLAN.
 2.  **Backend / Data Tier (VLAN 20)**
     *   **Router:** UDM-Pro
     *   **Host Address:** `10.10.20.1/24`
@@ -47,20 +49,20 @@ To isolate the environments, navigate to **Settings > Security > Firewall Rules*
 
 | Action | Source | Destination | Ports | Purpose |
 | :--- | :--- | :--- | :--- | :--- |
-| **Accept** | VLAN 10 (Web) | `10.10.20.110` (Postgres) | `5432` | Allow Blazor apps to query the database. |
-| **Accept** | VLAN 10 (Web) | `10.10.20.111` (Garnet) | `6379` | Allow Blazor apps to read/write cache & SignalR backplane. |
-| **Accept** | VLAN 10 (Web) | `10.10.20.112` (RabbitMQ) | `5672` | Allow Blazor apps to publish messages. |
+| **Accept** | VLAN 50 (Web) | `10.10.20.110` (Postgres) | `5432` | Allow Blazor apps to query the database. |
+| **Accept** | VLAN 50 (Web) | `10.10.20.111` (Garnet) | `6379` | Allow Blazor apps to read/write cache & SignalR backplane. |
+| **Accept** | VLAN 50 (Web) | `10.10.20.112` (RabbitMQ) | `5672` | Allow Blazor apps to publish messages. |
 | **Accept** | VLAN 30 (Management)| `10.10.10.90` (Synology NAS)| `Any` | Allow Proxmox nodes to write backups to the NAS. |
 | **Accept** | VLAN 20 (Data Tier)| `10.10.10.90` (Synology NAS)| `2049, 111` | Allow Postgres to write to NFS mounts. |
-| **Drop** | VLAN 10 (Web) | VLAN 20 (Data Tier) | `Any` | Block all other Web -> Backend traffic. |
-| **Drop** | VLAN 10 (Web) | VLAN 30 (Management) | `Any` | Block Web -> Proxmox GUI / Management. |
+| **Drop** | VLAN 50 (Web) | VLAN 20 (Data Tier) | `Any` | Block all other Web -> Backend traffic. |
+| **Drop** | VLAN 50 (Web) | VLAN 30 (Management) | `Any` | Block Web -> Proxmox GUI / Management. |
 | **Accept** | VLAN 30 (Management)| `Any` | `Any` | Allow administrative/monitoring tools full access. |
 | **Accept** | VLAN 40 (Preview) | `10.10.30.119` (Technitium) | `53` | Allow preview host to resolve `*.pr.roadrunner.internal`. |
 | **Accept** | VLAN 40 (Preview) | `10.10.30.121` (step-ca) | `4443` | Allow Caddy to reach the ACME directory. |
 | **Accept** | `10.10.30.121` (step-ca) | VLAN 40 (Preview) | `80, 443` | Allow the CA to complete ACME HTTP-01/TLS-ALPN-01 validation. |
 | **Accept** | `10.10.40.120` (Preview host) | `10.10.20.110` (Postgres) | `5432` | pgAdmin (admin tooling, ADR 21) -> production database. |
 | **Accept** | `10.10.40.120` (Preview host) | `10.10.20.111` (Garnet) | `6379` | RedisInsight (admin tooling, ADR 21) -> production cache. |
-| **Drop** | VLAN 40 (Preview) | VLAN 10 (Web) | `Any` | Isolate non-prod from the web tier. |
+| **Drop** | VLAN 40 (Preview) | VLAN 50 (Web) | `Any` | Isolate non-prod from the web tier. |
 | **Drop** | VLAN 40 (Preview) | VLAN 20 (Data Tier) | `Any` | Isolate non-prod from production data (all other). |
 | **Drop** | VLAN 40 (Preview) | VLAN 30 (Management) | `Any` | Block all other Preview -> Management traffic. |
 

@@ -5,11 +5,11 @@
 # -----------------------------------------------------------------------------
 # 1. Virtual networks (DHCP disabled — all LXCs use static IPs per docs/05)
 # -----------------------------------------------------------------------------
-resource "unifi_network" "vlan10" {
+resource "unifi_network" "vlan50" {
   name          = "Web-Ingress"
   purpose       = "corporate"
-  subnet        = "10.10.10.1/24"
-  vlan_id       = 10
+  subnet        = "10.10.50.1/24"
+  vlan_id       = 50
   dhcp_enabled  = false
   network_group = "LAN"
 }
@@ -54,7 +54,7 @@ resource "unifi_firewall_rule" "web_to_postgres" {
   ruleset        = "LAN_IN"
   rule_index     = 2000
   protocol       = "tcp"
-  src_network_id = unifi_network.vlan10.id
+  src_network_id = unifi_network.vlan50.id
   dst_address    = "10.10.20.110"
   dst_port       = "5432"
   enabled        = true
@@ -66,7 +66,7 @@ resource "unifi_firewall_rule" "web_to_garnet" {
   ruleset        = "LAN_IN"
   rule_index     = 2001
   protocol       = "tcp"
-  src_network_id = unifi_network.vlan10.id
+  src_network_id = unifi_network.vlan50.id
   dst_address    = "10.10.20.111"
   dst_port       = "6379"
   enabled        = true
@@ -78,7 +78,7 @@ resource "unifi_firewall_rule" "web_to_rabbitmq" {
   ruleset        = "LAN_IN"
   rule_index     = 2002
   protocol       = "tcp"
-  src_network_id = unifi_network.vlan10.id
+  src_network_id = unifi_network.vlan50.id
   dst_address    = "10.10.20.112"
   dst_port       = "5672"
   enabled        = true
@@ -113,7 +113,7 @@ resource "unifi_firewall_rule" "drop_web_to_data" {
   ruleset        = "LAN_IN"
   rule_index     = 2005
   protocol       = "all"
-  src_network_id = unifi_network.vlan10.id
+  src_network_id = unifi_network.vlan50.id
   dst_network_id = unifi_network.vlan20.id
   enabled        = true
 }
@@ -124,7 +124,7 @@ resource "unifi_firewall_rule" "drop_web_to_mgmt" {
   ruleset        = "LAN_IN"
   rule_index     = 2006
   protocol       = "all"
-  src_network_id = unifi_network.vlan10.id
+  src_network_id = unifi_network.vlan50.id
   dst_network_id = unifi_network.vlan30.id
   enabled        = true
 }
@@ -214,7 +214,7 @@ resource "unifi_firewall_rule" "drop_preview_to_web" {
   rule_index     = 2015
   protocol       = "all"
   src_network_id = unifi_network.vlan40.id
-  dst_network_id = unifi_network.vlan10.id
+  dst_network_id = unifi_network.vlan50.id
   enabled        = true
 }
 

@@ -3,10 +3,10 @@
 # document and the CLAUDE.md topology matrix when you change them.
 locals {
   lxcs = {
-    # VLAN 10 — Web / Ingress tier
-    blazor-web-01 = { vm_id = 101, node = var.proxmox_node_1, ip = "10.10.10.101/24", gateway = "10.10.10.1", vlan = 10, cores = 2, memory = 1024, disk = 8, tags = ["terraform", "vlan10", "web"] }
-    blazor-web-02 = { vm_id = 102, node = var.proxmox_node_2, ip = "10.10.10.102/24", gateway = "10.10.10.1", vlan = 10, cores = 2, memory = 1024, disk = 8, tags = ["terraform", "vlan10", "web"] }
-    cloudflared   = { vm_id = 105, node = var.proxmox_node_1, ip = "10.10.10.5/24", gateway = "10.10.10.1", vlan = 10, cores = 1, memory = 512, disk = 4, tags = ["terraform", "vlan10", "ingress"] }
+    # VLAN 50 — Web / Ingress tier
+    blazor-web-01 = { vm_id = 101, node = var.proxmox_node_1, ip = "10.10.50.101/24", gateway = "10.10.50.1", vlan = 50, cores = 2, memory = 1024, disk = 8, tags = ["terraform", "vlan50", "web"] }
+    blazor-web-02 = { vm_id = 102, node = var.proxmox_node_2, ip = "10.10.50.102/24", gateway = "10.10.50.1", vlan = 50, cores = 2, memory = 1024, disk = 8, tags = ["terraform", "vlan50", "web"] }
+    cloudflared   = { vm_id = 105, node = var.proxmox_node_1, ip = "10.10.50.5/24", gateway = "10.10.50.1", vlan = 50, cores = 1, memory = 512, disk = 4, tags = ["terraform", "vlan50", "ingress"] }
 
     # VLAN 20 — Backend / Data tier (pve4 Primary)
     postgresql = { vm_id = 110, node = var.proxmox_node_1, ip = "10.10.20.110/24", gateway = "10.10.20.1", vlan = 20, cores = 4, memory = 4096, disk = 40, tags = ["terraform", "vlan20", "data"] }

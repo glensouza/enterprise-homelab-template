@@ -33,7 +33,7 @@
 ---
 
 ## ADR 06: UniFi Network Segregation (VLANs)
-* **Decision:** Segregate the architecture into three isolated VLANs (10, 20, 30) managed by the UniFi gateway.
+* **Decision:** Segregate the architecture into three isolated VLANs (50, 20, 30) managed by the UniFi gateway.
 * **Rationale:** Prevents unauthorized lateral movement. 
 
 ---

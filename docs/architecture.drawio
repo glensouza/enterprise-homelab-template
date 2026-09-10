@@ -19,22 +19,22 @@
                 <mxCell id="localdev" value="Local Dev Machine&#xa;Aspire AppHost orchestrates Docker:&#xa;Postgres (pgvector) + Garnet + RabbitMQ&#xa;Aspire Dashboard (OTLP telemetry)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;dashed=1;" parent="1" vertex="1">
                     <mxGeometry x="60" y="520" width="340" height="90" as="geometry"/>
                 </mxCell>
-                <mxCell id="vlan10" value="VLAN 10 - Web / Ingress Tier (10.10.10.0/24)" style="swimlane;html=1;startSize=30;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;verticalAlign=top;" parent="1" vertex="1">
+                <mxCell id="vlan50" value="VLAN 50 - Web / Ingress Tier (10.10.50.0/24)" style="swimlane;html=1;startSize=30;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;verticalAlign=top;" parent="1" vertex="1">
                     <mxGeometry x="440" y="160" width="480" height="480" as="geometry"/>
                 </mxCell>
-                <mxCell id="cloudflared" value="Cloudflared Tunnel LXC&#xa;10.10.10.5 (Node 1)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;" parent="vlan10" vertex="1">
+                <mxCell id="cloudflared" value="Cloudflared Tunnel LXC&#xa;10.10.50.5 (Node 1)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;" parent="vlan50" vertex="1">
                     <mxGeometry x="40" y="50" width="180" height="60" as="geometry"/>
                 </mxCell>
-                <mxCell id="kemp" value="Kemp LoadMaster VIP 10.10.10.199&#xa;L7 LB | TLS termination (LE wildcard)&#xa;Sticky sessions | /health probes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontStyle=1" parent="vlan10" vertex="1">
+                <mxCell id="kemp" value="Kemp LoadMaster VIP 10.10.10.199 (existing LAN)&#xa;L7 LB | TLS termination (LE wildcard)&#xa;Sticky sessions | /health probes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontStyle=1" parent="vlan50" vertex="1">
                     <mxGeometry x="40" y="140" width="400" height="70" as="geometry"/>
                 </mxCell>
-                <mxCell id="web01" value="Blazor Web 01&#xa;10.10.10.101:5000 (Node 1)&#xa;.NET 10 systemd | HTTP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;" parent="vlan10" vertex="1">
+                <mxCell id="web01" value="Blazor Web 01&#xa;10.10.50.101:5000 (Node 1)&#xa;.NET 10 systemd | HTTP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;" parent="vlan50" vertex="1">
                     <mxGeometry x="40" y="250" width="190" height="70" as="geometry"/>
                 </mxCell>
-                <mxCell id="web02" value="Blazor Web 02&#xa;10.10.10.102:5000 (Node 2)&#xa;.NET 10 systemd | HTTP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;" parent="vlan10" vertex="1">
+                <mxCell id="web02" value="Blazor Web 02&#xa;10.10.50.102:5000 (Node 2)&#xa;.NET 10 systemd | HTTP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;" parent="vlan50" vertex="1">
                     <mxGeometry x="250" y="250" width="190" height="70" as="geometry"/>
                 </mxCell>
-                <mxCell id="synology" value="Synology NAS&#xa;10.10.10.90&#xa;NFS: vzdump backups | /mnt/synology/media (IBlobStore)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;" parent="vlan10" vertex="1">
+                <mxCell id="synology" value="Synology NAS (existing LAN)&#xa;10.10.10.90&#xa;NFS: vzdump backups | /mnt/synology/media (IBlobStore)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;" parent="vlan50" vertex="1">
                     <mxGeometry x="40" y="360" width="400" height="70" as="geometry"/>
                 </mxCell>
                 <mxCell id="vlan20" value="VLAN 20 - Backend / Data Tier (10.10.20.0/24)" style="swimlane;html=1;startSize=30;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;verticalAlign=top;" parent="1" vertex="1">
@@ -194,7 +194,7 @@
                 <mxCell id="e20" value="pgAdmin 5432 / RedisInsight 6379&#xa;(only VLAN 40 -> prod exceptions)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;exitX=1;exitY=0.5;" parent="1" source="previewhost" target="postgres" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="legend" value="Legend&#xa;Solid = request/data path&#xa;Dashed = ops/CI-CD/secrets/telemetry&#xa;UniFi firewall: VLAN 10 may only reach&#xa;5432 / 6379 / 5672 on VLAN 20; VLAN 20 &amp; 30&#xa;blocked from all but explicit allows&#xa;VLAN 40 (non-prod) isolated from prod tiers —&#xa;only DNS/ACME to VLAN 30 + 2 admin-tool ports&#xa;Cockpit :9090 on every LXC (step-ca certs)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;verticalAlign=top;spacingLeft=8;fontSize=11;" parent="1" vertex="1">
+                <mxCell id="legend" value="Legend&#xa;Solid = request/data path&#xa;Dashed = ops/CI-CD/secrets/telemetry&#xa;UniFi firewall: VLAN 50 may only reach&#xa;5432 / 6379 / 5672 on VLAN 20; VLAN 20 &amp; 30&#xa;blocked from all but explicit allows&#xa;VLAN 40 (non-prod) isolated from prod tiers —&#xa;only DNS/ACME to VLAN 30 + 2 admin-tool ports&#xa;Cockpit :9090 on every LXC (step-ca certs)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;verticalAlign=top;spacingLeft=8;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="60" y="650" width="340" height="160" as="geometry"/>
                 </mxCell>
             </root>

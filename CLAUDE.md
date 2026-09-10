@@ -76,14 +76,17 @@ No secrets in `appsettings.json` and no SDK in the app (ADR 12): the Infisical A
 
 Static IPs outside DHCP ranges (docs/05). Cluster nodes: **`pve4` (Node 1 - Primary: 8 vCPU / 16 GB RAM)** & **`pve3` (Node 2 - Secondary: 4 vCPU / 8 GB RAM)**. **Keep this matrix, `docs/04`, and `terraform/lxc.tf` in sync.**
 
-### VLAN 10 — Web / Ingress (`10.10.10.x`)
+### VLAN 50 — Web / Ingress (`10.10.50.x`)
 | Host | IP | Node Assignment |
 |------|----|-----------------|
 | Synology NAS | `10.10.10.90` | External Storage |
-| Cloudflared Tunnel LXC | `10.10.10.5` | `pve4` (Node 1 - Primary) |
+| Cloudflared Tunnel LXC | `10.10.50.5` | `pve4` (Node 1 - Primary) |
 | Kemp LoadMaster VIP (sticky sessions, LE wildcard terminated here) | `10.10.10.199` | Hardware / Appliance |
-| Blazor Web 01 (Primary Web App) | `10.10.10.101` | `pve4` (Node 1 - Primary) |
-| Blazor Web 02 (Secondary Web App) | `10.10.10.102` | `pve3` (Node 2 - Secondary) |
+| Blazor Web 01 (Primary Web App) | `10.10.50.101` | `pve4` (Node 1 - Primary) |
+| Blazor Web 02 (Secondary Web App) | `10.10.50.102` | `pve3` (Node 2 - Secondary) |
+
+Synology NAS and Kemp are pre-existing, non-Terraform-managed hardware and stay on the existing
+`10.10.10.0/24` LAN — only the Cloudflared/Web LXCs actually live on VLAN 50 (`10.10.50.x`).
 
 ### VLAN 20 — Backend / Data (`10.10.20.x`)
 | Host | IP | Node Assignment |
@@ -113,7 +116,7 @@ Static IPs outside DHCP ranges (docs/05). Cluster nodes: **`pve4` (Node 1 - Prim
 
 The whole lab is `terraform apply && ansible-playbook site.yml` — see `docs/08-infrastructure-as-code.md`:
 
-- **Terraform** (`terraform/`): `bpg/proxmox` for the 12 LXCs, `paultyng/unifi` for the VLAN 10/20/30/40 networks and the LAN IN firewall matrix. `lxc.tf` / `unifi.tf` are code mirrors of `docs/04` / `docs/05` — change all three together. Apply renders the Ansible inventory.
+- **Terraform** (`terraform/`): `bpg/proxmox` for the 12 LXCs, `paultyng/unifi` for the VLAN 50/20/30/40 networks and the LAN IN firewall matrix. `lxc.tf` / `unifi.tf` are code mirrors of `docs/04` / `docs/05` — change all three together. Apply renders the Ansible inventory.
 - **Ansible** (`ansible/`): converges the web nodes (dotnet-runtime, nfs-mounts, blazor-app), the Postgres node (nfs-mounts, pgBackRest + pg-dump-prune), the preview infrastructure (technitium DNS, step-ca PKI, resolver, docker + preview-host incl. the ops stack on VLAN 40), and fleet-wide Cockpit (`hosts: all`, runs last — needs the certs the step-ca play fetches). Units are copied verbatim from `src/systemd/` — edit them there and re-run the playbook.
 - **Kemp LoadMaster** remains GUI-managed (no supported Terraform provider).
 

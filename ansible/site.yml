@@ -2,7 +2,7 @@
 # Configuration management for the lab LXCs (docs/08).
 # Run after `terraform apply`:  ansible-playbook site.yml
 # Target a single tier:         ansible-playbook site.yml --limit web
-- name: Configure Blazor web nodes (VLAN 10)
+- name: Configure Blazor web nodes (VLAN 50)
   hosts: web
   roles:
     - dotnet-runtime
