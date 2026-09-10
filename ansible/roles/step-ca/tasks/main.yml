@@ -8,9 +8,14 @@
     url: "{{ item.url }}"
     dest: "{{ item.dest }}"
     mode: "0644"
+  # Asset filenames embedding the version (step-cli_X.Y.Z_amd64.deb) gained a
+  # package-revision suffix upstream (step-cli_X.Y.Z-1_amd64.deb) and 404'd -
+  # confirmed live. Each release tag also publishes an unversioned filename
+  # (step-cli_amd64.deb) at that same tagged URL, so the version pin (via the
+  # URL path) survives future revision-suffix churn.
   loop:
-    - { url: "https://github.com/smallstep/cli/releases/download/v{{ step_cli_version }}/step-cli_{{ step_cli_version }}_amd64.deb", dest: /tmp/step-cli.deb }
-    - { url: "https://github.com/smallstep/certificates/releases/download/v{{ step_ca_version }}/step-ca_{{ step_ca_version }}_amd64.deb", dest: /tmp/step-ca.deb }
+    - { url: "https://github.com/smallstep/cli/releases/download/v{{ step_cli_version }}/step-cli_amd64.deb", dest: /tmp/step-cli.deb }
+    - { url: "https://github.com/smallstep/certificates/releases/download/v{{ step_ca_version }}/step-ca_amd64.deb", dest: /tmp/step-ca.deb }
 
 - name: Install step-cli and step-ca
   ansible.builtin.apt:
