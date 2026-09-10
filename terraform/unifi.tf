@@ -76,8 +76,8 @@ resource "unifi_network" "vlan140" {
 #    rejected outright by the controller's API on this version, hence the
 #    resnickio/unifi provider and unifi_firewall_policy resource instead of
 #    paultyng/unifi's unifi_firewall_rule. All four VLANs stay in the default
-#    "Internal" zone (no custom unifi_firewall_zone needed) — policies are
-#    scoped by network_id/ip, same granularity as the old rules.
+#    "Internal" zone (no custom unifi_firewall_zone needed) — policies below
+#    are scoped by IP/CIDR rather than network_id (see note further down).
 #
 #    Every policy requires an explicit zone_id on BOTH source and destination
 #    — confirmed live: the controller rejects "zoneId must not be null" even
@@ -89,14 +89,21 @@ resource "unifi_network" "vlan140" {
 #    port (data_to_nas_nfs, step_ca_to_preview below).
 #
 #    matching_target must ALSO be set explicitly on every source/destination
-#    block ("NETWORK" when network_id is set, "IP" when ips is set, "ANY"
-#    when neither is set) — confirmed live: once zone_id was added everywhere
-#    above, every block that relied on the provider's matching_target
-#    auto-derivation (from network_id/ips) instead started failing with
-#    "Empty firewall policy source/destination network ids", i.e. the
-#    controller silently treated matching_target as ANY and dropped the
-#    network_id, even though network_id was set in config. Setting
-#    matching_target explicitly bypasses that auto-derivation path entirely.
+#    block ("IP" when ips is set, "ANY" when neither is set) — confirmed live:
+#    once zone_id was added everywhere above, every block that relied on the
+#    provider's matching_target auto-derivation instead started failing with
+#    "Empty firewall policy source/destination network ids".
+#
+#    network_id (matching_target = "NETWORK") is avoided ENTIRELY below —
+#    confirmed live: every single policy using network_id fails with that
+#    same "empty network ids" error no matter what, even with matching_target
+#    set explicitly, even with a real, valid network_id value (verified via
+#    `terraform state show` and the provider's own schema/OpenAPI spec — this
+#    is a genuine bug in resnickio/unifi v0.10.2's handling of network_id, not
+#    a config mistake on our side). Instead, every VLAN-based source/
+#    destination below matches on that VLAN's subnet CIDR via `ips` — a code
+#    path that works correctly — which is functionally identical for a
+#    single-VLAN-per-subnet layout like this one.
 #
 #    IMPORTANT — evaluation order is no longer a settable `rule_index`; it's
 #    a controller-assigned, read-only `index`. The `depends_on` below on each
@@ -109,8 +116,12 @@ resource "unifi_network" "vlan140" {
 #    it in production.
 # -----------------------------------------------------------------------------
 locals {
-  synology_nas = "10.10.10.90"
-  internal_zone_id = data.unifi_firewall_zone.internal.id
+  synology_nas      = "10.10.10.90"
+  internal_zone_id  = data.unifi_firewall_zone.internal.id
+  vlan110_cidr      = "10.10.110.0/24"
+  vlan120_cidr      = "10.10.120.0/24"
+  vlan130_cidr      = "10.10.130.0/24"
+  vlan140_cidr      = "10.10.140.0/24"
 }
 
 data "unifi_firewall_zone" "internal" {
@@ -123,8 +134,8 @@ resource "unifi_firewall_policy" "web_to_postgres" {
   protocol = "tcp"
   source = {
     zone_id         = local.internal_zone_id
-    network_id      = unifi_network.vlan110.id
-    matching_target = "NETWORK"
+    ips             = [local.vlan110_cidr]
+    matching_target = "IP"
   }
   destination = {
     zone_id         = local.internal_zone_id
@@ -141,8 +152,8 @@ resource "unifi_firewall_policy" "web_to_garnet" {
   protocol = "tcp"
   source = {
     zone_id         = local.internal_zone_id
-    network_id      = unifi_network.vlan110.id
-    matching_target = "NETWORK"
+    ips             = [local.vlan110_cidr]
+    matching_target = "IP"
   }
   destination = {
     zone_id         = local.internal_zone_id
@@ -159,8 +170,8 @@ resource "unifi_firewall_policy" "web_to_rabbitmq" {
   protocol = "tcp"
   source = {
     zone_id         = local.internal_zone_id
-    network_id      = unifi_network.vlan110.id
-    matching_target = "NETWORK"
+    ips             = [local.vlan110_cidr]
+    matching_target = "IP"
   }
   destination = {
     zone_id         = local.internal_zone_id
@@ -177,8 +188,8 @@ resource "unifi_firewall_policy" "mgmt_to_nas" {
   protocol = "all"
   source = {
     zone_id         = local.internal_zone_id
-    network_id      = unifi_network.vlan130.id
-    matching_target = "NETWORK"
+    ips             = [local.vlan130_cidr]
+    matching_target = "IP"
   }
   destination = {
     zone_id         = local.internal_zone_id
@@ -269,8 +280,8 @@ resource "unifi_firewall_policy" "data_to_nas_nfs_portmapper" {
   protocol = "tcp_udp"
   source = {
     zone_id         = local.internal_zone_id
-    network_id      = unifi_network.vlan120.id
-    matching_target = "NETWORK"
+    ips             = [local.vlan120_cidr]
+    matching_target = "IP"
   }
   destination = {
     zone_id         = local.internal_zone_id
@@ -287,8 +298,8 @@ resource "unifi_firewall_policy" "data_to_nas_nfs" {
   protocol = "tcp_udp"
   source = {
     zone_id         = local.internal_zone_id
-    network_id      = unifi_network.vlan120.id
-    matching_target = "NETWORK"
+    ips             = [local.vlan120_cidr]
+    matching_target = "IP"
   }
   destination = {
     zone_id         = local.internal_zone_id
@@ -305,13 +316,13 @@ resource "unifi_firewall_policy" "drop_web_to_data" {
   protocol = "all"
   source = {
     zone_id         = local.internal_zone_id
-    network_id      = unifi_network.vlan110.id
-    matching_target = "NETWORK"
+    ips             = [local.vlan110_cidr]
+    matching_target = "IP"
   }
   destination = {
     zone_id         = local.internal_zone_id
-    network_id      = unifi_network.vlan120.id
-    matching_target = "NETWORK"
+    ips             = [local.vlan120_cidr]
+    matching_target = "IP"
   }
   enabled = true
   # Must be evaluated after the specific allows above, or they'd never match.
@@ -328,13 +339,13 @@ resource "unifi_firewall_policy" "drop_web_to_mgmt" {
   protocol = "all"
   source = {
     zone_id         = local.internal_zone_id
-    network_id      = unifi_network.vlan110.id
-    matching_target = "NETWORK"
+    ips             = [local.vlan110_cidr]
+    matching_target = "IP"
   }
   destination = {
     zone_id         = local.internal_zone_id
-    network_id      = unifi_network.vlan130.id
-    matching_target = "NETWORK"
+    ips             = [local.vlan130_cidr]
+    matching_target = "IP"
   }
   enabled = true
 }
@@ -345,8 +356,8 @@ resource "unifi_firewall_policy" "mgmt_to_any" {
   protocol = "all"
   source = {
     zone_id         = local.internal_zone_id
-    network_id      = unifi_network.vlan130.id
-    matching_target = "NETWORK"
+    ips             = [local.vlan130_cidr]
+    matching_target = "IP"
   }
   destination = {
     zone_id         = local.internal_zone_id
@@ -365,8 +376,8 @@ resource "unifi_firewall_policy" "preview_to_dns" {
   protocol = "tcp_udp"
   source = {
     zone_id         = local.internal_zone_id
-    network_id      = unifi_network.vlan140.id
-    matching_target = "NETWORK"
+    ips             = [local.vlan140_cidr]
+    matching_target = "IP"
   }
   destination = {
     zone_id         = local.internal_zone_id
@@ -383,8 +394,8 @@ resource "unifi_firewall_policy" "preview_to_step_ca" {
   protocol = "tcp"
   source = {
     zone_id         = local.internal_zone_id
-    network_id      = unifi_network.vlan140.id
-    matching_target = "NETWORK"
+    ips             = [local.vlan140_cidr]
+    matching_target = "IP"
   }
   destination = {
     zone_id         = local.internal_zone_id
@@ -408,9 +419,9 @@ resource "unifi_firewall_policy" "step_ca_to_preview_http" {
   }
   destination = {
     zone_id         = local.internal_zone_id
-    network_id      = unifi_network.vlan140.id
+    ips             = [local.vlan140_cidr]
     port            = "80"
-    matching_target = "NETWORK"
+    matching_target = "IP"
   }
   enabled = true
 }
@@ -427,9 +438,9 @@ resource "unifi_firewall_policy" "step_ca_to_preview" {
   }
   destination = {
     zone_id         = local.internal_zone_id
-    network_id      = unifi_network.vlan140.id
+    ips             = [local.vlan140_cidr]
     port            = "443"
-    matching_target = "NETWORK"
+    matching_target = "IP"
   }
   enabled = true
 }
@@ -479,13 +490,13 @@ resource "unifi_firewall_policy" "drop_preview_to_web" {
   protocol = "all"
   source = {
     zone_id         = local.internal_zone_id
-    network_id      = unifi_network.vlan140.id
-    matching_target = "NETWORK"
+    ips             = [local.vlan140_cidr]
+    matching_target = "IP"
   }
   destination = {
     zone_id         = local.internal_zone_id
-    network_id      = unifi_network.vlan110.id
-    matching_target = "NETWORK"
+    ips             = [local.vlan110_cidr]
+    matching_target = "IP"
   }
   enabled = true
 }
@@ -496,13 +507,13 @@ resource "unifi_firewall_policy" "drop_preview_to_data" {
   protocol = "all"
   source = {
     zone_id         = local.internal_zone_id
-    network_id      = unifi_network.vlan140.id
-    matching_target = "NETWORK"
+    ips             = [local.vlan140_cidr]
+    matching_target = "IP"
   }
   destination = {
     zone_id         = local.internal_zone_id
-    network_id      = unifi_network.vlan120.id
-    matching_target = "NETWORK"
+    ips             = [local.vlan120_cidr]
+    matching_target = "IP"
   }
   enabled = true
   depends_on = [
@@ -517,13 +528,13 @@ resource "unifi_firewall_policy" "drop_preview_to_mgmt" {
   protocol = "all"
   source = {
     zone_id         = local.internal_zone_id
-    network_id      = unifi_network.vlan140.id
-    matching_target = "NETWORK"
+    ips             = [local.vlan140_cidr]
+    matching_target = "IP"
   }
   destination = {
     zone_id         = local.internal_zone_id
-    network_id      = unifi_network.vlan130.id
-    matching_target = "NETWORK"
+    ips             = [local.vlan130_cidr]
+    matching_target = "IP"
   }
   enabled = true
   depends_on = [
