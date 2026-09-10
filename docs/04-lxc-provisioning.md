@@ -66,8 +66,10 @@ The `postgresql.sh` community script creates its **own** new LXC when run from t
 Host Shell — it has no "install into an existing container" mode, so it can't be used against
 the `postgresql` LXC Terraform already provisions (`10.10.120.110`, `terraform/lxc.tf`). No
 Ansible role installs PostgreSQL either (`ansible/roles/postgres` only configures pgBackRest
-and the pg_dump-prune timer, assuming PostgreSQL is already running). Install it by hand, once,
-after `terraform apply` has created the LXC and before the first EF Core migration bundle run
+and the pg_dump-prune timer, assuming PostgreSQL is already running — confirmed live: that role
+fails outright, `/etc/postgresql/16/main/conf.d does not exist`, if PostgreSQL isn't installed
+first). Install it by hand, once, after `terraform apply` has created the LXC and **before**
+`ansible-playbook site.yml` (`LAB-RUNBOOK.md` §1) and the first EF Core migration bundle run
 (`deploy-blazor.yml`, ADR 11):
 
 ```bash
@@ -76,8 +78,10 @@ apt update && apt install -y postgresql postgresql-contrib
 
 # App role + database — nothing generates this password for you; pick one now
 # (openssl rand -base64 24 works well) and record it, it's shown nowhere again.
-sudo -u postgres psql -c "CREATE ROLE brewhouse WITH LOGIN PASSWORD '<generated-password>';"
-sudo -u postgres psql -c "CREATE DATABASE brewhouse_db OWNER brewhouse;"
+# `su postgres -c`, not `sudo -u postgres` — this minimal Debian image has no sudo installed
+# (confirmed live: `sudo: command not found`), and you're already root over SSH anyway.
+su postgres -c "psql -c \"CREATE ROLE brewhouse WITH LOGIN PASSWORD '<generated-password>';\""
+su postgres -c "psql -c \"CREATE DATABASE brewhouse_db OWNER brewhouse;\""
 ```
 
 The resulting connection string (`Host=10.10.120.110;Port=5432;Database=brewhouse_db;Username=brewhouse;Password=<generated-password>`)
