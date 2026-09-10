@@ -88,6 +88,16 @@ resource "unifi_network" "vlan140" {
 #    so a rule needing multiple discrete ports is split into one policy per
 #    port (data_to_nas_nfs, step_ca_to_preview below).
 #
+#    matching_target must ALSO be set explicitly on every source/destination
+#    block ("NETWORK" when network_id is set, "IP" when ips is set, "ANY"
+#    when neither is set) — confirmed live: once zone_id was added everywhere
+#    above, every block that relied on the provider's matching_target
+#    auto-derivation (from network_id/ips) instead started failing with
+#    "Empty firewall policy source/destination network ids", i.e. the
+#    controller silently treated matching_target as ANY and dropped the
+#    network_id, even though network_id was set in config. Setting
+#    matching_target explicitly bypasses that auto-derivation path entirely.
+#
 #    IMPORTANT — evaluation order is no longer a settable `rule_index`; it's
 #    a controller-assigned, read-only `index`. The `depends_on` below on each
 #    catch-all BLOCK policy forces Terraform to create the specific ALLOW
@@ -112,13 +122,15 @@ resource "unifi_firewall_policy" "web_to_postgres" {
   action   = "ALLOW"
   protocol = "tcp"
   source = {
-    zone_id    = local.internal_zone_id
-    network_id = unifi_network.vlan110.id
+    zone_id         = local.internal_zone_id
+    network_id      = unifi_network.vlan110.id
+    matching_target = "NETWORK"
   }
   destination = {
-    zone_id = local.internal_zone_id
-    ips     = ["10.10.120.110"]
-    port    = "5432"
+    zone_id         = local.internal_zone_id
+    ips             = ["10.10.120.110"]
+    port            = "5432"
+    matching_target = "IP"
   }
   enabled = true
 }
@@ -128,13 +140,15 @@ resource "unifi_firewall_policy" "web_to_garnet" {
   action   = "ALLOW"
   protocol = "tcp"
   source = {
-    zone_id    = local.internal_zone_id
-    network_id = unifi_network.vlan110.id
+    zone_id         = local.internal_zone_id
+    network_id      = unifi_network.vlan110.id
+    matching_target = "NETWORK"
   }
   destination = {
-    zone_id = local.internal_zone_id
-    ips     = ["10.10.120.111"]
-    port    = "6379"
+    zone_id         = local.internal_zone_id
+    ips             = ["10.10.120.111"]
+    port            = "6379"
+    matching_target = "IP"
   }
   enabled = true
 }
@@ -144,13 +158,15 @@ resource "unifi_firewall_policy" "web_to_rabbitmq" {
   action   = "ALLOW"
   protocol = "tcp"
   source = {
-    zone_id    = local.internal_zone_id
-    network_id = unifi_network.vlan110.id
+    zone_id         = local.internal_zone_id
+    network_id      = unifi_network.vlan110.id
+    matching_target = "NETWORK"
   }
   destination = {
-    zone_id = local.internal_zone_id
-    ips     = ["10.10.120.112"]
-    port    = "5672"
+    zone_id         = local.internal_zone_id
+    ips             = ["10.10.120.112"]
+    port            = "5672"
+    matching_target = "IP"
   }
   enabled = true
 }
@@ -160,12 +176,14 @@ resource "unifi_firewall_policy" "mgmt_to_nas" {
   action   = "ALLOW"
   protocol = "all"
   source = {
-    zone_id    = local.internal_zone_id
-    network_id = unifi_network.vlan130.id
+    zone_id         = local.internal_zone_id
+    network_id      = unifi_network.vlan130.id
+    matching_target = "NETWORK"
   }
   destination = {
-    zone_id = local.internal_zone_id
-    ips     = [local.synology_nas]
+    zone_id         = local.internal_zone_id
+    ips             = [local.synology_nas]
+    matching_target = "IP"
   }
   enabled = true
 }
@@ -181,12 +199,14 @@ resource "unifi_firewall_policy" "pve1_to_nas" {
   action   = "ALLOW"
   protocol = "all"
   source = {
-    zone_id = local.internal_zone_id
-    ips     = ["10.10.10.101"]
+    zone_id         = local.internal_zone_id
+    ips             = ["10.10.10.101"]
+    matching_target = "IP"
   }
   destination = {
-    zone_id = local.internal_zone_id
-    ips     = [local.synology_nas]
+    zone_id         = local.internal_zone_id
+    ips             = [local.synology_nas]
+    matching_target = "IP"
   }
   enabled = true
 }
@@ -196,12 +216,14 @@ resource "unifi_firewall_policy" "pve2_to_nas" {
   action   = "ALLOW"
   protocol = "all"
   source = {
-    zone_id = local.internal_zone_id
-    ips     = ["10.10.10.102"]
+    zone_id         = local.internal_zone_id
+    ips             = ["10.10.10.102"]
+    matching_target = "IP"
   }
   destination = {
-    zone_id = local.internal_zone_id
-    ips     = [local.synology_nas]
+    zone_id         = local.internal_zone_id
+    ips             = [local.synology_nas]
+    matching_target = "IP"
   }
   enabled = true
 }
@@ -211,12 +233,14 @@ resource "unifi_firewall_policy" "pve3_to_nas" {
   action   = "ALLOW"
   protocol = "all"
   source = {
-    zone_id = local.internal_zone_id
-    ips     = ["10.10.10.103"]
+    zone_id         = local.internal_zone_id
+    ips             = ["10.10.10.103"]
+    matching_target = "IP"
   }
   destination = {
-    zone_id = local.internal_zone_id
-    ips     = [local.synology_nas]
+    zone_id         = local.internal_zone_id
+    ips             = [local.synology_nas]
+    matching_target = "IP"
   }
   enabled = true
 }
@@ -226,12 +250,14 @@ resource "unifi_firewall_policy" "pve4_to_nas" {
   action   = "ALLOW"
   protocol = "all"
   source = {
-    zone_id = local.internal_zone_id
-    ips     = ["10.10.10.104"]
+    zone_id         = local.internal_zone_id
+    ips             = ["10.10.10.104"]
+    matching_target = "IP"
   }
   destination = {
-    zone_id = local.internal_zone_id
-    ips     = [local.synology_nas]
+    zone_id         = local.internal_zone_id
+    ips             = [local.synology_nas]
+    matching_target = "IP"
   }
   enabled = true
 }
@@ -242,13 +268,15 @@ resource "unifi_firewall_policy" "data_to_nas_nfs_portmapper" {
   action   = "ALLOW"
   protocol = "tcp_udp"
   source = {
-    zone_id    = local.internal_zone_id
-    network_id = unifi_network.vlan120.id
+    zone_id         = local.internal_zone_id
+    network_id      = unifi_network.vlan120.id
+    matching_target = "NETWORK"
   }
   destination = {
-    zone_id = local.internal_zone_id
-    ips     = [local.synology_nas]
-    port    = "111"
+    zone_id         = local.internal_zone_id
+    ips             = [local.synology_nas]
+    port            = "111"
+    matching_target = "IP"
   }
   enabled = true
 }
@@ -258,13 +286,15 @@ resource "unifi_firewall_policy" "data_to_nas_nfs" {
   action   = "ALLOW"
   protocol = "tcp_udp"
   source = {
-    zone_id    = local.internal_zone_id
-    network_id = unifi_network.vlan120.id
+    zone_id         = local.internal_zone_id
+    network_id      = unifi_network.vlan120.id
+    matching_target = "NETWORK"
   }
   destination = {
-    zone_id = local.internal_zone_id
-    ips     = [local.synology_nas]
-    port    = "2049"
+    zone_id         = local.internal_zone_id
+    ips             = [local.synology_nas]
+    port            = "2049"
+    matching_target = "IP"
   }
   enabled = true
 }
@@ -274,12 +304,14 @@ resource "unifi_firewall_policy" "drop_web_to_data" {
   action   = "BLOCK"
   protocol = "all"
   source = {
-    zone_id    = local.internal_zone_id
-    network_id = unifi_network.vlan110.id
+    zone_id         = local.internal_zone_id
+    network_id      = unifi_network.vlan110.id
+    matching_target = "NETWORK"
   }
   destination = {
-    zone_id    = local.internal_zone_id
-    network_id = unifi_network.vlan120.id
+    zone_id         = local.internal_zone_id
+    network_id      = unifi_network.vlan120.id
+    matching_target = "NETWORK"
   }
   enabled = true
   # Must be evaluated after the specific allows above, or they'd never match.
@@ -295,12 +327,14 @@ resource "unifi_firewall_policy" "drop_web_to_mgmt" {
   action   = "BLOCK"
   protocol = "all"
   source = {
-    zone_id    = local.internal_zone_id
-    network_id = unifi_network.vlan110.id
+    zone_id         = local.internal_zone_id
+    network_id      = unifi_network.vlan110.id
+    matching_target = "NETWORK"
   }
   destination = {
-    zone_id    = local.internal_zone_id
-    network_id = unifi_network.vlan130.id
+    zone_id         = local.internal_zone_id
+    network_id      = unifi_network.vlan130.id
+    matching_target = "NETWORK"
   }
   enabled = true
 }
@@ -310,11 +344,13 @@ resource "unifi_firewall_policy" "mgmt_to_any" {
   action   = "ALLOW"
   protocol = "all"
   source = {
-    zone_id    = local.internal_zone_id
-    network_id = unifi_network.vlan130.id
+    zone_id         = local.internal_zone_id
+    network_id      = unifi_network.vlan130.id
+    matching_target = "NETWORK"
   }
   destination = {
-    zone_id = local.internal_zone_id
+    zone_id         = local.internal_zone_id
+    matching_target = "ANY"
   }
   enabled = true
 }
@@ -328,13 +364,15 @@ resource "unifi_firewall_policy" "preview_to_dns" {
   action   = "ALLOW"
   protocol = "tcp_udp"
   source = {
-    zone_id    = local.internal_zone_id
-    network_id = unifi_network.vlan140.id
+    zone_id         = local.internal_zone_id
+    network_id      = unifi_network.vlan140.id
+    matching_target = "NETWORK"
   }
   destination = {
-    zone_id = local.internal_zone_id
-    ips     = ["10.10.130.119"]
-    port    = "53"
+    zone_id         = local.internal_zone_id
+    ips             = ["10.10.130.119"]
+    port            = "53"
+    matching_target = "IP"
   }
   enabled = true
 }
@@ -344,13 +382,15 @@ resource "unifi_firewall_policy" "preview_to_step_ca" {
   action   = "ALLOW"
   protocol = "tcp"
   source = {
-    zone_id    = local.internal_zone_id
-    network_id = unifi_network.vlan140.id
+    zone_id         = local.internal_zone_id
+    network_id      = unifi_network.vlan140.id
+    matching_target = "NETWORK"
   }
   destination = {
-    zone_id = local.internal_zone_id
-    ips     = ["10.10.130.121"]
-    port    = "4443"
+    zone_id         = local.internal_zone_id
+    ips             = ["10.10.130.121"]
+    port            = "4443"
+    matching_target = "IP"
   }
   enabled = true
 }
@@ -362,13 +402,15 @@ resource "unifi_firewall_policy" "step_ca_to_preview_http" {
   action   = "ALLOW"
   protocol = "tcp"
   source = {
-    zone_id = local.internal_zone_id
-    ips     = ["10.10.130.121"]
+    zone_id         = local.internal_zone_id
+    ips             = ["10.10.130.121"]
+    matching_target = "IP"
   }
   destination = {
-    zone_id    = local.internal_zone_id
-    network_id = unifi_network.vlan140.id
-    port       = "80"
+    zone_id         = local.internal_zone_id
+    network_id      = unifi_network.vlan140.id
+    port            = "80"
+    matching_target = "NETWORK"
   }
   enabled = true
 }
@@ -379,13 +421,15 @@ resource "unifi_firewall_policy" "step_ca_to_preview" {
   action   = "ALLOW"
   protocol = "tcp"
   source = {
-    zone_id = local.internal_zone_id
-    ips     = ["10.10.130.121"]
+    zone_id         = local.internal_zone_id
+    ips             = ["10.10.130.121"]
+    matching_target = "IP"
   }
   destination = {
-    zone_id    = local.internal_zone_id
-    network_id = unifi_network.vlan140.id
-    port       = "443"
+    zone_id         = local.internal_zone_id
+    network_id      = unifi_network.vlan140.id
+    port            = "443"
+    matching_target = "NETWORK"
   }
   enabled = true
 }
@@ -398,13 +442,15 @@ resource "unifi_firewall_policy" "preview_to_postgres" {
   action   = "ALLOW"
   protocol = "tcp"
   source = {
-    zone_id = local.internal_zone_id
-    ips     = ["10.10.140.120"]
+    zone_id         = local.internal_zone_id
+    ips             = ["10.10.140.120"]
+    matching_target = "IP"
   }
   destination = {
-    zone_id = local.internal_zone_id
-    ips     = ["10.10.120.110"]
-    port    = "5432"
+    zone_id         = local.internal_zone_id
+    ips             = ["10.10.120.110"]
+    port            = "5432"
+    matching_target = "IP"
   }
   enabled = true
 }
@@ -414,13 +460,15 @@ resource "unifi_firewall_policy" "preview_to_garnet" {
   action   = "ALLOW"
   protocol = "tcp"
   source = {
-    zone_id = local.internal_zone_id
-    ips     = ["10.10.140.120"]
+    zone_id         = local.internal_zone_id
+    ips             = ["10.10.140.120"]
+    matching_target = "IP"
   }
   destination = {
-    zone_id = local.internal_zone_id
-    ips     = ["10.10.120.111"]
-    port    = "6379"
+    zone_id         = local.internal_zone_id
+    ips             = ["10.10.120.111"]
+    port            = "6379"
+    matching_target = "IP"
   }
   enabled = true
 }
@@ -430,12 +478,14 @@ resource "unifi_firewall_policy" "drop_preview_to_web" {
   action   = "BLOCK"
   protocol = "all"
   source = {
-    zone_id    = local.internal_zone_id
-    network_id = unifi_network.vlan140.id
+    zone_id         = local.internal_zone_id
+    network_id      = unifi_network.vlan140.id
+    matching_target = "NETWORK"
   }
   destination = {
-    zone_id    = local.internal_zone_id
-    network_id = unifi_network.vlan110.id
+    zone_id         = local.internal_zone_id
+    network_id      = unifi_network.vlan110.id
+    matching_target = "NETWORK"
   }
   enabled = true
 }
@@ -445,12 +495,14 @@ resource "unifi_firewall_policy" "drop_preview_to_data" {
   action   = "BLOCK"
   protocol = "all"
   source = {
-    zone_id    = local.internal_zone_id
-    network_id = unifi_network.vlan140.id
+    zone_id         = local.internal_zone_id
+    network_id      = unifi_network.vlan140.id
+    matching_target = "NETWORK"
   }
   destination = {
-    zone_id    = local.internal_zone_id
-    network_id = unifi_network.vlan120.id
+    zone_id         = local.internal_zone_id
+    network_id      = unifi_network.vlan120.id
+    matching_target = "NETWORK"
   }
   enabled = true
   depends_on = [
@@ -464,12 +516,14 @@ resource "unifi_firewall_policy" "drop_preview_to_mgmt" {
   action   = "BLOCK"
   protocol = "all"
   source = {
-    zone_id    = local.internal_zone_id
-    network_id = unifi_network.vlan140.id
+    zone_id         = local.internal_zone_id
+    network_id      = unifi_network.vlan140.id
+    matching_target = "NETWORK"
   }
   destination = {
-    zone_id    = local.internal_zone_id
-    network_id = unifi_network.vlan130.id
+    zone_id         = local.internal_zone_id
+    network_id      = unifi_network.vlan130.id
+    matching_target = "NETWORK"
   }
   enabled = true
   depends_on = [
