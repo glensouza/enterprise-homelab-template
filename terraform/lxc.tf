@@ -10,20 +10,17 @@ locals {
     # why pve1 itself uses VMID 100.
 
     # VLAN 110 — Web / Ingress tier
-    # blazor-web-01/02 bind-mount the NAS media share from the Proxmox HOST
-    # (see mount_point below) rather than mounting NFS in-guest - confirmed
-    # live that unprivileged LXCs cannot mount NFS at all, feature flag or
-    # not. pve3/pve4 each mount 10.10.10.90:/volume1/homelab-media at
-    # /mnt/homelab-media (host-level /etc/fstab, not Terraform-managed).
-    blazor-web-01 = { vm_id = 401, node = var.proxmox_node_1, ip = "10.10.110.101/24", gateway = "10.10.110.1", vlan = 110, cores = 2, memory = 1024, disk = 8, tags = ["terraform", "vlan110", "web"], mount_point = { volume = "/mnt/homelab-media", path = "/mnt/synology/media" } }
-    blazor-web-02 = { vm_id = 302, node = var.proxmox_node_2, ip = "10.10.110.102/24", gateway = "10.10.110.1", vlan = 110, cores = 2, memory = 1024, disk = 8, tags = ["terraform", "vlan110", "web"], mount_point = { volume = "/mnt/homelab-media", path = "/mnt/synology/media" } }
+    # blazor-web-01/02 have no NFS mount_point yet (reverted) - a raw "bind"
+    # mount_point is ALSO root@pam-only for API-token auth (confirmed live,
+    # same as privileged containers and non-nesting features). Needs a
+    # decision on Terraform's Proxmox credentials before re-adding.
+    blazor-web-01 = { vm_id = 401, node = var.proxmox_node_1, ip = "10.10.110.101/24", gateway = "10.10.110.1", vlan = 110, cores = 2, memory = 1024, disk = 8, tags = ["terraform", "vlan110", "web"] }
+    blazor-web-02 = { vm_id = 302, node = var.proxmox_node_2, ip = "10.10.110.102/24", gateway = "10.10.110.1", vlan = 110, cores = 2, memory = 1024, disk = 8, tags = ["terraform", "vlan110", "web"] }
     cloudflared   = { vm_id = 405, node = var.proxmox_node_1, ip = "10.10.110.5/24", gateway = "10.10.110.1", vlan = 110, cores = 1, memory = 512, disk = 4, tags = ["terraform", "vlan110", "ingress"] }
 
     # VLAN 120 — Backend / Data tier (pve4 Primary)
-    # postgresql bind-mounts the NAS postgres-data share the same way - pve4
-    # mounts 10.10.10.90:/volume1/homelab-postgres-data at
-    # /mnt/homelab-postgres-data (host-level, not Terraform-managed).
-    postgresql = { vm_id = 410, node = var.proxmox_node_1, ip = "10.10.120.110/24", gateway = "10.10.120.1", vlan = 120, cores = 4, memory = 4096, disk = 40, tags = ["terraform", "vlan120", "data"], mount_point = { volume = "/mnt/homelab-postgres-data", path = "/mnt/synology/postgres-data" } }
+    # postgresql: same revert, same reason - see note above.
+    postgresql = { vm_id = 410, node = var.proxmox_node_1, ip = "10.10.120.110/24", gateway = "10.10.120.1", vlan = 120, cores = 4, memory = 4096, disk = 40, tags = ["terraform", "vlan120", "data"] }
     garnet     = { vm_id = 411, node = var.proxmox_node_1, ip = "10.10.120.111/24", gateway = "10.10.120.1", vlan = 120, cores = 2, memory = 2048, disk = 8, tags = ["terraform", "vlan120", "data"] }
     rabbitmq   = { vm_id = 412, node = var.proxmox_node_1, ip = "10.10.120.112/24", gateway = "10.10.120.1", vlan = 120, cores = 1, memory = 1024, disk = 8, tags = ["terraform", "vlan120", "data"] }
 
@@ -106,9 +103,11 @@ resource "proxmox_virtual_environment_container" "lxc" {
     # Also confirmed live: setting ANY features attribute other than
     # `nesting` is rejected outright for Proxmox API-token auth, at both
     # create and update time, root@pam-only, regardless of the token's
-    # assigned role/permissions - a hardcoded Proxmox restriction. NFS
-    # access for web/postgres is solved via host-side NFS mount + a
-    # `mount_point` bind-mount instead, which needs neither.
+    # assigned role/permissions - a hardcoded Proxmox restriction. The
+    # host-mount + mount_point bind-mount approach considered for
+    # web/postgres NFS access hits this SAME root@pam wall for the
+    # mount_point itself ("mount point type bind is only allowed for
+    # root@pam") - see the note on blazor-web-01/postgresql above.
   }
 
   lifecycle {
