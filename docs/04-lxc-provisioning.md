@@ -44,6 +44,11 @@ just the two below, so the NAS's NFS export must allow all four node IPs.
 
 *Note: The Observability LXC hosts Grafana Alloy (OTLP receiver) + Loki + Grafana (see `docs/07-observability.md`). The Technitium DNS, step-ca, and PR Preview LXCs implement ephemeral PR environments — see `docs/11-pr-preview-environments.md` (ADR 19/20). The PR Preview LXC runs Docker (non-prod exception to ADR 02) and is firewalled off from all production tiers (VLAN 140, `docs/05`).*
 
+**Synology NFS export permissions (manual, one-time, per share):** the UniFi firewall policies (`docs/05`) only control network reachability — the NAS's own per-share NFS client allow-list (DSM: **Control Panel -> Shared Folder -> [folder] -> Edit -> NFS Permissions**) is a separate access-control layer and defaults to no access. Confirmed live: `ansible-playbook site.yml` fails every host in the `web` and `postgres` groups with `mount.nfs: Operation not permitted` until a rule is added. Required rules:
+- `homelab-media` — allow `10.10.110.0/24` (mounted by the `web` group, VLAN 110).
+- `homelab-postgres-data` — allow `10.10.120.0/24` (mounted by the `postgres` group, VLAN 120).
+- `homelab-proxmox-backups` — allow all four Proxmox node IPs individually (`docs/02` section 1) — already covers `10.10.10.101`-`.104`, unrelated to the two rules above.
+
 ---
 
 ## 2. Automated Provisioning Commands
