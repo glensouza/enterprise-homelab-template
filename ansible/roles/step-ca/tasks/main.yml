@@ -82,6 +82,22 @@
     --password-file /root/.step-ca-password
   changed_when: false
 
+- name: Restart step-ca to pick up the provisioner duration change
+  # Confirmed live: step-ca loads ca.json once at startup and doesn't
+  # hot-reload provisioner changes - without this, certificate issuance
+  # below fails with "requested duration ... is more than the authorized
+  # maximum certificate duration of 24h1m0s" (step ca init's default),
+  # even though the update above reports success.
+  ansible.builtin.systemd:
+    name: step-ca
+    state: restarted
+
+- name: Wait for step-ca to accept connections after the restart
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host }}"
+    port: "{{ step_ca_port }}"
+    timeout: 30
+
 - name: Create the Cockpit certificate directory on the CA
   ansible.builtin.file:
     path: /root/cockpit-certs
