@@ -10,16 +10,12 @@ locals {
     # why pve1 itself uses VMID 100.
 
     # VLAN 110 — Web / Ingress tier
-    # blazor-web-01/02 are privileged (see note on the resource below) - they
-    # mount the NAS media share via in-guest NFS, which unprivileged LXCs
-    # cannot do at all regardless of the mount feature flag (confirmed live).
-    blazor-web-01 = { vm_id = 401, node = var.proxmox_node_1, ip = "10.10.110.101/24", gateway = "10.10.110.1", vlan = 110, cores = 2, memory = 1024, disk = 8, tags = ["terraform", "vlan110", "web"], privileged = true }
-    blazor-web-02 = { vm_id = 302, node = var.proxmox_node_2, ip = "10.10.110.102/24", gateway = "10.10.110.1", vlan = 110, cores = 2, memory = 1024, disk = 8, tags = ["terraform", "vlan110", "web"], privileged = true }
+    blazor-web-01 = { vm_id = 401, node = var.proxmox_node_1, ip = "10.10.110.101/24", gateway = "10.10.110.1", vlan = 110, cores = 2, memory = 1024, disk = 8, tags = ["terraform", "vlan110", "web"] }
+    blazor-web-02 = { vm_id = 302, node = var.proxmox_node_2, ip = "10.10.110.102/24", gateway = "10.10.110.1", vlan = 110, cores = 2, memory = 1024, disk = 8, tags = ["terraform", "vlan110", "web"] }
     cloudflared   = { vm_id = 405, node = var.proxmox_node_1, ip = "10.10.110.5/24", gateway = "10.10.110.1", vlan = 110, cores = 1, memory = 512, disk = 4, tags = ["terraform", "vlan110", "ingress"] }
 
     # VLAN 120 — Backend / Data tier (pve4 Primary)
-    # postgresql is privileged for the same in-guest NFS mount reason above.
-    postgresql = { vm_id = 410, node = var.proxmox_node_1, ip = "10.10.120.110/24", gateway = "10.10.120.1", vlan = 120, cores = 4, memory = 4096, disk = 40, tags = ["terraform", "vlan120", "data"], privileged = true }
+    postgresql = { vm_id = 410, node = var.proxmox_node_1, ip = "10.10.120.110/24", gateway = "10.10.120.1", vlan = 120, cores = 4, memory = 4096, disk = 40, tags = ["terraform", "vlan120", "data"] }
     garnet     = { vm_id = 411, node = var.proxmox_node_1, ip = "10.10.120.111/24", gateway = "10.10.120.1", vlan = 120, cores = 2, memory = 2048, disk = 8, tags = ["terraform", "vlan120", "data"] }
     rabbitmq   = { vm_id = 412, node = var.proxmox_node_1, ip = "10.10.120.112/24", gateway = "10.10.120.1", vlan = 120, cores = 1, memory = 1024, disk = 8, tags = ["terraform", "vlan120", "data"] }
 
@@ -43,15 +39,7 @@ resource "proxmox_virtual_environment_container" "lxc" {
   vm_id       = each.value.vm_id
   description = "Managed by Terraform (terraform/lxc.tf) — do not edit in the GUI."
   tags        = each.value.tags
-  # Unprivileged by default (least privilege). A handful of LXCs opt into
-  # privileged = true above because they mount NFS shares in-guest -
-  # confirmed live: unprivileged LXCs cannot mount NFS at all, even with
-  # features.mount = ["nfs"] set (that flag alone is insufficient - a known,
-  # documented Proxmox/kernel limitation, not a config mistake). The
-  # alternative (host-side NFS mount + Terraform mount_point bind-mount,
-  # keeping every container unprivileged) was considered and explicitly
-  # not chosen for this lab.
-  unprivileged  = !try(each.value.privileged, false)
+  unprivileged  = true
   started       = true
   start_on_boot = true
 
