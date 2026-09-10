@@ -27,6 +27,10 @@ all:
       hosts:
         ${observability_host.name}:
           ansible_host: ${observability_host.ip}
+    uptime-kuma:
+      hosts:
+        ${uptime_kuma_host.name}:
+          ansible_host: ${uptime_kuma_host.ip}
     infra:
       hosts:
 %{ for host in infra_hosts ~}

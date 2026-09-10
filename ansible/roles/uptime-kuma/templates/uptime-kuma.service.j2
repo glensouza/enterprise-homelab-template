@@ -1,0 +1,15 @@
+# Managed by Ansible (roles/uptime-kuma) — manual edits will be overwritten.
+[Unit]
+Description=Uptime Kuma
+After=network.target
+
+[Service]
+Type=simple
+User=uptime-kuma
+Group=uptime-kuma
+WorkingDirectory=/opt/uptime-kuma
+ExecStart=/usr/bin/node server/server.js
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

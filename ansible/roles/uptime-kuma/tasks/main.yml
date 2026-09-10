@@ -1,0 +1,86 @@
+---
+# STUB (DEMO-AUDIT.md R7 sibling gap — "Add observability and uptime-kuma
+# Ansible roles"). Native install (ADR 02 — no Docker in production):
+# Node.js LTS from NodeSource, Uptime Kuma from its upstream git repo, run
+# under a systemd unit — no pm2, to match every other role's pattern in this
+# repo. Configuring actual monitors is on-camera content for whichever
+# episode covers it; this just gets a real status page running.
+
+- name: Install apt prerequisites
+  ansible.builtin.apt:
+    name: [ca-certificates, curl, git, gnupg]
+    update_cache: true
+    state: present
+
+- name: Create apt keyring directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Download the NodeSource apt GPG key
+  ansible.builtin.get_url:
+    url: https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key
+    dest: /tmp/nodesource-repo.gpg.key
+    mode: "0644"
+
+- name: Dearmor the NodeSource apt GPG key
+  ansible.builtin.command: gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg /tmp/nodesource-repo.gpg.key
+  args:
+    creates: /etc/apt/keyrings/nodesource.gpg
+
+- name: Add the NodeSource apt repository (Node.js {{ nodejs_major_version }}.x)
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_{{ nodejs_major_version }}.x nodistro main"
+    state: present
+
+- name: Install Node.js
+  ansible.builtin.apt:
+    name: nodejs
+    update_cache: true
+    state: present
+
+- name: Create uptime-kuma system user
+  ansible.builtin.user:
+    name: uptime-kuma
+    system: true
+    shell: /usr/sbin/nologin
+    home: /opt/uptime-kuma
+    create_home: false
+
+- name: Clone Uptime Kuma
+  ansible.builtin.git:
+    repo: https://github.com/louislam/uptime-kuma.git
+    dest: /opt/uptime-kuma
+    version: "{{ uptime_kuma_version }}"
+  register: uptime_kuma_clone
+
+- name: Run Uptime Kuma setup (npm install + frontend build)
+  ansible.builtin.command: npm run setup
+  args:
+    chdir: /opt/uptime-kuma
+  when: uptime_kuma_clone.changed
+
+- name: Own the install directory
+  ansible.builtin.file:
+    path: /opt/uptime-kuma
+    owner: uptime-kuma
+    group: uptime-kuma
+    recurse: true
+
+- name: Install the systemd unit
+  ansible.builtin.template:
+    src: uptime-kuma.service.j2
+    dest: /etc/systemd/system/uptime-kuma.service
+    mode: "0644"
+  notify: [systemd daemon-reload, restart uptime-kuma]
+
+- name: Flush handlers so the unit is loaded before enabling
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start Uptime Kuma
+  ansible.builtin.systemd:
+    name: uptime-kuma
+    enabled: true
+    state: started
+    daemon_reload: true

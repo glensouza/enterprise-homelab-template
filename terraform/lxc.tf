@@ -19,6 +19,7 @@ locals {
     observability  = { vm_id = 118, node = var.proxmox_node_2, ip = "10.10.30.118/24", gateway = "10.10.30.1", vlan = 30, cores = 2, memory = 2048, disk = 32, tags = ["terraform", "vlan30", "mgmt"] }
     technitium-dns = { vm_id = 119, node = var.proxmox_node_2, ip = "10.10.30.119/24", gateway = "10.10.30.1", vlan = 30, cores = 1, memory = 512, disk = 8, tags = ["terraform", "vlan30", "mgmt", "dns"] }
     step-ca        = { vm_id = 121, node = var.proxmox_node_2, ip = "10.10.30.121/24", gateway = "10.10.30.1", vlan = 30, cores = 1, memory = 512, disk = 8, tags = ["terraform", "vlan30", "mgmt", "pki"] }
+    patchmon       = { vm_id = 122, node = var.proxmox_node_2, ip = "10.10.30.122/24", gateway = "10.10.30.1", vlan = 30, cores = 1, memory = 1024, disk = 8, tags = ["terraform", "vlan30", "mgmt"] }
 
     # VLAN 40 — Non-Prod Single Docker Host tier (pve4 Primary)
     pr-preview = { vm_id = 120, node = var.proxmox_node_1, ip = "10.10.40.120/24", gateway = "10.10.40.1", vlan = 40, cores = 2, memory = 4096, disk = 60, tags = ["terraform", "vlan40", "preview"] }

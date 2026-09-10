@@ -1,0 +1,4 @@
+---
+# Uptime Kuma LXC — stub install (DEMO-AUDIT.md R7 sibling gap, roles/uptime-kuma).
+nodejs_major_version: "20"
+uptime_kuma_version: "2.5.3"

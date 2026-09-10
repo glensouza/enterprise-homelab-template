@@ -40,6 +40,13 @@
   roles:
     - observability
 
+# Stub install (DEMO-AUDIT.md R7 sibling gap) — a real status page, no
+# monitors configured yet.
+- name: Configure Uptime Kuma (VLAN 30)
+  hosts: uptime-kuma
+  roles:
+    - uptime-kuma
+
 # Runs LAST: the step-ca play above generates and fetches the per-host
 # certificates this role installs.
 - name: Fleet-wide Cockpit with internal-CA certificates (ADR 21)

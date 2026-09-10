@@ -102,6 +102,7 @@ Static IPs outside DHCP ranges (docs/05). Cluster nodes: **`pve4` (Node 1 - Prim
 | Grafana Loki / Observability | `10.10.30.118` | `pve3` (Node 2 - Secondary) |
 | Technitium DNS (wildcard `*.pr.roadrunner.internal`) | `10.10.30.119` | `pve3` (Node 2 - Secondary) |
 | step-ca internal PKI (ACME, port 4443) | `10.10.30.121` | `pve3` (Node 2 - Secondary) |
+| PatchMon (OS patch tracking — LXC reserved, no role yet) | `10.10.30.122` | `pve3` (Node 2 - Secondary) |
 
 ### VLAN 40 — Non-Prod / Preview (`10.10.40.x`)
 | Host | IP | Node Assignment |

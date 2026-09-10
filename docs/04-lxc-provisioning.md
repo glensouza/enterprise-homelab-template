@@ -27,6 +27,7 @@ This guide details the exact steps and resource allocations needed to provision 
 | **Grafana Loki / Observability** | VLAN 30 (`10.10.30.118`) | **`pve3`** (Node 2) | 2 | 2048 MB | *None* | Utility telemetry receiver (Alloy + Loki + Grafana) |
 | **Technitium DNS** | VLAN 30 (`10.10.30.119`) | **`pve3`** (Node 2) | 1 | 512 MB  | *None* | Local DNS server (`roadrunner.internal`) |
 | **step-ca (internal PKI)** | VLAN 30 (`10.10.30.121`) | **`pve3`** (Node 2) | 1 | 512 MB  | *None* | Utility internal Certificate Authority |
+| **PatchMon** | VLAN 30 (`10.10.30.122`) | **`pve3`** (Node 2) | 1 | 1024 MB | *None* | Fleet-wide OS package/patch tracking — LXC reserved only, no role yet |
 | **PR Preview (non-prod)** | VLAN 40 (`10.10.40.120`) | **`pve4`** (Node 1) | 2 | 4096 MB | *None* | Single non-prod Docker host (per-PR compose stacks + ops UIs) |
 
 *Note: The Observability LXC hosts Grafana Alloy (OTLP receiver) + Loki + Grafana (see `docs/07-observability.md`). The Technitium DNS, step-ca, and PR Preview LXCs implement ephemeral PR environments — see `docs/11-pr-preview-environments.md` (ADR 19/20). The PR Preview LXC runs Docker (non-prod exception to ADR 02) and is firewalled off from all production tiers (VLAN 40, `docs/05`).*
