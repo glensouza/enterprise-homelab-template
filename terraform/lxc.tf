@@ -84,14 +84,15 @@ resource "proxmox_virtual_environment_container" "lxc" {
 
   features {
     nesting = true
-    # Unprivileged LXCs otherwise reject in-container NFS mounts outright -
-    # confirmed live: mount.nfs failed with "Operation not permitted" on
-    # every protocol/port combination (v3, v4, noresvport) despite a correct,
-    # verified-reachable NAS export permission, because the container itself
-    # blocks the mount(2) syscall for NFS without this feature flag. Applied
-    # fleet-wide (not just web/postgres, the two that use nfs-mounts today)
-    # since it's harmless for LXCs that never mount anything.
-    mount = ["nfs"]
+    # No `mount = ["nfs"]` here (tried and reverted): confirmed live that
+    # in-guest NFS mounting inside unprivileged LXCs doesn't work at all,
+    # feature flag or not (kernel/namespace limitation, not a config gap).
+    # Also confirmed live: setting ANY features attribute other than
+    # `nesting` is rejected outright for Proxmox API-token auth, at both
+    # create and update time, root@pam-only, regardless of the token's
+    # assigned role/permissions - a hardcoded Proxmox restriction. NFS
+    # access for web/postgres is solved via host-side NFS mount + a
+    # `mount_point` bind-mount instead, which needs neither.
   }
 
   lifecycle {
