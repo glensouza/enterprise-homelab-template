@@ -44,9 +44,13 @@ just the two below, so the NAS's NFS export must allow all four node IPs.
 
 *Note: The Observability LXC hosts Grafana Alloy (OTLP receiver) + Loki + Grafana (see `docs/07-observability.md`). The Technitium DNS, step-ca, and PR Preview LXCs implement ephemeral PR environments — see `docs/11-pr-preview-environments.md` (ADR 19/20). The PR Preview LXC runs Docker (non-prod exception to ADR 02) and is firewalled off from all production tiers (VLAN 140, `docs/05`).*
 
-**Synology NFS export permissions (manual, one-time, per share):** the UniFi firewall policies (`docs/05`) only control network reachability — the NAS's own per-share NFS client allow-list (DSM: **Control Panel -> Shared Folder -> [folder] -> Edit -> NFS Permissions**) is a separate access-control layer and defaults to no access. Confirmed live: `ansible-playbook site.yml` fails every host in the `web` and `postgres` groups with `mount.nfs: Operation not permitted` until a rule is added. Required rules:
-- `homelab-media` — allow `10.10.110.0/24` (mounted by the `web` group, VLAN 110).
-- `homelab-postgres-data` — allow `10.10.120.0/24` (mounted by the `postgres` group, VLAN 120).
+**NFS mounts are host-side bind-mounts, not in-guest NFS mounts.** Confirmed live: unprivileged LXCs cannot mount NFS in-guest at all — the Proxmox `features.mount` flag alone is documented as insufficient, a kernel/namespace limitation, not a config gap (and separately, setting any `features` attribute other than `nesting` is rejected outright for Proxmox API-token auth, root@pam-only, regardless of the token's role — also confirmed live). Instead:
+1. Each Proxmox node that hosts an LXC needing NAS data mounts the export itself, via that node's own `/etc/fstab` (not Terraform-managed): `pve4` mounts both `10.10.10.90:/volume1/homelab-media` at `/mnt/homelab-media` and `10.10.10.90:/volume1/homelab-postgres-data` at `/mnt/homelab-postgres-data`; `pve3` mounts `homelab-media` the same way (for `blazor-web-02`).
+2. `terraform/lxc.tf` bind-mounts that host path into the container via a `mount_point` block (`volume` = host path, `path` = in-container path — same paths as before, `/mnt/synology/media` and `/mnt/synology/postgres-data`, so nothing downstream — pgBackRest, `pg-dump-prune.sh`'s `mountpoint -q` check, the app's file storage config — needed to change).
+
+**Synology NFS export permissions (manual, one-time, per share):** the UniFi firewall policies (`docs/05`) only control network reachability — the NAS's own per-share NFS client allow-list (DSM: **Control Panel -> Shared Folder -> [folder] -> Edit -> NFS Permissions**) is a separate access-control layer and defaults to no access. Because the mount now happens on the Proxmox host, not the guest, the required rule is the **host's** IP, not the guest's VLAN:
+- `homelab-media` — allow `10.10.10.104` (pve4) and `10.10.10.103` (pve3).
+- `homelab-postgres-data` — allow `10.10.10.104` (pve4) only.
 - `homelab-proxmox-backups` — allow all four Proxmox node IPs individually (`docs/02` section 1) — already covers `10.10.10.101`-`.104`, unrelated to the two rules above.
 
 ---

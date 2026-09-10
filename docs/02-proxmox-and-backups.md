@@ -25,7 +25,7 @@ pct restore <NEW_LXC_ID> /mnt/pve/synology-backups/dump/vzdump-lxc-<OLD_ID>-<DAT
 ```
 
 ## 4. Database-Level Backups (Postgres LXC)
-VZDump snapshots are whole-container and coarse. The PostgreSQL LXC additionally maintains database-native backups on the `/volume1/homelab-postgres-data` NFS export (mounted at `/mnt/synology/postgres-data`, installed by the Ansible `nfs-mounts` role):
+VZDump snapshots are whole-container and coarse. The PostgreSQL LXC additionally maintains database-native backups on the `/volume1/homelab-postgres-data` NFS export, mounted at `/mnt/synology/postgres-data` — a `terraform/lxc.tf` `mount_point` bind-mount from the Proxmox host's own NFS mount, not an in-guest NFS mount (`docs/04`'s NFS mount note):
 
 - **Pre-migration `pg_dump` files** in `backups/`, pruned daily by `pg-dump-prune.timer` (30-day retention, `docs/10` section 3).
 - **pgBackRest repo** in `pgbackrest/` — continuous WAL archive + full/differential backups for point-in-time recovery (`docs/10` section 4, ADR 18). No separate DSM share is needed; it lives on the same `postgres-data` export.

@@ -1,8 +1,9 @@
 ---
-# PostgreSQL LXC (10.10.120.110).
-nfs_mounts:
-  - path: /mnt/synology/postgres-data
-    src: "{{ nas_server }}:/volume1/homelab-postgres-data"
+# PostgreSQL LXC (10.10.120.110). /mnt/synology/postgres-data is a
+# terraform/lxc.tf mount_point bind-mount from the Proxmox host, not an
+# in-guest NFS mount - unprivileged LXCs can't mount NFS themselves. The host
+# (pve4) mounts 10.10.10.90:/volume1/homelab-postgres-data at
+# /mnt/homelab-postgres-data via its own /etc/fstab (docs/04).
 
 # pgBackRest PITR (docs/10 section 4). The repo lives on the NAS mount so WAL
 # archives and backups survive loss of the LXC itself.

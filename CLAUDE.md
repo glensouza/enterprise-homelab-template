@@ -130,7 +130,7 @@ Synology NAS and Kemp are pre-existing, non-Terraform-managed hardware and stay 
 The whole lab is `terraform apply && ansible-playbook site.yml` — see `docs/08-infrastructure-as-code.md`:
 
 - **Terraform** (`terraform/`): `bpg/proxmox` for the 12 LXCs, `resnickio/unifi` for the VLAN 110/120/130/140 networks and the zone-based firewall policy matrix (not `paultyng/unifi` — its legacy `LAN_IN`/`rule_index` model is rejected by UniFi Network 8.x+, ADR 17). `lxc.tf` / `unifi.tf` are code mirrors of `docs/04` / `docs/05` — change all three together. Apply renders the Ansible inventory.
-- **Ansible** (`ansible/`): converges the web nodes (dotnet-runtime, nfs-mounts, blazor-app), the Postgres node (nfs-mounts, pgBackRest + pg-dump-prune), the preview infrastructure (technitium DNS, step-ca PKI, resolver, docker + preview-host incl. the ops stack on VLAN 140), and fleet-wide Cockpit (`hosts: all`, runs last — needs the certs the step-ca play fetches). Units are copied verbatim from `src/systemd/` — edit them there and re-run the playbook.
+- **Ansible** (`ansible/`): converges the web nodes (dotnet-runtime, blazor-app), the Postgres node (pgBackRest + pg-dump-prune), the preview infrastructure (technitium DNS, step-ca PKI, resolver, docker + preview-host incl. the ops stack on VLAN 140), and fleet-wide Cockpit (`hosts: all`, runs last — needs the certs the step-ca play fetches). Units are copied verbatim from `src/systemd/` — edit them there and re-run the playbook.
 - **Kemp LoadMaster** remains GUI-managed (no supported Terraform provider).
 
 ## CI/CD & deployments

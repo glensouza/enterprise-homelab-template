@@ -6,13 +6,11 @@
   hosts: web
   roles:
     - dotnet-runtime
-    - nfs-mounts
     - blazor-app
 
 - name: Configure PostgreSQL node (VLAN 120)
   hosts: postgres
   roles:
-    - nfs-mounts
     - postgres
 
 - name: Configure Technitium DNS (VLAN 130, ADR 20)
