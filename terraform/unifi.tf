@@ -4,40 +4,70 @@
 # -----------------------------------------------------------------------------
 # 1. Virtual networks (DHCP disabled — all LXCs use static IPs per docs/05)
 # -----------------------------------------------------------------------------
+# dhcp_boot_enabled/dhcp_gateway_enabled/dhcp_guarding_enabled/dhcp_ntp_enabled/
+# dhcp_relay_enabled/dhcp_time_offset_enabled are set explicitly (matching what
+# the controller actually returns) because leaving them unset triggers
+# "Provider produced inconsistent result after apply" - the provider treats
+# them as Optional+Computed but returns a concrete `false` instead of null,
+# which Terraform's consistency check rejects when the plan left them null.
 resource "unifi_network" "vlan110" {
-  name          = "Web-Ingress"
-  purpose       = "corporate"
-  subnet        = "10.10.110.1/24"
-  vlan_id       = 110
-  dhcp_enabled  = false
-  network_group = "LAN"
+  name                     = "Web-Ingress"
+  purpose                  = "corporate"
+  subnet                   = "10.10.110.1/24"
+  vlan_id                  = 110
+  dhcp_enabled             = false
+  network_group            = "LAN"
+  dhcp_boot_enabled        = false
+  dhcp_gateway_enabled     = false
+  dhcp_guarding_enabled    = false
+  dhcp_ntp_enabled         = false
+  dhcp_relay_enabled       = false
+  dhcp_time_offset_enabled = false
 }
 
 resource "unifi_network" "vlan120" {
-  name          = "Backend-Data"
-  purpose       = "corporate"
-  subnet        = "10.10.120.1/24"
-  vlan_id       = 120
-  dhcp_enabled  = false
-  network_group = "LAN"
+  name                     = "Backend-Data"
+  purpose                  = "corporate"
+  subnet                   = "10.10.120.1/24"
+  vlan_id                  = 120
+  dhcp_enabled             = false
+  network_group            = "LAN"
+  dhcp_boot_enabled        = false
+  dhcp_gateway_enabled     = false
+  dhcp_guarding_enabled    = false
+  dhcp_ntp_enabled         = false
+  dhcp_relay_enabled       = false
+  dhcp_time_offset_enabled = false
 }
 
 resource "unifi_network" "vlan130" {
-  name          = "Management"
-  purpose       = "corporate"
-  subnet        = "10.10.130.1/24"
-  vlan_id       = 130
-  dhcp_enabled  = false
-  network_group = "LAN"
+  name                     = "Management"
+  purpose                  = "corporate"
+  subnet                   = "10.10.130.1/24"
+  vlan_id                  = 130
+  dhcp_enabled             = false
+  network_group            = "LAN"
+  dhcp_boot_enabled        = false
+  dhcp_gateway_enabled     = false
+  dhcp_guarding_enabled    = false
+  dhcp_ntp_enabled         = false
+  dhcp_relay_enabled       = false
+  dhcp_time_offset_enabled = false
 }
 
 resource "unifi_network" "vlan140" {
-  name          = "NonProd-Preview"
-  purpose       = "corporate"
-  subnet        = "10.10.140.1/24"
-  vlan_id       = 140
-  dhcp_enabled  = false
-  network_group = "LAN"
+  name                     = "NonProd-Preview"
+  purpose                  = "corporate"
+  subnet                   = "10.10.140.1/24"
+  vlan_id                  = 140
+  dhcp_enabled             = false
+  network_group            = "LAN"
+  dhcp_boot_enabled        = false
+  dhcp_gateway_enabled     = false
+  dhcp_guarding_enabled    = false
+  dhcp_ntp_enabled         = false
+  dhcp_relay_enabled       = false
+  dhcp_time_offset_enabled = false
 }
 
 # -----------------------------------------------------------------------------
@@ -61,6 +91,16 @@ resource "unifi_network" "vlan140" {
 # -----------------------------------------------------------------------------
 locals {
   synology_nas = "10.10.10.90"
+}
+
+# The controller can infer a policy's zone when at least one side references a
+# network_id, but when BOTH source and destination are bare IPs (no network_id
+# anywhere in the rule), it has no way to infer the zone and rejects the policy
+# with "zoneId must not be null" — confirmed live. Those rules need this
+# explicit lookup of the built-in "Internal" zone every one of our VLANs
+# belongs to (we never created custom zones).
+data "unifi_firewall_zone" "internal" {
+  name = "Internal"
 }
 
 resource "unifi_firewall_policy" "web_to_postgres" {
@@ -129,10 +169,12 @@ resource "unifi_firewall_policy" "pve1_to_nas" {
   action   = "ALLOW"
   protocol = "all"
   source = {
-    ips = ["10.10.10.101"]
+    zone_id = data.unifi_firewall_zone.internal.id
+    ips     = ["10.10.10.101"]
   }
   destination = {
-    ips = [local.synology_nas]
+    zone_id = data.unifi_firewall_zone.internal.id
+    ips     = [local.synology_nas]
   }
   enabled = true
 }
@@ -142,10 +184,12 @@ resource "unifi_firewall_policy" "pve2_to_nas" {
   action   = "ALLOW"
   protocol = "all"
   source = {
-    ips = ["10.10.10.102"]
+    zone_id = data.unifi_firewall_zone.internal.id
+    ips     = ["10.10.10.102"]
   }
   destination = {
-    ips = [local.synology_nas]
+    zone_id = data.unifi_firewall_zone.internal.id
+    ips     = [local.synology_nas]
   }
   enabled = true
 }
@@ -155,10 +199,12 @@ resource "unifi_firewall_policy" "pve3_to_nas" {
   action   = "ALLOW"
   protocol = "all"
   source = {
-    ips = ["10.10.10.103"]
+    zone_id = data.unifi_firewall_zone.internal.id
+    ips     = ["10.10.10.103"]
   }
   destination = {
-    ips = [local.synology_nas]
+    zone_id = data.unifi_firewall_zone.internal.id
+    ips     = [local.synology_nas]
   }
   enabled = true
 }
@@ -168,10 +214,12 @@ resource "unifi_firewall_policy" "pve4_to_nas" {
   action   = "ALLOW"
   protocol = "all"
   source = {
-    ips = ["10.10.10.104"]
+    zone_id = data.unifi_firewall_zone.internal.id
+    ips     = ["10.10.10.104"]
   }
   destination = {
-    ips = [local.synology_nas]
+    zone_id = data.unifi_firewall_zone.internal.id
+    ips     = [local.synology_nas]
   }
   enabled = true
 }
@@ -287,11 +335,13 @@ resource "unifi_firewall_policy" "preview_to_postgres" {
   action   = "ALLOW"
   protocol = "tcp"
   source = {
-    ips = ["10.10.140.120"]
+    zone_id = data.unifi_firewall_zone.internal.id
+    ips     = ["10.10.140.120"]
   }
   destination = {
-    ips  = ["10.10.120.110"]
-    port = "5432"
+    zone_id = data.unifi_firewall_zone.internal.id
+    ips     = ["10.10.120.110"]
+    port    = "5432"
   }
   enabled = true
 }
@@ -301,11 +351,13 @@ resource "unifi_firewall_policy" "preview_to_garnet" {
   action   = "ALLOW"
   protocol = "tcp"
   source = {
-    ips = ["10.10.140.120"]
+    zone_id = data.unifi_firewall_zone.internal.id
+    ips     = ["10.10.140.120"]
   }
   destination = {
-    ips  = ["10.10.120.111"]
-    port = "6379"
+    zone_id = data.unifi_firewall_zone.internal.id
+    ips     = ["10.10.120.111"]
+    port    = "6379"
   }
   enabled = true
 }
