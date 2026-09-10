@@ -10,6 +10,11 @@
 pgbackrest_stanza: brewhouse
 pgbackrest_repo_path: /mnt/synology/postgres-data/pgbackrest
 pgbackrest_repo_mount: /mnt/synology/postgres-data
-postgres_version: "16"
+# Debian 12 (bookworm)'s default apt repo installs PostgreSQL 15, not 16 -
+# confirmed live via `psql --version` after `apt install postgresql` per
+# docs/04 §2's install command, which doesn't pin a version or add the PGDG
+# repo. Must match whatever actually gets installed, or postgres_data_dir/
+# postgres_conf_dir below point at a directory that doesn't exist.
+postgres_version: "15"
 postgres_data_dir: "/var/lib/postgresql/{{ postgres_version }}/main"
 postgres_conf_dir: "/etc/postgresql/{{ postgres_version }}/main"
