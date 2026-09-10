@@ -9,11 +9,11 @@ To achieve high availability, zero-downtime rolling deployments, and stable WebS
 ```text
 [ Internet ] 
      │
-[ Cloudflare Tunnel LXC: 10.10.50.5 ]
+[ Cloudflare Tunnel LXC: 10.10.110.5 ]
      │  (Routes to Kemp VIP)
 [ Kemp Virtual Service VIP: 10.10.10.199 ] (Sticky Sessions Enabled)
-     ├───> Real Server 1: Blazor LXC 01 (10.10.50.101:5000)
-     └───> Real Server 2: Blazor LXC 02 (10.10.50.102:5000)
+     ├───> Real Server 1: Blazor LXC 01 (10.10.110.101:5000)
+     └───> Real Server 2: Blazor LXC 02 (10.10.110.102:5000)
 ```
 
 ---
@@ -23,7 +23,7 @@ To achieve high availability, zero-downtime rolling deployments, and stable WebS
 1. Log into the Kemp LoadMaster Web Console.
 2. Navigate to **Virtual Services** -> **Add New**.
 3. Configure the Virtual Service:
-   * **IP Address:** `10.10.10.199` (existing LAN — Kemp is a GUI-managed appliance, not part of the Terraform-managed VLAN 50).
+   * **IP Address:** `10.10.10.199` (existing LAN — Kemp is a GUI-managed appliance, not part of the Terraform-managed VLAN 110).
    * **Port:** `80` (or `443` if terminating SSL at Kemp).
    * **Service Name:** `Blazor-App-VIP`.
    * Click **Add this Virtual Service**.
@@ -47,8 +47,8 @@ Blazor Server holds circuit state in memory. You **must** enable session persist
    * **Interval:** `5` seconds
    * **Timeout:** `2` seconds
 5. Add Real Servers:
-   * Add IP `10.10.50.101` (Port `5000`)
-   * Add IP `10.10.50.102` (Port `5000`)
+   * Add IP `10.10.110.101` (Port `5000`)
+   * Add IP `10.10.110.102` (Port `5000`)
 
 ---
 
@@ -58,7 +58,7 @@ In your `cloudflared` configuration, point the public hostname ingress rule dire
 
 ```yaml
 ingress:
-  - hostname: app.yourdomain.com
+  - hostname: homelab.smartsoftwarecoffee.com
     service: http://10.10.10.199:80
   - service: http_status:404
 ```

@@ -1,0 +1,73 @@
+name: Terraform Apply
+
+# ADR 22: applies the EXACT plan artifact a human already reviewed on a PR
+# via terraform-plan.yml's comment — never a plan regenerated at apply time.
+# Manual trigger + `production` environment approval is the human gate,
+# same pattern as rollback.yml. Runs on the devops LXC's self-hosted
+# runner (pve1), then converges the result with ansible-playbook site.yml —
+# "terraform apply && ansible-playbook site.yml" as one gated pipeline.
+
+on:
+  workflow_dispatch:
+    inputs:
+      plan_run_id:
+        description: 'Run ID of the Terraform Plan job whose PR comment you reviewed and approved'
+        required: true
+        type: string
+
+concurrency:
+  group: terraform-state
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+defaults:
+  run:
+    working-directory: terraform
+
+env:
+  # Only variables with NO default in variables.tf — see terraform-plan.yml
+  # for why the ones with safe defaults are deliberately left unset here.
+  TF_VAR_proxmox_api_url: ${{ vars.PROXMOX_API_URL }}
+  TF_VAR_proxmox_api_token: ${{ secrets.PROXMOX_API_TOKEN }}
+  TF_VAR_unifi_username: ${{ vars.UNIFI_USERNAME }}
+  TF_VAR_unifi_password: ${{ secrets.UNIFI_PASSWORD }}
+  TF_VAR_debian_template_id: ${{ vars.DEBIAN_TEMPLATE_ID }}
+  TF_VAR_ssh_public_key: ${{ vars.SSH_PUBLIC_KEY }}
+  TF_PLUGIN_CACHE_DIR: /opt/terraform-plugin-cache
+
+jobs:
+  apply:
+    runs-on: self-hosted
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Default `git clean` would also wipe ansible/credentials/ (the
+          # generated step_ca/pgAdmin passwords, LAB-RUNBOOK's "generate
+          # once, reuse forever" secrets) on every single run — this is a
+          # persistent self-hosted runner, not an ephemeral one.
+          clean: false
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Download the reviewed plan
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan
+          path: terraform
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ inputs.plan_run_id }}
+
+      - name: Terraform Apply (exact reviewed plan — no re-plan)
+        # Also writes ../ansible/inventory/terraform-hosts.yml as a side
+        # effect (the local_file.ansible_inventory resource in outputs.tf).
+        run: terraform apply -input=false tfplan
+
+      - name: Ansible converge
+        working-directory: ansible
+        run: ansible-playbook site.yml

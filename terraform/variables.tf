@@ -2,7 +2,7 @@
 # Proxmox connection
 # -----------------------------------------------------------------------------
 variable "proxmox_api_url" {
-  description = "Proxmox VE API endpoint, e.g. https://10.10.30.10:8006/"
+  description = "Proxmox VE API endpoint — point at the cluster master (pve1), e.g. https://10.10.10.101:8006/. The Proxmox API is cluster-aware, so this doesn't need to match proxmox_node_1/proxmox_node_2."
   type        = string
 }
 
@@ -54,21 +54,21 @@ variable "unifi_site" {
 # LXC shared settings
 # -----------------------------------------------------------------------------
 variable "proxmox_node_1" {
-  description = "Name of Proxmox node 1 (Primary: pve4 — 8 vCPU / 16 GB RAM — 10.10.30.10)"
+  description = "Name of Proxmox node 1 (Primary: pve4 — 8 vCPU / 16 GB RAM — 10.10.10.104). Distinct from the cluster master pve1, which never hosts an LXC."
   type        = string
   default     = "pve4"
 }
 
 variable "proxmox_node_2" {
-  description = "Name of Proxmox node 2 (Secondary: pve3 — 4 vCPU / 8 GB RAM — 10.10.30.11)"
+  description = "Name of Proxmox node 2 (Secondary: pve3 — 4 vCPU / 8 GB RAM — 10.10.10.103). Distinct from the cluster master pve1, which never hosts an LXC."
   type        = string
   default     = "pve3"
 }
 
 variable "lxc_datastore" {
-  description = "Proxmox datastore for LXC root disks (local NVMe/SSD per ADR 02)"
+  description = "Proxmox datastore for LXC root disks (local NVMe/SSD per ADR 02). Confirmed as plain 'local' (not 'local-lvm') on pve1 — verify pve3/pve4 match via `pvesm status` before the first real terraform apply, and override in tfvars/repo variables if either differs."
   type        = string
-  default     = "local-lvm"
+  default     = "local"
 }
 
 variable "debian_template_id" {

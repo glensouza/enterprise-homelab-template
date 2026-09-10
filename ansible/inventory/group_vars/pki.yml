@@ -1,10 +1,10 @@
 ---
 # step-ca internal certificate authority (ADR 20).
-step_ca_name: Roadrunner Homelab CA
+step_ca_name: BrewHouse Homelab CA
 step_ca_port: 4443
 # The CA serves TLS on its IP — keep the IP first so ACME clients
 # (Caddy acme_ca {{ step_ca_url }}) pass hostname verification.
-step_ca_dns_names: 10.10.30.121,step-ca
+step_ca_dns_names: 10.10.130.121,step-ca
 step_ca_version: "0.28.2"
 step_cli_version: "0.28.6"
 

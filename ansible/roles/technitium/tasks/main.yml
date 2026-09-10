@@ -25,7 +25,7 @@
     state: started
 
 # Zone management is API-driven. Set technitium_api_token (create one in the
-# Technitium web UI on http://10.10.30.119:5380 after changing the default
+# Technitium web UI on http://10.10.130.119:5380 after changing the default
 # admin password) to let Ansible create the zone + wildcard record.
 - name: Create the preview zone
   ansible.builtin.uri:

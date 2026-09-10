@@ -1,9 +1,12 @@
 # Copy to terraform.tfvars and fill in. NEVER commit terraform.tfvars.
-proxmox_api_url   = "https://10.10.30.10:8006/"
+# proxmox_api_url points at pve1, the cluster master (not proxmox_node_1/2 below —
+# the Proxmox API is cluster-aware, so any member node works, and pve1 never hosts an LXC).
+proxmox_api_url   = "https://10.10.10.101:8006/"
 proxmox_api_token = "root@pam!terraform=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 
 unifi_username = "terraform"
 unifi_password = "changeme"
+unifi_api_url  = "https://10.10.10.1"
 
 proxmox_node_1 = "pve4"
 proxmox_node_2 = "pve3"
@@ -11,4 +14,4 @@ proxmox_node_2 = "pve3"
 # Upload once: pveam download local debian-12-standard_<ver>_amd64.tar.zst
 debian_template_id = "local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst"
 
-ssh_public_key = "ssh-ed25519 AAAA... ansible@roadrunner"
+ssh_public_key = "ssh-ed25519 AAAA... ansible@brewhouse"

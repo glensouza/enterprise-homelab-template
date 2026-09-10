@@ -23,13 +23,13 @@ jobs:
       run: dotnet test -c Release
 
     # Resolve semantic version: MAJOR.MINOR from version.txt, auto-incrementing
-    # PATCH via a persistent state file on the runner (~/.roadrunner/deploy-build-state).
+    # PATCH via a persistent state file on the runner (~/.brewhouse/deploy-build-state).
     # When version.txt changes (minor bump), PATCH resets to 0.
     - name: Resolve version
       shell: bash
       run: |
         MAJOR_MINOR=$(cat version.txt | tr -d '[:space:]')
-        STATE_FILE="${HOME}/.roadrunner/deploy-build-state"
+        STATE_FILE="${HOME}/.brewhouse/deploy-build-state"
         mkdir -p "$(dirname "$STATE_FILE")"
 
         if [ -f "$STATE_FILE" ]; then
@@ -57,19 +57,19 @@ jobs:
         echo "Resolved version: ${VERSION}"
 
     - name: Publish App
-      run: dotnet publish ./src/RoadrunnerAuction/RoadrunnerAuction.csproj -c Release -o ./publish /p:UseAppHost=false /p:Version=${{ env.VERSION }}
+      run: dotnet publish ./src/BrewHouse/BrewHouse.csproj -c Release -o ./publish /p:UseAppHost=false /p:Version=${{ env.VERSION }}
 
     - name: Install EF Core CLI
       run: dotnet tool install --global dotnet-ef
 
     - name: Generate EF Core Migration Bundle
-      run: dotnet ef migrations bundle --project ./src/RoadrunnerAuction/RoadrunnerAuction.csproj --self-contained -r linux-x64 -o ./publish/efbundle
+      run: dotnet ef migrations bundle --project ./src/BrewHouse/BrewHouse.csproj --self-contained -r linux-x64 -o ./publish/efbundle
 
     # Pre-migration safety net: dump the database to the Synology NAS mount on
     # the Postgres LXC (local peer auth as the postgres OS user - no password needed).
     - name: Backup Database (pg_dump to NAS)
       run: |
-        ssh root@10.10.20.110 "mkdir -p /mnt/synology/postgres-data/backups && sudo -u postgres pg_dump roadrunner_db | gzip > /mnt/synology/postgres-data/backups/roadrunner_db-${GITHUB_SHA::8}-$(date +%Y%m%d-%H%M%S).sql.gz"
+        ssh root@10.10.120.110 "mkdir -p /mnt/synology/postgres-data/backups && sudo -u postgres pg_dump brewhouse_db | gzip > /mnt/synology/postgres-data/backups/brewhouse_db-${GITHUB_SHA::8}-$(date +%Y%m%d-%H%M%S).sql.gz"
 
     # Connection string lives in the EFBUNDLE_CONNECTION GitHub secret - never in the repo.
     - name: Execute Migration Bundle
@@ -81,29 +81,29 @@ jobs:
     # Idempotent (CREATE TABLE IF NOT EXISTS), so re-running a deploy is safe.
     - name: Apply Wolverine Envelope Schema
       env:
-        ConnectionStrings__roadrunnerdb: ${{ secrets.EFBUNDLE_CONNECTION }}
+        ConnectionStrings__brewhousedb: ${{ secrets.EFBUNDLE_CONNECTION }}
         # db-apply talks to Postgres only. These two exist purely to satisfy the
         # fail-fast check in Program.cs section 1 - nothing dials them, because the
         # cache/broker clients are lazy and the web host never starts under db-apply.
         ConnectionStrings__cache: unused-by-db-apply:6379
         ConnectionStrings__messaging: amqp://unused-by-db-apply:5672
         ASPNETCORE_ENVIRONMENT: Production
-      run: dotnet ./publish/RoadrunnerAuction.dll db-apply
+      run: dotnet ./publish/BrewHouse.dll db-apply
 
     # Symlinked releases: deploy into releases/<sha>, flip 'current', restart, health-gate.
     # Keeps the last 5 releases per node for instant rollback (see rollback.yml).
     - name: Deploy to Blazor LXC 01
       run: |
-        RELEASE=/var/www/roadrunner/releases/${GITHUB_SHA}
-        ssh root@10.10.50.101 "mkdir -p $RELEASE"
-        rsync -avz --delete ./publish/ root@10.10.50.101:$RELEASE/
-        ssh root@10.10.50.101 "ln -sfn $RELEASE /var/www/roadrunner/current && systemctl restart blazor-app.service && sleep 5 && curl -fsS http://localhost:5000/health"
-        ssh root@10.10.50.101 "cd /var/www/roadrunner/releases && ls -1t | tail -n +6 | xargs -r rm -rf"
+        RELEASE=/var/www/brewhouse/releases/${GITHUB_SHA}
+        ssh root@10.10.110.101 "mkdir -p $RELEASE"
+        rsync -avz --delete ./publish/ root@10.10.110.101:$RELEASE/
+        ssh root@10.10.110.101 "ln -sfn $RELEASE /var/www/brewhouse/current && systemctl restart blazor-app.service && sleep 5 && curl -fsS http://localhost:5000/health"
+        ssh root@10.10.110.101 "cd /var/www/brewhouse/releases && ls -1t | tail -n +6 | xargs -r rm -rf"
 
     - name: Deploy to Blazor LXC 02
       run: |
-        RELEASE=/var/www/roadrunner/releases/${GITHUB_SHA}
-        ssh root@10.10.50.102 "mkdir -p $RELEASE"
-        rsync -avz --delete ./publish/ root@10.10.50.102:$RELEASE/
-        ssh root@10.10.50.102 "ln -sfn $RELEASE /var/www/roadrunner/current && systemctl restart blazor-app.service && sleep 5 && curl -fsS http://localhost:5000/health"
-        ssh root@10.10.50.102 "cd /var/www/roadrunner/releases && ls -1t | tail -n +6 | xargs -r rm -rf"
+        RELEASE=/var/www/brewhouse/releases/${GITHUB_SHA}
+        ssh root@10.10.110.102 "mkdir -p $RELEASE"
+        rsync -avz --delete ./publish/ root@10.10.110.102:$RELEASE/
+        ssh root@10.10.110.102 "ln -sfn $RELEASE /var/www/brewhouse/current && systemctl restart blazor-app.service && sleep 5 && curl -fsS http://localhost:5000/health"
+        ssh root@10.10.110.102 "cd /var/www/brewhouse/releases && ls -1t | tail -n +6 | xargs -r rm -rf"

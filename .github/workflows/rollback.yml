@@ -8,7 +8,7 @@ name: Rollback Blazor App
 #  - DB restore additionally requires typing RESTORE in the confirm field.
 #  - Restore is non-destructive: dump is loaded into a FRESH database, sanity
 #    checked, then databases are RENAME-swapped. The previous database is kept
-#    as roadrunner_db_failed_<timestamp> - nothing is ever DROPed here.
+#    as brewhouse_db_failed_<timestamp> - nothing is ever DROPed here.
 on:
   workflow_dispatch:
     inputs:
@@ -30,9 +30,9 @@ on:
         type: string
 
 env:
-  PG_HOST: 10.10.20.110
-  WEB01: 10.10.50.101
-  WEB02: 10.10.50.102
+  PG_HOST: 10.10.120.110
+  WEB01: 10.10.110.101
+  WEB02: 10.10.110.102
 
 jobs:
   rollback:
@@ -57,11 +57,11 @@ jobs:
       run: |
         BK="/mnt/synology/postgres-data/backups/${{ inputs.backup_file }}"
         TS=$(date +%Y%m%d-%H%M%S)
-        echo "restore_db=roadrunner_db_restore_$TS" >> "$GITHUB_ENV"
-        echo "failed_db=roadrunner_db_failed_$TS" >> "$GITHUB_ENV"
+        echo "restore_db=brewhouse_db_restore_$TS" >> "$GITHUB_ENV"
+        echo "failed_db=brewhouse_db_failed_$TS" >> "$GITHUB_ENV"
         ssh root@${{ env.PG_HOST }} "test -f '$BK' || { echo 'Dump not found: $BK'; exit 1; }"
-        ssh root@${{ env.PG_HOST }} "sudo -u postgres createdb roadrunner_db_restore_$TS"
-        ssh root@${{ env.PG_HOST }} "gunzip -c '$BK' | sudo -u postgres psql -v ON_ERROR_STOP=1 roadrunner_db_restore_$TS"
+        ssh root@${{ env.PG_HOST }} "sudo -u postgres createdb brewhouse_db_restore_$TS"
+        ssh root@${{ env.PG_HOST }} "gunzip -c '$BK' | sudo -u postgres psql -v ON_ERROR_STOP=1 brewhouse_db_restore_$TS"
 
     - name: Sanity-check restored database
       if: inputs.restore_database
@@ -72,19 +72,19 @@ jobs:
     - name: Rename-swap databases (old DB preserved, nothing dropped)
       if: inputs.restore_database
       run: |
-        ssh root@${{ env.PG_HOST }} "sudo -u postgres psql -c 'ALTER DATABASE roadrunner_db RENAME TO ${{ env.failed_db }}'"
-        ssh root@${{ env.PG_HOST }} "sudo -u postgres psql -c 'ALTER DATABASE ${{ env.restore_db }} RENAME TO roadrunner_db'"
+        ssh root@${{ env.PG_HOST }} "sudo -u postgres psql -c 'ALTER DATABASE brewhouse_db RENAME TO ${{ env.failed_db }}'"
+        ssh root@${{ env.PG_HOST }} "sudo -u postgres psql -c 'ALTER DATABASE ${{ env.restore_db }} RENAME TO brewhouse_db'"
         echo "Previous database preserved as ${{ env.failed_db }} - drop it manually only after verification."
 
     - name: Rollback Blazor LXC 01
       run: |
-        RELEASE=/var/www/roadrunner/releases/${{ inputs.sha }}
+        RELEASE=/var/www/brewhouse/releases/${{ inputs.sha }}
         ssh root@${{ env.WEB01 }} "test -d $RELEASE || { echo 'Release $RELEASE not found on LXC 01'; exit 1; }"
-        ssh root@${{ env.WEB01 }} "ln -sfn $RELEASE /var/www/roadrunner/current && systemctl restart blazor-app.service && sleep 5 && curl -fsS http://localhost:5000/health"
+        ssh root@${{ env.WEB01 }} "ln -sfn $RELEASE /var/www/brewhouse/current && systemctl restart blazor-app.service && sleep 5 && curl -fsS http://localhost:5000/health"
 
     # Only proceeds if LXC 01 came back healthy - one node always stays up.
     - name: Rollback Blazor LXC 02
       run: |
-        RELEASE=/var/www/roadrunner/releases/${{ inputs.sha }}
+        RELEASE=/var/www/brewhouse/releases/${{ inputs.sha }}
         ssh root@${{ env.WEB02 }} "test -d $RELEASE || { echo 'Release $RELEASE not found on LXC 02'; exit 1; }"
-        ssh root@${{ env.WEB02 }} "ln -sfn $RELEASE /var/www/roadrunner/current && systemctl restart blazor-app.service && sleep 5 && curl -fsS http://localhost:5000/health"
+        ssh root@${{ env.WEB02 }} "ln -sfn $RELEASE /var/www/brewhouse/current && systemctl restart blazor-app.service && sleep 5 && curl -fsS http://localhost:5000/health"

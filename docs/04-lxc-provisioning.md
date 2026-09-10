@@ -2,47 +2,80 @@
 
 This guide details the exact steps and resource allocations needed to provision the infrastructure tier.
 
-> **IaC target state (ADR 17):** the matrix below is implemented as code in `terraform/lxc.tf` and converged by `ansible/` — see `docs/08-infrastructure-as-code.md`. The community scripts in section 2 remain the one-time bootstrap for service *payloads* (PostgreSQL binaries, Cloudflared connector) that Ansible does not manage, and a fallback if Terraform is unavailable. **Keep the matrix, `terraform/lxc.tf`, and the CLAUDE.md topology in sync.**
+> **IaC target state (ADR 17):** the matrix below is implemented as code in `terraform/lxc.tf` and converged by `ansible/` — see `docs/08-infrastructure-as-code.md`. Terraform now creates every LXC shell itself (including `postgresql`), so the community scripts in section 2 no longer create their own containers for anything Terraform already manages — PostgreSQL is installed manually on the Terraform-created LXC (section 2 below); the Cloudflared connector is the one payload still bootstrapped via community script (Ansible does not manage either). **Keep the matrix, `terraform/lxc.tf`, and the CLAUDE.md topology in sync.**
 
 ---
 
 ## 1. Master Infrastructure Matrix & Cluster Workload Strategy
 
 ### Proxmox Cluster Nodes:
-- **`pve4` (Node 1 - Primary)**: 8 vCPU / 16 GB RAM (`10.10.30.10`) — High-capacity node hosting primary database engines (PostgreSQL, Garnet, RabbitMQ), primary web apps (Blazor Web 01), back-office admin portals (Infisical), ingress connectors (Cloudflared), and the single non-prod Docker preview host.
-- **`pve3` (Node 2 - Secondary)**: 4 vCPU / 8 GB RAM (`10.10.30.11`) — Secondary utility & load-balancing node hosting secondary web app instances (Blazor Web 02), DNS (Technitium), PKI (step-ca), monitoring (Uptime Kuma), telemetry (Observability/Loki/Grafana), and CI/CD runner tasks.
+The real cluster has **four** nodes; this template only ever schedules LXCs on two of them.
+**`pve1` (`10.10.10.101`)** is the cluster master, hosting the Kemp VM and the
+manually-provisioned `devops` LXC that runs Terraform, Ansible, and the GitHub Actions
+self-hosted runner (ADR 22) — deliberately kept off the two nodes below so the box that can
+apply infrastructure changes can never be destroyed by one. **`pve2` (`10.10.10.102`)** is a
+cluster member this template doesn't use at all — neither is ever a
+`proxmox_node_1`/`proxmox_node_2` target, and `proxmox_api_url` points at `pve1` since the
+Proxmox API is cluster-aware. All node management IPs sit on the existing `10.10.10.0/24` LAN,
+not a Terraform-managed VLAN — same as Kemp and the NAS. Note that Proxmox shared storage
+(`synology-backups`, `docs/02`) is cluster-wide regardless — it mounts on all four nodes, not
+just the two below, so the NAS's NFS export must allow all four node IPs.
+
+- **`pve4` (Node 1 - Primary)**: 8 vCPU / 16 GB RAM (`10.10.10.104`) — High-capacity node hosting primary database engines (PostgreSQL, Garnet, RabbitMQ), primary web apps (Blazor Web 01), back-office admin portals (Infisical), ingress connectors (Cloudflared), and the single non-prod Docker preview host.
+- **`pve3` (Node 2 - Secondary)**: 4 vCPU / 8 GB RAM (`10.10.10.103`) — Secondary utility & load-balancing node hosting secondary web app instances (Blazor Web 02), DNS (Technitium), PKI (step-ca), monitoring (Uptime Kuma), and telemetry (Observability/Loki/Grafana). CI/CD runner tasks moved off this node entirely — the GitHub Actions self-hosted runner now lives on the pve1 devops LXC (ADR 22), never bare on a hypervisor host.
 
 ### Master Allocation Table:
 
 | Service Name | VLAN / IP Range | Target Proxmox Node | Cores | RAM | Synology NAS Mount Path | Allocation Rationale |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Blazor Web 01** | VLAN 50 (`10.10.50.101`) | **`pve4`** (Node 1) | 2 | 1024 MB | `/volume1/homelab-media` | Primary core web application instance |
-| **Blazor Web 02** | VLAN 50 (`10.10.50.102`) | **`pve3`** (Node 2) | 2 | 1024 MB | `/volume1/homelab-media` | Secondary load-balanced web app instance |
-| **Cloudflared** | VLAN 50 (`10.10.50.5`)   | **`pve4`** (Node 1) | 1 | 512 MB  | *None* | Primary ingress connector / Cloudflare tunnel |
-| **PostgreSQL** | VLAN 20 (`10.10.20.110`) | **`pve4`** (Node 1) | 4 | 4096 MB | `/volume1/homelab-postgres-data` | Primary database engine (PostgreSQL + pgvector) |
-| **Garnet** | VLAN 20 (`10.10.20.111`) | **`pve4`** (Node 1) | 2 | 2048 MB | *None* | Primary cache & SignalR scale-out backplane |
-| **RabbitMQ** | VLAN 20 (`10.10.20.112`) | **`pve4`** (Node 1) | 1 | 1024 MB | *None* | Primary message broker for Wolverine |
-| **Infisical** | VLAN 30 (`10.10.30.116`) | **`pve4`** (Node 1) | 2 | 1536 MB | *None* | Back-office admin portal for secret management |
-| **Uptime Kuma** | VLAN 30 (`10.10.30.117`) | **`pve3`** (Node 2) | 1 | 512 MB  | *None* | Utility monitoring container |
-| **Grafana Loki / Observability** | VLAN 30 (`10.10.30.118`) | **`pve3`** (Node 2) | 2 | 2048 MB | *None* | Utility telemetry receiver (Alloy + Loki + Grafana) |
-| **Technitium DNS** | VLAN 30 (`10.10.30.119`) | **`pve3`** (Node 2) | 1 | 512 MB  | *None* | Local DNS server (`roadrunner.internal`) |
-| **step-ca (internal PKI)** | VLAN 30 (`10.10.30.121`) | **`pve3`** (Node 2) | 1 | 512 MB  | *None* | Utility internal Certificate Authority |
-| **PatchMon** | VLAN 30 (`10.10.30.122`) | **`pve3`** (Node 2) | 1 | 1024 MB | *None* | Fleet-wide OS package/patch tracking — LXC reserved only, no role yet |
-| **PR Preview (non-prod)** | VLAN 40 (`10.10.40.120`) | **`pve4`** (Node 1) | 2 | 4096 MB | *None* | Single non-prod Docker host (per-PR compose stacks + ops UIs) |
+| **Blazor Web 01** | VLAN 110 (`10.10.110.101`) | **`pve4`** (Node 1) | 2 | 1024 MB | `/volume1/homelab-media` | Primary core web application instance |
+| **Blazor Web 02** | VLAN 110 (`10.10.110.102`) | **`pve3`** (Node 2) | 2 | 1024 MB | `/volume1/homelab-media` | Secondary load-balanced web app instance |
+| **Cloudflared** | VLAN 110 (`10.10.110.5`)   | **`pve4`** (Node 1) | 1 | 512 MB  | *None* | Primary ingress connector / Cloudflare tunnel |
+| **PostgreSQL** | VLAN 120 (`10.10.120.110`) | **`pve4`** (Node 1) | 4 | 4096 MB | `/volume1/homelab-postgres-data` | Primary database engine (PostgreSQL + pgvector) |
+| **Garnet** | VLAN 120 (`10.10.120.111`) | **`pve4`** (Node 1) | 2 | 2048 MB | *None* | Primary cache & SignalR scale-out backplane |
+| **RabbitMQ** | VLAN 120 (`10.10.120.112`) | **`pve4`** (Node 1) | 1 | 1024 MB | *None* | Primary message broker for Wolverine |
+| **Infisical** | VLAN 130 (`10.10.130.116`) | **`pve4`** (Node 1) | 2 | 1536 MB | *None* | Back-office admin portal for secret management |
+| **Uptime Kuma** | VLAN 130 (`10.10.130.117`) | **`pve3`** (Node 2) | 1 | 512 MB  | *None* | Utility monitoring container |
+| **Grafana Loki / Observability** | VLAN 130 (`10.10.130.118`) | **`pve3`** (Node 2) | 2 | 2048 MB | *None* | Utility telemetry receiver (Alloy + Loki + Grafana) |
+| **Technitium DNS** | VLAN 130 (`10.10.130.119`) | **`pve3`** (Node 2) | 1 | 512 MB  | *None* | Local DNS server (`brewhouse.internal`) |
+| **step-ca (internal PKI)** | VLAN 130 (`10.10.130.121`) | **`pve3`** (Node 2) | 1 | 512 MB  | *None* | Utility internal Certificate Authority |
+| **PatchMon** | VLAN 130 (`10.10.130.122`) | **`pve3`** (Node 2) | 1 | 1024 MB | *None* | Fleet-wide OS package/patch tracking — LXC reserved only, no role yet |
+| **PR Preview (non-prod)** | VLAN 140 (`10.10.140.120`) | **`pve4`** (Node 1) | 2 | 4096 MB | *None* | Single non-prod Docker host (per-PR compose stacks + ops UIs) |
 
-*Note: The Observability LXC hosts Grafana Alloy (OTLP receiver) + Loki + Grafana (see `docs/07-observability.md`). The Technitium DNS, step-ca, and PR Preview LXCs implement ephemeral PR environments — see `docs/11-pr-preview-environments.md` (ADR 19/20). The PR Preview LXC runs Docker (non-prod exception to ADR 02) and is firewalled off from all production tiers (VLAN 40, `docs/05`).*
+*Note: The Observability LXC hosts Grafana Alloy (OTLP receiver) + Loki + Grafana (see `docs/07-observability.md`). The Technitium DNS, step-ca, and PR Preview LXCs implement ephemeral PR environments — see `docs/11-pr-preview-environments.md` (ADR 19/20). The PR Preview LXC runs Docker (non-prod exception to ADR 02) and is firewalled off from all production tiers (VLAN 140, `docs/05`).*
 
 ---
 
 ## 2. Automated Provisioning Commands
 
-Run these commands directly in the **Proxmox Host Shell**:
+### PostgreSQL (on the Terraform-created LXC)
+
+The `postgresql.sh` community script creates its **own** new LXC when run from the Proxmox
+Host Shell — it has no "install into an existing container" mode, so it can't be used against
+the `postgresql` LXC Terraform already provisions (`10.10.120.110`, `terraform/lxc.tf`). No
+Ansible role installs PostgreSQL either (`ansible/roles/postgres` only configures pgBackRest
+and the pg_dump-prune timer, assuming PostgreSQL is already running). Install it by hand, once,
+after `terraform apply` has created the LXC and before the first EF Core migration bundle run
+(`deploy-blazor.yml`, ADR 11):
 
 ```bash
-# Provision PostgreSQL LXC via Community Script
-bash -c "$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/postgresql.sh)"
+ssh root@10.10.120.110
+apt update && apt install -y postgresql postgresql-contrib
 
-# Provision Cloudflared Zero-Trust Tunnel
+# App role + database — nothing generates this password for you; pick one now
+# (openssl rand -base64 24 works well) and record it, it's shown nowhere again.
+sudo -u postgres psql -c "CREATE ROLE brewhouse WITH LOGIN PASSWORD '<generated-password>';"
+sudo -u postgres psql -c "CREATE DATABASE brewhouse_db OWNER brewhouse;"
+```
+
+The resulting connection string (`Host=10.10.120.110;Port=5432;Database=brewhouse_db;Username=brewhouse;Password=<generated-password>`)
+is what goes into the `EFBUNDLE_CONNECTION` GitHub secret (`LAB-RUNBOOK.md`'s GitHub section).
+
+### Cloudflared Zero-Trust Tunnel
+
+Run directly in the **Proxmox Host Shell**:
+
+```bash
 bash -c "$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/cloudflared.sh)"
 ```
 
@@ -50,7 +83,7 @@ bash -c "$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/c
 
 ## 3. Scheduled Maintenance on the PostgreSQL LXC
 
-Pre-migration `pg_dump` backups accumulate on the NAS mount; the `pg-dump-prune` timer deletes dumps older than 30 days and refuses to run if the NAS mount is down. It is installed automatically by Ansible (`ansible/roles/postgres`, see `docs/08`) along with the pgBackRest PITR timers (`docs/10` section 4). Manual install on the PostgreSQL LXC (`10.10.20.110`) if Ansible is unavailable:
+Pre-migration `pg_dump` backups accumulate on the NAS mount; the `pg-dump-prune` timer deletes dumps older than 30 days and refuses to run if the NAS mount is down. It is installed automatically by Ansible (`ansible/roles/postgres`, see `docs/08`) along with the pgBackRest PITR timers (`docs/10` section 4). Manual install on the PostgreSQL LXC (`10.10.120.110`) if Ansible is unavailable:
 
 ```bash
 cp src/systemd/pg-dump-prune.sh /usr/local/sbin/pg-dump-prune.sh

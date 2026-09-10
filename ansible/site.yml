@@ -2,31 +2,31 @@
 # Configuration management for the lab LXCs (docs/08).
 # Run after `terraform apply`:  ansible-playbook site.yml
 # Target a single tier:         ansible-playbook site.yml --limit web
-- name: Configure Blazor web nodes (VLAN 50)
+- name: Configure Blazor web nodes (VLAN 110)
   hosts: web
   roles:
     - dotnet-runtime
     - nfs-mounts
     - blazor-app
 
-- name: Configure PostgreSQL node (VLAN 20)
+- name: Configure PostgreSQL node (VLAN 120)
   hosts: postgres
   roles:
     - nfs-mounts
     - postgres
 
-- name: Configure Technitium DNS (VLAN 30, ADR 20)
+- name: Configure Technitium DNS (VLAN 130, ADR 20)
   hosts: dns
   roles:
     - technitium
 
-- name: Configure step-ca internal PKI (VLAN 30, ADR 20)
+- name: Configure step-ca internal PKI (VLAN 130, ADR 20)
   hosts: pki
   roles:
     - resolver
     - step-ca
 
-- name: Configure the PR preview host (VLAN 40, ADR 19)
+- name: Configure the PR preview host (VLAN 140, ADR 19)
   hosts: preview
   roles:
     - resolver
@@ -35,14 +35,14 @@
 
 # Stub pipeline (DEMO-AUDIT.md R7) — enough for a real trace on screen; the
 # full build-out is the on-camera subject of S1-09.
-- name: Configure observability (VLAN 30)
+- name: Configure observability (VLAN 130)
   hosts: observability
   roles:
     - observability
 
 # Stub install (DEMO-AUDIT.md R7 sibling gap) — a real status page, no
 # monitors configured yet.
-- name: Configure Uptime Kuma (VLAN 30)
+- name: Configure Uptime Kuma (VLAN 130)
   hosts: uptime-kuma
   roles:
     - uptime-kuma

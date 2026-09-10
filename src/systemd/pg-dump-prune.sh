@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # pg-dump-prune.sh — delete pg_dump backups older than RETENTION_DAYS days.
-# Runs on the PostgreSQL LXC (10.10.20.110) via pg-dump-prune.timer.
+# Runs on the PostgreSQL LXC (10.10.120.110) via pg-dump-prune.timer.
 set -euo pipefail
 
 BACKUP_DIR="${BACKUP_DIR:-/mnt/synology/postgres-data/backups}"
@@ -19,9 +19,9 @@ if ! mountpoint -q "$MOUNT_ROOT"; then
   exit 1
 fi
 
-echo "Pruning roadrunner_db-*.sql.gz older than ${RETENTION_DAYS} days in ${BACKUP_DIR}"
+echo "Pruning brewhouse_db-*.sql.gz older than ${RETENTION_DAYS} days in ${BACKUP_DIR}"
 
-deleted=$(find "$BACKUP_DIR" -maxdepth 1 -type f -name 'roadrunner_db-*.sql.gz' -mtime +"$RETENTION_DAYS" -print -delete | wc -l)
-remaining=$(find "$BACKUP_DIR" -maxdepth 1 -type f -name 'roadrunner_db-*.sql.gz' | wc -l)
+deleted=$(find "$BACKUP_DIR" -maxdepth 1 -type f -name 'brewhouse_db-*.sql.gz' -mtime +"$RETENTION_DAYS" -print -delete | wc -l)
+remaining=$(find "$BACKUP_DIR" -maxdepth 1 -type f -name 'brewhouse_db-*.sql.gz' | wc -l)
 
 echo "Deleted: ${deleted} file(s). Remaining backups: ${remaining}."

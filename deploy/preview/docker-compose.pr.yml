@@ -19,7 +19,7 @@ services:
           cpus: '0.25'
           memory: 256M
     environment:
-      ConnectionStrings__roadrunnerdb: Host=db;Port=5432;Database=roadrunner_pr${PR_NUMBER};Username=roadrunner;Password=${DB_PASSWORD}
+      ConnectionStrings__brewhousedb: Host=db;Port=5432;Database=brewhouse_pr${PR_NUMBER};Username=brewhouse;Password=${DB_PASSWORD}
       ConnectionStrings__cache: cache:6379
       ConnectionStrings__messaging: amqp://guest:guest@messaging:5672
       # Preview runs the S3 path (ADR 03) against the Floci AWS emulator below, so every
@@ -28,7 +28,7 @@ services:
       BlobStorage__Provider: s3
       BlobStorage__S3__ServiceUrl: http://floci:4566
       BlobStorage__S3__ForcePathStyle: "true"
-      BlobStorage__S3__BucketName: roadrunner-auction-pr${PR_NUMBER}
+      BlobStorage__S3__BucketName: brewhouse-auction-pr${PR_NUMBER}
       BlobStorage__S3__AccessKey: test
       BlobStorage__S3__SecretKey: test
       BlobStorage__RootPath: /data/blobs
@@ -65,8 +65,8 @@ services:
           cpus: '0.25'
           memory: 512M
     environment:
-      POSTGRES_DB: roadrunner_pr${PR_NUMBER}
-      POSTGRES_USER: roadrunner
+      POSTGRES_DB: brewhouse_pr${PR_NUMBER}
+      POSTGRES_USER: brewhouse
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     # Loopback-only, for the EF migration bundle executed on the host by CI.
     ports:
@@ -74,7 +74,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U roadrunner -d roadrunner_pr${PR_NUMBER}"]
+      test: ["CMD-SHELL", "pg_isready -U brewhouse -d brewhouse_pr${PR_NUMBER}"]
       interval: 5s
       timeout: 3s
       retries: 12
@@ -137,10 +137,10 @@ services:
       AWS_DEFAULT_REGION: us-east-1
     entrypoint: ["/bin/sh", "-c"]
     command: >
-      until aws --endpoint-url http://floci:4566 s3 mb s3://roadrunner-auction-pr${PR_NUMBER} 2>/dev/null
-         || aws --endpoint-url http://floci:4566 s3 ls s3://roadrunner-auction-pr${PR_NUMBER} >/dev/null 2>&1; do
+      until aws --endpoint-url http://floci:4566 s3 mb s3://brewhouse-auction-pr${PR_NUMBER} 2>/dev/null
+         || aws --endpoint-url http://floci:4566 s3 ls s3://brewhouse-auction-pr${PR_NUMBER} >/dev/null 2>&1; do
         echo "waiting for the floci AWS emulator..."; sleep 2;
-      done; echo "bucket roadrunner-auction-pr${PR_NUMBER} ready"
+      done; echo "bucket brewhouse-auction-pr${PR_NUMBER} ready"
     depends_on:
       - floci
 

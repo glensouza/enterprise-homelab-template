@@ -1,22 +1,22 @@
 # PR Preview Environments (Non-Prod)
 
-Every open pull request against `main` gets its own isolated, fully-integrated environment — app + PostgreSQL (pgvector) + Garnet + RabbitMQ + the four Floci multi-cloud emulators (AWS/Azure/GCP/OCI) — reachable over trusted local HTTPS at **`https://pr-<number>.pr.roadrunner.internal`** (and `pr-<number>-{aws,azure,gcp,oci}.pr.roadrunner.internal` for the emulators). When the PR is merged or closed, the environment is destroyed automatically. Nothing is ever publicly exposed. See ADR 19 (preview model) and ADR 20 (internal DNS + PKI).
+Every open pull request against `main` gets its own isolated, fully-integrated environment — app + PostgreSQL (pgvector) + Garnet + RabbitMQ + the four Floci multi-cloud emulators (AWS/Azure/GCP/OCI) — reachable over trusted local HTTPS at **`https://pr-<number>.pr.brewhouse.internal`** (and `pr-<number>-{aws,azure,gcp,oci}.pr.brewhouse.internal` for the emulators). When the PR is merged or closed, the environment is destroyed automatically. Nothing is ever publicly exposed. See ADR 19 (preview model) and ADR 20 (internal DNS + PKI).
 
 Separately, the preview host also runs a **standing** Floci stack (persistent storage, Docker-socket-backed) deployed by Ansible, not CI - see section 8.
 
 ```text
-Developer LAN                    VLAN 30 (Management)                 VLAN 40 (Non-Prod)
-┌──────────────┐   DNS: *.pr.roadrunner.internal ──▶ 10.10.40.120
+Developer LAN                    VLAN 130 (Management)                 VLAN 140 (Non-Prod)
+┌──────────────┐   DNS: *.pr.brewhouse.internal ──▶ 10.10.140.120
 │   Browser    │        ┌────────────────────┐      ┌────────────────────────────────────┐
-│ (trusts step │───────▶│ Technitium DNS     │      │ pr-preview LXC (10.10.40.120)      │
-│  -ca root)   │        │ 10.10.30.119       │      │  Caddy :443 ──TLS── step-ca (ACME) │
+│ (trusts step │───────▶│ Technitium DNS     │      │ pr-preview LXC (10.10.140.120)     │
+│  -ca root)   │        │ 10.10.130.119      │      │  Caddy :443 ──TLS── step-ca (ACME) │
 └──────┬───────┘        └────────────────────┘      │    │                                 │
-       │ HTTPS pr-42.pr.roadrunner.internal         │    ├─▶ 127.0.0.1:6042  pr-42/app    │
+       │ HTTPS pr-42.pr.brewhouse.internal         │    ├─▶ 127.0.0.1:6042  pr-42/app    │
        │            trust chain                     │    │     ├─ db (pgvector) :15442*   │
        └───────────────────────────────────────────▶│    │     ├─ cache (Garnet)          │
                           ┌────────────────────┐    │    │     └─ messaging (RabbitMQ)    │
                           │ step-ca            │◀───┼────┤  ACME issuance per PR site     │
-                          │ 10.10.30.121:4443  │    │    ├─▶ 127.0.0.1:6017  pr-17/...    │
+                          │ 10.10.130.121:4443 │    │    ├─▶ 127.0.0.1:6017  pr-17/...    │
                           └────────────────────┘    │    └─▶ ... one stack per open PR    │
  GitHub Actions (self-hosted runner) ──SSH─────────▶│        *db published on loopback   │
    build image → docker load → compose up →         │         only, for the EF bundle    │
@@ -29,10 +29,10 @@ Developer LAN                    VLAN 30 (Management)                 VLAN 40 (N
 
 | Piece | Where | Role |
 | :--- | :--- | :--- |
-| **Preview host** | VLAN 40, `10.10.40.120` (`pr-preview` LXC) | Runs Docker. One compose stack per open PR under `/opt/previews/pr-<n>/` (ADR 19). |
+| **Preview host** | VLAN 140, `10.10.140.120` (`pr-preview` LXC) | Runs Docker. One compose stack per open PR under `/opt/previews/pr-<n>/` (ADR 19). |
 | **Caddy** | preview host | TLS termination + reverse proxy. One site file per PR in `/etc/caddy/pr-sites/pr-<n>.caddy`, proxying to the stack's loopback app port (`6000 + <PR#>`). |
-| **Technitium DNS** | VLAN 30, `10.10.30.119` | Private zone `pr.roadrunner.internal` with a single wildcard A record `* → 10.10.40.120` (ADR 20). No per-PR DNS records, ever. |
-| **step-ca** | VLAN 30, `10.10.30.121:4443` | Internal CA with an ACME provisioner. Caddy auto-issues/renews a certificate per PR hostname. |
+| **Technitium DNS** | VLAN 130, `10.10.130.119` | Private zone `pr.brewhouse.internal` with a single wildcard A record `* → 10.10.140.120` (ADR 20). No per-PR DNS records, ever. |
+| **step-ca** | VLAN 130, `10.10.130.121:4443` | Internal CA with an ACME provisioner. Caddy auto-issues/renews a certificate per PR hostname. |
 | **CI** | `.github/workflows/pr-preview.yml` / `pr-preview-cleanup.yml` | Deploy on PR open/sync, teardown on PR close. |
 | **Floci (per-PR)** | preview host, inside each `pr-<n>` stack | Ephemeral AWS/Azure/GCP/OCI emulators (`deploy/preview/docker-compose.pr.yml`). The preview app is wired to the AWS one by default, so `S3BlobStore` runs for real on every PR (section 3, section 8). |
 | **Floci (standing)** | preview host, `/opt/floci/` | Always-on, persistent-storage version deployed by Ansible (section 8), independent of any PR. |
@@ -43,25 +43,25 @@ Why a wildcard record instead of per-PR DNS entries: there is nothing to create 
 
 ## 2. Prerequisites (one-time)
 
-1. **Terraform:** `terraform apply` creates VLAN 40 + firewall rules and the three LXCs (`pr-preview`, `technitium-dns`, `step-ca`) — see `terraform/lxc.tf` / `unifi.tf` and `docs/08`.
+1. **Terraform:** `terraform apply` creates VLAN 140 + firewall rules and the three LXCs (`pr-preview`, `technitium-dns`, `step-ca`) — see `terraform/lxc.tf` / `unifi.tf` and `docs/08`.
 2. **Ansible:** `ansible-playbook site.yml` converges the new hosts:
    * `dns` → `technitium` role (installs the server; zone/record via API if `technitium_api_token` is set in `ansible/inventory/group_vars/dns/secrets.yml`)
    * `pki` → `resolver` + `step-ca` roles (initializes the CA with an ACME provisioner, fetches `root_ca.crt` to `ansible/fetched/step-ca/`)
    * `preview` → `resolver` + `docker` + `preview-host` roles (Docker Engine, Caddy wired to the step-ca ACME directory)
-3. **Technitium:** browse `http://10.10.30.119:5380`, change the default `admin` password, and either copy `group_vars/dns/secrets.yml.example` to `group_vars/dns/secrets.yml` (git-ignored), set `technitium_api_token` there, and re-run the playbook, or manually create primary zone `pr.roadrunner.internal` with an A record `*` → `10.10.40.120`.
-4. **Client DNS:** devices that browse previews must resolve via Technitium — set `10.10.30.119` as the DNS server on the admin LAN's DHCP scope (or per-device).
-5. **GitHub:** create a `preview` environment (no required reviewers needed). The self-hosted runner needs Docker CLI, SSH access to `10.10.40.120` / `10.10.30.121`, and `openssl`.
+3. **Technitium:** browse `http://10.10.130.119:5380`, change the default `admin` password, and either copy `group_vars/dns/secrets.yml.example` to `group_vars/dns/secrets.yml` (git-ignored), set `technitium_api_token` there, and re-run the playbook, or manually create primary zone `pr.brewhouse.internal` with an A record `*` → `10.10.140.120`.
+4. **Client DNS:** devices that browse previews must resolve via Technitium — set `10.10.130.119` as the DNS server on the admin LAN's DHCP scope (or per-device).
+5. **GitHub:** create a `preview` environment (no required reviewers needed). The self-hosted runner needs Docker CLI, SSH access to `10.10.140.120` / `10.10.130.121`, and `openssl`.
 
 ## 3. Lifecycle of a PR environment
 
 **Open / push (`pr-preview.yml`, runs on the self-hosted runner, `preview` environment):**
 
 1. `dotnet test -c Release` — tests gate the preview, same as production.
-2. Builds `roadrunner-pr-<n>:<sha>` from `src/RoadrunnerAuction/Dockerfile`, `docker save | ssh … docker load`.
+2. Builds `brewhouse-pr-<n>:<sha>` from `src/BrewHouse/Dockerfile`, `docker save | ssh … docker load`.
 3. Generates the EF Core migration bundle (ADR 11) and stages `/opt/previews/pr-<n>/` with `docker-compose.yml` (from `deploy/preview/docker-compose.pr.yml`) and a `.env` containing an ephemeral per-PR database password and the four Floci emulator ports — no GitHub secrets required.
-4. `docker compose up -d --wait`, then executes the migration bundle against the PR database (`roadrunner_pr<n>` on the loopback-published port `15432 + <n>`). The one-shot `floci-init` service creates the bucket `roadrunner-auction-pr<n>` in the AWS emulator first — the app waits on it (`service_completed_successfully`), because `S3BlobStore` never creates buckets (real S3 rarely grants `CreateBucket` to an app identity).
-5. Writes the Caddy site file `pr-<n>.pr.roadrunner.internal → 127.0.0.1:<6000+n>` plus four more server blocks in the same file for the emulators (`pr-<n>-aws`/`-azure`/`-gcp`/`-oci`) and reloads Caddy. The first TLS handshake triggers ACME issuance from step-ca.
-6. Smoke-tests `https://pr-<n>.pr.roadrunner.internal/health` with the real certificate chain (`--cacert root_ca.crt`) and comments the URL on the PR.
+4. `docker compose up -d --wait`, then executes the migration bundle against the PR database (`brewhouse_pr<n>` on the loopback-published port `15432 + <n>`). The one-shot `floci-init` service creates the bucket `brewhouse-auction-pr<n>` in the AWS emulator first — the app waits on it (`service_completed_successfully`), because `S3BlobStore` never creates buckets (real S3 rarely grants `CreateBucket` to an app identity).
+5. Writes the Caddy site file `pr-<n>.pr.brewhouse.internal → 127.0.0.1:<6000+n>` plus four more server blocks in the same file for the emulators (`pr-<n>-aws`/`-azure`/`-gcp`/`-oci`) and reloads Caddy. The first TLS handshake triggers ACME issuance from step-ca.
+6. Smoke-tests `https://pr-<n>.pr.brewhouse.internal/health` with the real certificate chain (`--cacert root_ca.crt`) and comments the URL on the PR.
 
 **Merge / close (`pr-preview-cleanup.yml`):**
 
@@ -72,7 +72,7 @@ Why a wildcard record instead of per-PR DNS entries: there is nothing to create 
 Browsers show the green padlock only after the step-ca root certificate is trusted. Get it from `ansible/fetched/step-ca/root_ca.crt` (fetched by the playbook) or directly:
 
 ```bash
-scp root@10.10.30.121:/root/.step/certs/root_ca.crt .
+scp root@10.10.130.121:/root/.step/certs/root_ca.crt .
 ```
 
 * **Windows (current user):** `certutil -addstore -user Root root_ca.crt`
@@ -83,21 +83,21 @@ scp root@10.10.30.121:/root/.step/certs/root_ca.crt .
 
 | Task | Command / location |
 | :--- | :--- |
-| List running preview stacks | `ssh root@10.10.40.120 "docker compose ls"` |
-| Logs for one PR | `ssh root@10.10.40.120 "cd /opt/previews/pr-<n> && docker compose logs -f app"` |
+| List running preview stacks | `ssh root@10.10.140.120 "docker compose ls"` |
+| Logs for one PR | `ssh root@10.10.140.120 "cd /opt/previews/pr-<n> && docker compose logs -f app"` |
 | List Caddy sites | `ls /etc/caddy/pr-sites/` on the preview host |
 | Force re-issue a cert | delete the site file, `systemctl reload caddy`, restore file, reload again |
-| CA status / ACME directory | `curl --cacert root_ca.crt https://10.10.30.121:4443/acme/acme/directory` |
+| CA status / ACME directory | `curl --cacert root_ca.crt https://10.10.130.121:4443/acme/acme/directory` |
 | Manually remove a stale PR | run the steps from `pr-preview-cleanup.yml` by hand |
 
 * **`NET::ERR_CERT_AUTHORITY_INVALID`** — the client doesn't trust the step-ca root (section 4).
 * **Hostname doesn't resolve** — the client isn't using Technitium for DNS (section 2, step 4).
-* **Caddy can't obtain a certificate** — check VLAN 40 → `10.10.30.121:4443` and step-ca → preview `80,443` firewall rules (`terraform/unifi.tf`, ADR 19), and that the step-ca LXC resolves `*.pr.roadrunner.internal` via Technitium (the `resolver` role).
+* **Caddy can't obtain a certificate** — check VLAN 140 → `10.10.130.121:4443` and step-ca → preview `80,443` firewall rules (`terraform/unifi.tf`, ADR 19), and that the step-ca LXC resolves `*.pr.brewhouse.internal` via Technitium (the `resolver` role).
 * **Port collisions** — app/DB ports are `6000 + <PR#>` / `15432 + <PR#>`; the four Floci emulator ports are `24566/24577/24588/24599 + <PR#>` (mirroring their real ports 4566/4577/4588/4599). GitHub PR numbers are unique, so collisions are impossible in practice.
 
 ## 6. Deliberate simplifications vs. production
 
-| Production (VLANs 10/20/30) | Preview (VLAN 40) |
+| Production (VLANs 110/120/130) | Preview (VLAN 140) |
 | :--- | :--- |
 | Bare-metal systemd (ADR 02) | Docker compose stacks (ADR 19) |
 | HA: 2 web nodes + Kemp VIP + sticky sessions | Single Caddy instance |
@@ -110,21 +110,21 @@ scp root@10.10.30.121:/root/.step/certs/root_ca.crt .
 
 ## 7. Admin tooling & internal DNS names (ADR 21)
 
-Alongside the per-PR stacks, the preview host runs an always-on **ops compose stack** (`/opt/ops/`, managed by Ansible — not by CI), and every LXC in the lab runs **Cockpit**. Technitium serves a second private zone, **`roadrunner.internal`**, with one A record per LXC and friendly CNAMEs for the proxy-fronted UIs. All of it is green-padlock HTTPS from the internal step-ca; none of it is publicly exposed.
+Alongside the per-PR stacks, the preview host runs an always-on **ops compose stack** (`/opt/ops/`, managed by Ansible — not by CI), and every LXC in the lab runs **Cockpit**. Technitium serves a second private zone, **`brewhouse.internal`**, with one A record per LXC and friendly CNAMEs for the proxy-fronted UIs. All of it is green-padlock HTTPS from the internal step-ca; none of it is publicly exposed.
 
 | URL | Service | Where it runs |
 | :--- | :--- | :--- |
-| `https://portainer.roadrunner.internal` | Portainer — container/stack management | preview host (ops stack) |
-| `https://dozzle.roadrunner.internal` | Dozzle — live container logs (all PR stacks) | preview host (ops stack) |
-| `https://pgadmin.roadrunner.internal` | pgAdmin 4 — prod + PR preview PostgreSQL | preview host (ops stack) |
-| `https://redisinsight.roadrunner.internal` | RedisInsight — prod + PR preview Garnet | preview host (ops stack) |
-| `https://<host>.roadrunner.internal:9090` | Cockpit — per-LXC web console | every LXC |
+| `https://portainer.brewhouse.internal` | Portainer — container/stack management | preview host (ops stack) |
+| `https://dozzle.brewhouse.internal` | Dozzle — live container logs (all PR stacks) | preview host (ops stack) |
+| `https://pgadmin.brewhouse.internal` | pgAdmin 4 — prod + PR preview PostgreSQL | preview host (ops stack) |
+| `https://redisinsight.brewhouse.internal` | RedisInsight — prod + PR preview Garnet | preview host (ops stack) |
+| `https://<host>.brewhouse.internal:9090` | Cockpit — per-LXC web console | every LXC |
 
 *   **First-time logins:** Portainer asks you to create the admin user on first visit. pgAdmin's bootstrap credentials are generated by Ansible — see `ansible/credentials/pgadmin/password` on the machine that ran the playbook.
-*   **pgAdmin / RedisInsight server entries:** add prod PostgreSQL as `10.10.20.110:5432` and prod Garnet as `10.10.20.111:6379` (two targeted firewall exceptions allow exactly this — see `terraform/unifi.tf` and `docs/05`). Per-PR preview databases stay loopback-only by design; inspect them with `docker exec -it pr-<n>-db-1 psql -U roadrunner roadrunner_pr<n>` (via SSH or the Portainer console).
+*   **pgAdmin / RedisInsight server entries:** add prod PostgreSQL as `10.10.120.110:5432` and prod Garnet as `10.10.120.111:6379` (two targeted firewall exceptions allow exactly this — see `terraform/unifi.tf` and `docs/05`). Per-PR preview databases stay loopback-only by design; inspect them with `docker exec -it pr-<n>-db-1 psql -U brewhouse brewhouse_pr<n>` (via SSH or the Portainer console).
 *   **Watchtower** updates only the labeled ops containers nightly (04:00) — running PR preview stacks are deliberately never mutated mid-test.
-*   **Cockpit certificates:** the `step-ca` role issues one 1-year certificate per LXC (SAN `<host>.roadrunner.internal`) and the `cockpit` role installs it. Renewal = re-run `ansible-playbook site.yml` before expiry.
-*   **DNS records:** with `technitium_api_token` set (`ansible/inventory/group_vars/dns/secrets.yml`, git-ignored), Ansible manages the `roadrunner.internal` zone — per-host A records from the inventory and the service CNAMEs from `dns_service_cnames` (`group_vars/dns/vars.yml`). Manual equivalent: create the zone in the Technitium UI and mirror that list.
+*   **Cockpit certificates:** the `step-ca` role issues one 1-year certificate per LXC (SAN `<host>.brewhouse.internal`) and the `cockpit` role installs it. Renewal = re-run `ansible-playbook site.yml` before expiry.
+*   **DNS records:** with `technitium_api_token` set (`ansible/inventory/group_vars/dns/secrets.yml`, git-ignored), Ansible manages the `brewhouse.internal` zone — per-host A records from the inventory and the service CNAMEs from `dns_service_cnames` (`group_vars/dns/vars.yml`). Manual equivalent: create the zone in the Technitium UI and mirror that list.
 
 ---
 
@@ -134,14 +134,14 @@ Alongside the per-PR Floci services (ephemeral, memory-mode, no Docker socket - 
 
 | URL | Service | Notes |
 | :--- | :--- | :--- |
-| `https://floci.roadrunner.internal` | `floci-ui` console | AWS, Azure, GCP only — OCI has no UI as of `floci-ui` v0.3.0 |
+| `https://floci.brewhouse.internal` | `floci-ui` console | AWS, Azure, GCP only — OCI has no UI as of `floci-ui` v0.3.0 |
 
 ### Which cloud services the preview app actually uses
 
 | Setting | Preview default | Why |
 | :--- | :--- | :--- |
 | `BlobStorage__Provider` | `s3` | Every PR exercises `S3BlobStore` (ADR 03) against the Floci AWS emulator instead of the local-disk path. "Simulate Photo Upload" on the home page writes through it. |
-| `BlobStorage__S3__ServiceUrl` | `http://floci:4566` | Compose-internal name; the emulator is also published on `24566 + <PR#>` for the host and on `pr-<n>-aws.pr.roadrunner.internal` through Caddy. |
+| `BlobStorage__S3__ServiceUrl` | `http://floci:4566` | Compose-internal name; the emulator is also published on `24566 + <PR#>` for the host and on `pr-<n>-aws.pr.brewhouse.internal` through Caddy. |
 | `Messaging__Transport` | `rabbitmq` | Unchanged, so the RabbitMQ demo still works. To test the SQS transport (ADR 07) on a branch, set `Messaging__Transport: sqs` and `Messaging__Sqs__ServiceUrl: http://floci:4566` on the `app` service. |
 | `Realtime__HubBaseUrl` | `http://localhost:8080` | Keeps each circuit's `/hubs/bids` connection inside its own container rather than routing back out through Caddy. |
 

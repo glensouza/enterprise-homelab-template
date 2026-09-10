@@ -1,8 +1,8 @@
 name: PR Preview Deploy
 
 # ADR 19 / docs/11: every open PR gets an isolated Docker compose stack on
-# the single non-prod preview host (10.10.40.120), reachable over trusted
-# HTTPS at https://pr-<n>.pr.roadrunner.internal (Technitium wildcard DNS +
+# the single non-prod preview host (10.10.140.120), reachable over trusted
+# HTTPS at https://pr-<n>.pr.brewhouse.internal (Technitium wildcard DNS +
 # step-ca certificates). Runs on the self-hosted runner because the preview
 # host lives on the private LAN. Teardown lives in pr-preview-cleanup.yml.
 
@@ -20,9 +20,9 @@ permissions:
   pull-requests: write
 
 env:
-  PREVIEW_HOST: 10.10.40.120
-  PKI_HOST: 10.10.30.121
-  PREVIEW_DOMAIN: pr.roadrunner.internal
+  PREVIEW_HOST: 10.10.140.120
+  PKI_HOST: 10.10.130.121
+  PREVIEW_DOMAIN: pr.brewhouse.internal
   PR_NUMBER: ${{ github.event.pull_request.number }}
 
 jobs:
@@ -53,11 +53,11 @@ jobs:
         echo "FLOCI_AZ_PORT=$((24577 + PR_NUMBER))" >> "$GITHUB_ENV"
         echo "FLOCI_GCP_PORT=$((24588 + PR_NUMBER))" >> "$GITHUB_ENV"
         echo "FLOCI_OCI_PORT=$((24599 + PR_NUMBER))" >> "$GITHUB_ENV"
-        echo "APP_IMAGE=roadrunner-pr-${PR_NUMBER}:${GITHUB_SHA::8}" >> "$GITHUB_ENV"
+        echo "APP_IMAGE=brewhouse-pr-${PR_NUMBER}:${GITHUB_SHA::8}" >> "$GITHUB_ENV"
         echo "PREVIEW_URL=https://pr-${PR_NUMBER}.${PREVIEW_DOMAIN}" >> "$GITHUB_ENV"
 
     - name: Build preview image
-      run: docker build -f src/RoadrunnerAuction/Dockerfile -t "${APP_IMAGE}" .
+      run: docker build -f src/BrewHouse/Dockerfile -t "${APP_IMAGE}" .
 
     - name: Transfer image to the preview host
       run: docker save "${APP_IMAGE}" | gzip | ssh root@${PREVIEW_HOST} "gunzip | docker load"
@@ -66,7 +66,7 @@ jobs:
       run: dotnet tool install --global dotnet-ef
 
     - name: Generate EF Core Migration Bundle
-      run: dotnet ef migrations bundle --project ./src/RoadrunnerAuction/RoadrunnerAuction.csproj --self-contained -r linux-x64 -o ./efbundle/efbundle
+      run: dotnet ef migrations bundle --project ./src/BrewHouse/BrewHouse.csproj --self-contained -r linux-x64 -o ./efbundle/efbundle
 
     # Ephemeral per-PR database password: generated here, stored only in the
     # .env file on the preview host. No GitHub secret needed — the stack is
@@ -100,7 +100,7 @@ jobs:
       shell: bash
       run: |
         scp ./efbundle/efbundle root@${PREVIEW_HOST}:/opt/previews/pr-${PR_NUMBER}/efbundle
-        ssh root@${PREVIEW_HOST} "chmod +x /opt/previews/pr-${PR_NUMBER}/efbundle && /opt/previews/pr-${PR_NUMBER}/efbundle --connection 'Host=127.0.0.1;Port=${DB_PORT};Database=roadrunner_pr${PR_NUMBER};Username=roadrunner;Password=${DB_PASSWORD}'"
+        ssh root@${PREVIEW_HOST} "chmod +x /opt/previews/pr-${PR_NUMBER}/efbundle && /opt/previews/pr-${PR_NUMBER}/efbundle --connection 'Host=127.0.0.1;Port=${DB_PORT};Database=brewhouse_pr${PR_NUMBER};Username=brewhouse;Password=${DB_PASSWORD}'"
 
     - name: Register the Caddy site and reload
       run: |

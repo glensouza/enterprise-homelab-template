@@ -3,26 +3,32 @@
 # document and the CLAUDE.md topology matrix when you change them.
 locals {
   lxcs = {
-    # VLAN 50 — Web / Ingress tier
-    blazor-web-01 = { vm_id = 101, node = var.proxmox_node_1, ip = "10.10.50.101/24", gateway = "10.10.50.1", vlan = 50, cores = 2, memory = 1024, disk = 8, tags = ["terraform", "vlan50", "web"] }
-    blazor-web-02 = { vm_id = 102, node = var.proxmox_node_2, ip = "10.10.50.102/24", gateway = "10.10.50.1", vlan = 50, cores = 2, memory = 1024, disk = 8, tags = ["terraform", "vlan50", "web"] }
-    cloudflared   = { vm_id = 105, node = var.proxmox_node_1, ip = "10.10.50.5/24", gateway = "10.10.50.1", vlan = 50, cores = 1, memory = 512, disk = 4, tags = ["terraform", "vlan50", "ingress"] }
+    # VMID convention: hundreds digit = the Proxmox node hosting it (1xx = pve1,
+    # never used here since pve1 hosts no Terraform-managed LXC; 3xx = pve3;
+    # 4xx = pve4). Last two digits preserved from the pre-renumbering IDs so
+    # they're still recognizable. See LAB-RUNBOOK.md's DevOps LXC section for
+    # why pve1 itself uses VMID 100.
 
-    # VLAN 20 — Backend / Data tier (pve4 Primary)
-    postgresql = { vm_id = 110, node = var.proxmox_node_1, ip = "10.10.20.110/24", gateway = "10.10.20.1", vlan = 20, cores = 4, memory = 4096, disk = 40, tags = ["terraform", "vlan20", "data"] }
-    garnet     = { vm_id = 111, node = var.proxmox_node_1, ip = "10.10.20.111/24", gateway = "10.10.20.1", vlan = 20, cores = 2, memory = 2048, disk = 8, tags = ["terraform", "vlan20", "data"] }
-    rabbitmq   = { vm_id = 112, node = var.proxmox_node_1, ip = "10.10.20.112/24", gateway = "10.10.20.1", vlan = 20, cores = 1, memory = 1024, disk = 8, tags = ["terraform", "vlan20", "data"] }
+    # VLAN 110 — Web / Ingress tier
+    blazor-web-01 = { vm_id = 401, node = var.proxmox_node_1, ip = "10.10.110.101/24", gateway = "10.10.110.1", vlan = 110, cores = 2, memory = 1024, disk = 8, tags = ["terraform", "vlan110", "web"] }
+    blazor-web-02 = { vm_id = 302, node = var.proxmox_node_2, ip = "10.10.110.102/24", gateway = "10.10.110.1", vlan = 110, cores = 2, memory = 1024, disk = 8, tags = ["terraform", "vlan110", "web"] }
+    cloudflared   = { vm_id = 405, node = var.proxmox_node_1, ip = "10.10.110.5/24", gateway = "10.10.110.1", vlan = 110, cores = 1, memory = 512, disk = 4, tags = ["terraform", "vlan110", "ingress"] }
 
-    # VLAN 30 — Management / Infrastructure tier (Infisical back-office portal on pve4 Primary)
-    infisical      = { vm_id = 116, node = var.proxmox_node_1, ip = "10.10.30.116/24", gateway = "10.10.30.1", vlan = 30, cores = 2, memory = 1536, disk = 16, tags = ["terraform", "vlan30", "mgmt"] }
-    uptime-kuma    = { vm_id = 117, node = var.proxmox_node_2, ip = "10.10.30.117/24", gateway = "10.10.30.1", vlan = 30, cores = 1, memory = 512, disk = 8, tags = ["terraform", "vlan30", "mgmt"] }
-    observability  = { vm_id = 118, node = var.proxmox_node_2, ip = "10.10.30.118/24", gateway = "10.10.30.1", vlan = 30, cores = 2, memory = 2048, disk = 32, tags = ["terraform", "vlan30", "mgmt"] }
-    technitium-dns = { vm_id = 119, node = var.proxmox_node_2, ip = "10.10.30.119/24", gateway = "10.10.30.1", vlan = 30, cores = 1, memory = 512, disk = 8, tags = ["terraform", "vlan30", "mgmt", "dns"] }
-    step-ca        = { vm_id = 121, node = var.proxmox_node_2, ip = "10.10.30.121/24", gateway = "10.10.30.1", vlan = 30, cores = 1, memory = 512, disk = 8, tags = ["terraform", "vlan30", "mgmt", "pki"] }
-    patchmon       = { vm_id = 122, node = var.proxmox_node_2, ip = "10.10.30.122/24", gateway = "10.10.30.1", vlan = 30, cores = 1, memory = 1024, disk = 8, tags = ["terraform", "vlan30", "mgmt"] }
+    # VLAN 120 — Backend / Data tier (pve4 Primary)
+    postgresql = { vm_id = 410, node = var.proxmox_node_1, ip = "10.10.120.110/24", gateway = "10.10.120.1", vlan = 120, cores = 4, memory = 4096, disk = 40, tags = ["terraform", "vlan120", "data"] }
+    garnet     = { vm_id = 411, node = var.proxmox_node_1, ip = "10.10.120.111/24", gateway = "10.10.120.1", vlan = 120, cores = 2, memory = 2048, disk = 8, tags = ["terraform", "vlan120", "data"] }
+    rabbitmq   = { vm_id = 412, node = var.proxmox_node_1, ip = "10.10.120.112/24", gateway = "10.10.120.1", vlan = 120, cores = 1, memory = 1024, disk = 8, tags = ["terraform", "vlan120", "data"] }
 
-    # VLAN 40 — Non-Prod Single Docker Host tier (pve4 Primary)
-    pr-preview = { vm_id = 120, node = var.proxmox_node_1, ip = "10.10.40.120/24", gateway = "10.10.40.1", vlan = 40, cores = 2, memory = 4096, disk = 60, tags = ["terraform", "vlan40", "preview"] }
+    # VLAN 130 — Management / Infrastructure tier (Infisical back-office portal on pve4 Primary)
+    infisical      = { vm_id = 416, node = var.proxmox_node_1, ip = "10.10.130.116/24", gateway = "10.10.130.1", vlan = 130, cores = 2, memory = 1536, disk = 16, tags = ["terraform", "vlan130", "mgmt"] }
+    uptime-kuma    = { vm_id = 317, node = var.proxmox_node_2, ip = "10.10.130.117/24", gateway = "10.10.130.1", vlan = 130, cores = 1, memory = 512, disk = 8, tags = ["terraform", "vlan130", "mgmt"] }
+    observability  = { vm_id = 318, node = var.proxmox_node_2, ip = "10.10.130.118/24", gateway = "10.10.130.1", vlan = 130, cores = 2, memory = 2048, disk = 32, tags = ["terraform", "vlan130", "mgmt"] }
+    technitium-dns = { vm_id = 319, node = var.proxmox_node_2, ip = "10.10.130.119/24", gateway = "10.10.130.1", vlan = 130, cores = 1, memory = 512, disk = 8, tags = ["terraform", "vlan130", "mgmt", "dns"] }
+    step-ca        = { vm_id = 321, node = var.proxmox_node_2, ip = "10.10.130.121/24", gateway = "10.10.130.1", vlan = 130, cores = 1, memory = 512, disk = 8, tags = ["terraform", "vlan130", "mgmt", "pki"] }
+    patchmon       = { vm_id = 322, node = var.proxmox_node_2, ip = "10.10.130.122/24", gateway = "10.10.130.1", vlan = 130, cores = 1, memory = 1024, disk = 8, tags = ["terraform", "vlan130", "mgmt"] }
+
+    # VLAN 140 — Non-Prod Single Docker Host tier (pve4 Primary)
+    pr-preview = { vm_id = 420, node = var.proxmox_node_1, ip = "10.10.140.120/24", gateway = "10.10.140.1", vlan = 140, cores = 2, memory = 4096, disk = 60, tags = ["terraform", "vlan140", "preview"] }
   }
 }
 

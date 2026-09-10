@@ -15,8 +15,8 @@ permissions:
   pull-requests: write
 
 env:
-  PREVIEW_HOST: 10.10.40.120
-  PREVIEW_DOMAIN: pr.roadrunner.internal
+  PREVIEW_HOST: 10.10.140.120
+  PREVIEW_DOMAIN: pr.brewhouse.internal
   PR_NUMBER: ${{ github.event.pull_request.number }}
 
 jobs:

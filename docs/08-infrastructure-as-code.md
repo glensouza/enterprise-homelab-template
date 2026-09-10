@@ -2,6 +2,8 @@
 
 The entire lab is provisioned declaratively: **Terraform** creates the UniFi VLANs/firewall rules and the Proxmox LXCs, then **Ansible** configures the LXCs over SSH. Recreating the lab from scratch is `terraform apply` followed by `ansible-playbook site.yml`. See ADR 17 for the rationale.
 
+**Neither command runs from a workstation anymore (ADR 22).** A manually-provisioned "devops" LXC on `pve1` hosts the GitHub Actions self-hosted runner, Terraform, and Ansible. `terraform-plan.yml` runs on every PR touching `terraform/**` and posts the plan as a PR comment; `terraform-apply.yml` is a manual, `production`-environment-gated workflow that applies that *exact* reviewed plan artifact, then runs `ansible-playbook site.yml`. The CLI commands below still describe what actually happens — they're just invoked by CI now instead of by hand. See `LAB-RUNBOOK.md`'s "DevOps LXC (pve1)" section for how that box is built.
+
 ```text
 terraform/                        # bpg/proxmox + paultyng/unifi
 ├── versions.tf / providers.tf    # provider pins and connection config
@@ -36,7 +38,7 @@ ansible/
 ## 1. Terraform (Infrastructure Provisioning)
 
 *   **Provider:** `bpg/proxmox` (Proxmox VE 8/9, full SDN and API-token support).
-*   **UniFi Automation:** `paultyng/unifi` scripts the VLAN 50/20/30 networks and the LAN IN firewall rule matrix from `docs/05` directly into code (`unifi.tf`).
+*   **UniFi Automation:** `paultyng/unifi` scripts the VLAN 110/120/130/140 networks and the LAN IN firewall rule matrix from `docs/05` directly into code (`unifi.tf`).
 *   **LXC matrix:** `lxc.tf` is a `for_each` over a single `locals` map — the code-level mirror of the `docs/04` master matrix. Change IPs/resources there and `terraform apply` converges.
 
 ### First-time setup
@@ -44,8 +46,9 @@ ansible/
 1. **API token:** Proxmox GUI → Datacenter → Permissions → API Tokens → create `root@pam!terraform` (uncheck *Privilege Separation* or grant `PVEAdmin`).
 2. **UniFi local admin:** create a dedicated local (non-SSO) admin account on the UDM-Pro for Terraform.
 3. **Debian template:** on each node, `pveam download local debian-12-standard_<ver>_amd64.tar.zst` and set `debian_template_id` accordingly.
-4. **Fill in variables:** `cp terraform.tfvars.example terraform.tfvars` (never committed — git-ignored).
-5. **Apply:**
+4. **Fill in variables:** on the devops LXC, either `cp terraform.tfvars.example terraform.tfvars` for ad-hoc manual runs (never committed — git-ignored), or set the equivalent GitHub repository variables/secrets so `terraform-plan.yml`/`terraform-apply.yml` can run without a local tfvars file at all (ADR 22).
+5. **Apply — via CI (normal path):** open a PR touching `terraform/**` → `terraform-plan.yml` comments the plan → merge → run **Terraform Apply** (`workflow_dispatch`, `plan_run_id` = the plan run you reviewed) → `production` environment approval → it applies that exact plan and runs `ansible-playbook site.yml`.
+6. **Apply — manual fallback (if the devops LXC or Actions are unavailable):**
    ```bash
    cd terraform
    terraform init
@@ -71,7 +74,7 @@ ansible-playbook site.yml --limit postgres
 
 *   **`dotnet-runtime`** — installs the ASP.NET Core 10 runtime from the Microsoft apt feed.
 *   **`nfs-mounts`** — mounts `/volume1/homelab-media` (web) and `/volume1/homelab-postgres-data` (postgres) from the Synology NAS via `/etc/fstab`.
-*   **`blazor-app`** — creates `/var/www/roadrunner/releases`, `/etc/roadrunner/`, and installs `blazor-app.service`. The unit is copied verbatim from `src/systemd/` so the repo keeps **one canonical copy** — edit it there and re-run the playbook.
+*   **`blazor-app`** — creates `/var/www/brewhouse/releases`, `/etc/brewhouse/`, and installs `blazor-app.service`. The unit is copied verbatim from `src/systemd/` so the repo keeps **one canonical copy** — edit it there and re-run the playbook.
 *   **`postgres`** — installs and configures **pgBackRest** (WAL archiving + full/diff backup timers → PITR per `docs/10` section 4) and installs the `pg-dump-prune` timer, also copied verbatim from `src/systemd/`.
 *   **`technitium`**, **`step-ca`**, **`resolver`** — local DNS and internal PKI for the PR preview environments and fleet admin plane (ADR 20/21, `docs/11`).
 *   **`docker`**, **`preview-host`** — the non-prod preview host: Docker Engine plus Caddy wired to the step-ca ACME directory, plus the always-on ops stack (Portainer, Dozzle, Watchtower, pgAdmin, RedisInsight — ADR 21). Docker is installed **only** on the preview LXC — production remains Docker-free (ADR 02).

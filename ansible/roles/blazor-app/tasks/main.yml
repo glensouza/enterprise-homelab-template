@@ -10,10 +10,10 @@
     group: "{{ item.group }}"
     mode: "0755"
   loop:
-    - { path: /var/www/roadrunner, owner: www-data, group: www-data }
-    - { path: /var/www/roadrunner/releases, owner: www-data, group: www-data }
-    # Infisical Agent renders roadrunner.env here (ADR 12)
-    - { path: /etc/roadrunner, owner: root, group: root }
+    - { path: /var/www/brewhouse, owner: www-data, group: www-data }
+    - { path: /var/www/brewhouse/releases, owner: www-data, group: www-data }
+    # Infisical Agent renders brewhouse.env here (ADR 12)
+    - { path: /etc/brewhouse, owner: root, group: root }
 
 - name: Install blazor-app.service (canonical copy lives in src/systemd/)
   ansible.builtin.copy:
