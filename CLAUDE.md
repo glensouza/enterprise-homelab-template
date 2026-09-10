@@ -44,7 +44,7 @@ This is a production-grade template for hosting **.NET 10 Blazor Server** apps o
 | `src/BrewHouse.AppHost` | .NET Aspire orchestration host — entry point for local dev; provisions all backing containers |
 | `src/systemd` | **Canonical** systemd units (`blazor-app.service`, `pg-dump-prune.*`) — Ansible copies them verbatim; never edit units on an LXC |
 | `terraform/` | bpg/proxmox LXCs + resnickio/unifi VLANs & firewall — code mirror of `docs/04` / `docs/05` |
-| `ansible/` | LXC configuration: .NET runtime, NFS mounts, systemd units, pgBackRest, Technitium DNS, step-ca, preview host |
+| `ansible/` | LXC configuration: .NET runtime, systemd units, pgBackRest, Technitium DNS, step-ca, preview host |
 | `deploy/preview/` | Per-PR preview compose stack template (ADR 19) — rendered by `pr-preview.yml` |
 | `tests/BrewHouse.Tests` | bUnit component tests, Wolverine handler tests, Aspire integration tests |
 

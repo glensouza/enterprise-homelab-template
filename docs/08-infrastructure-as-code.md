@@ -38,7 +38,7 @@ ansible/
 
 *   **Provider:** `bpg/proxmox` (Proxmox VE 8/9, full SDN and API-token support).
 *   **UniFi Automation:** `resnickio/unifi` scripts the VLAN 110/120/130/140 networks and the zone-based firewall policy matrix from `docs/05` directly into code (`unifi.tf`). Not `paultyng/unifi` — its `unifi_firewall_rule` resource targets the legacy `LAN_IN`/`rule_index` API, which UniFi Network 8.x+'s zone-based firewall rejects outright (ADR 17).
-*   **LXC matrix:** `lxc.tf` is a `for_each` over a single `locals` map — the code-level mirror of the `docs/04` master matrix. Change IPs/resources there and `terraform apply` converges. `blazor-web-01/02` and `postgresql` also declare a `mount_point` block, bind-mounting a Synology NFS share from the Proxmox host into the (unprivileged) container — see `docs/04`'s NFS mount note for why this lives at the host level rather than as an in-guest NFS mount or Ansible role.
+*   **LXC matrix:** `lxc.tf` is a `for_each` over a single `locals` map — the code-level mirror of the `docs/04` master matrix. Change IPs/resources there and `terraform apply` converges. `blazor-web-01/02` and `postgresql` also declare a `mount_point` block, bind-mounting a Synology share (CIFS, not NFS — see `docs/04`'s mount note for why) from the Proxmox host into the (privileged) container.
 
 ### First-time setup
 
