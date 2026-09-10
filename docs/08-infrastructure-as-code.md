@@ -5,12 +5,12 @@ The entire lab is provisioned declaratively: **Terraform** creates the UniFi VLA
 **Neither command runs from a workstation anymore (ADR 22).** A manually-provisioned "devops" LXC on `pve1` hosts the GitHub Actions self-hosted runner, Terraform, and Ansible. `terraform-plan.yml` runs on every PR touching `terraform/**` and posts the plan as a PR comment; `terraform-apply.yml` is a manual, `production`-environment-gated workflow that applies that *exact* reviewed plan artifact, then runs `ansible-playbook site.yml`. The CLI commands below still describe what actually happens — they're just invoked by CI now instead of by hand. See `LAB-RUNBOOK.md`'s "DevOps LXC (pve1)" section for how that box is built.
 
 ```text
-terraform/                        # bpg/proxmox + paultyng/unifi
+terraform/                        # bpg/proxmox + resnickio/unifi
 ├── versions.tf / providers.tf    # provider pins and connection config
 ├── variables.tf                  # API tokens, node names, template, SSH key
 ├── terraform.tfvars.example      # copy to terraform.tfvars (git-ignored)
 ├── lxc.tf                        # LXC matrix — mirrors docs/04
-├── unifi.tf                      # VLANs + LAN IN firewall — mirrors docs/05
+├── unifi.tf                      # VLANs + zone-based firewall policies — mirrors docs/05
 ├── outputs.tf                    # IPs + generated Ansible inventory
 └── templates/inventory.tftpl
 ansible/
@@ -38,7 +38,7 @@ ansible/
 ## 1. Terraform (Infrastructure Provisioning)
 
 *   **Provider:** `bpg/proxmox` (Proxmox VE 8/9, full SDN and API-token support).
-*   **UniFi Automation:** `paultyng/unifi` scripts the VLAN 110/120/130/140 networks and the LAN IN firewall rule matrix from `docs/05` directly into code (`unifi.tf`).
+*   **UniFi Automation:** `resnickio/unifi` scripts the VLAN 110/120/130/140 networks and the zone-based firewall policy matrix from `docs/05` directly into code (`unifi.tf`). Not `paultyng/unifi` — its `unifi_firewall_rule` resource targets the legacy `LAN_IN`/`rule_index` API, which UniFi Network 8.x+'s zone-based firewall rejects outright (ADR 17).
 *   **LXC matrix:** `lxc.tf` is a `for_each` over a single `locals` map — the code-level mirror of the `docs/04` master matrix. Change IPs/resources there and `terraform apply` converges.
 
 ### First-time setup
@@ -85,4 +85,4 @@ Infisical Agent installation is intentionally out of scope — the agent bootstr
 ---
 
 ### Source Material & Attribution
-Strategy relies on official Terraform documentation, `bpg/terraform-provider-proxmox` registry specs, the `paultyng/terraform-provider-unifi` registry specs, and pgBackRest user documentation.
+Strategy relies on official Terraform documentation, `bpg/terraform-provider-proxmox` registry specs, the `resnickio/terraform-provider-unifi` registry specs, and pgBackRest user documentation.

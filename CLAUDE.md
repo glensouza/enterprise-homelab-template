@@ -43,7 +43,7 @@ This is a production-grade template for hosting **.NET 10 Blazor Server** apps o
 | `src/BrewHouse` | The Blazor Server app — Wolverine messaging, EF Core + pgvector, SignalR scale-out via Garnet backplane, `/health` deep checks |
 | `src/BrewHouse.AppHost` | .NET Aspire orchestration host — entry point for local dev; provisions all backing containers |
 | `src/systemd` | **Canonical** systemd units (`blazor-app.service`, `pg-dump-prune.*`) — Ansible copies them verbatim; never edit units on an LXC |
-| `terraform/` | bpg/proxmox LXCs + paultyng/unifi VLANs & firewall — code mirror of `docs/04` / `docs/05` |
+| `terraform/` | bpg/proxmox LXCs + resnickio/unifi VLANs & firewall — code mirror of `docs/04` / `docs/05` |
 | `ansible/` | LXC configuration: .NET runtime, NFS mounts, systemd units, pgBackRest, Technitium DNS, step-ca, preview host |
 | `deploy/preview/` | Per-PR preview compose stack template (ADR 19) — rendered by `pr-preview.yml` |
 | `tests/BrewHouse.Tests` | bUnit component tests, Wolverine handler tests, Aspire integration tests |
@@ -129,7 +129,7 @@ Synology NAS and Kemp are pre-existing, non-Terraform-managed hardware and stay 
 
 The whole lab is `terraform apply && ansible-playbook site.yml` — see `docs/08-infrastructure-as-code.md`:
 
-- **Terraform** (`terraform/`): `bpg/proxmox` for the 12 LXCs, `paultyng/unifi` for the VLAN 110/120/130/140 networks and the LAN IN firewall matrix. `lxc.tf` / `unifi.tf` are code mirrors of `docs/04` / `docs/05` — change all three together. Apply renders the Ansible inventory.
+- **Terraform** (`terraform/`): `bpg/proxmox` for the 12 LXCs, `resnickio/unifi` for the VLAN 110/120/130/140 networks and the zone-based firewall policy matrix (not `paultyng/unifi` — its legacy `LAN_IN`/`rule_index` model is rejected by UniFi Network 8.x+, ADR 17). `lxc.tf` / `unifi.tf` are code mirrors of `docs/04` / `docs/05` — change all three together. Apply renders the Ansible inventory.
 - **Ansible** (`ansible/`): converges the web nodes (dotnet-runtime, nfs-mounts, blazor-app), the Postgres node (nfs-mounts, pgBackRest + pg-dump-prune), the preview infrastructure (technitium DNS, step-ca PKI, resolver, docker + preview-host incl. the ops stack on VLAN 140), and fleet-wide Cockpit (`hosts: all`, runs last — needs the certs the step-ca play fetches). Units are copied verbatim from `src/systemd/` — edit them there and re-run the playbook.
 - **Kemp LoadMaster** remains GUI-managed (no supported Terraform provider).
 

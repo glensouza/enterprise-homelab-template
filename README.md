@@ -43,7 +43,7 @@ enterprise-homelab-template/
 │       ├── pg-dump-prune.sh          # Deletes pg_dump backups older than RETENTION_DAYS
 │       ├── pg-dump-prune.service     # Oneshot prune unit (Postgres LXC)
 │       └── pg-dump-prune.timer       # Daily schedule for the prune service
-├── terraform/                         # bpg/proxmox LXCs + paultyng/unifi VLANs/firewall (docs/08)
+├── terraform/                         # bpg/proxmox LXCs + resnickio/unifi VLANs/firewall (docs/08)
 ├── ansible/                           # LXC config: runtime, NFS, systemd, pgBackRest, DNS/PKI, Cockpit (docs/08)
 ├── deploy/preview/                    # Per-PR preview compose template (docs/11)
 ├── tests/

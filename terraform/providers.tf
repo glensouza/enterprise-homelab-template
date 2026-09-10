@@ -16,9 +16,9 @@ provider "proxmox" {
 }
 
 provider "unifi" {
-  username       = var.unifi_username
-  password       = var.unifi_password
-  api_url        = var.unifi_api_url
-  site           = var.unifi_site
-  allow_insecure = true
+  username = var.unifi_username
+  password = var.unifi_password
+  base_url = var.unifi_api_url
+  site     = var.unifi_site
+  insecure = true
 }

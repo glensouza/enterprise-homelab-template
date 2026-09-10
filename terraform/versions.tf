@@ -15,8 +15,8 @@ terraform {
       version = "~> 0.70"
     }
     unifi = {
-      source  = "paultyng/unifi"
-      version = "~> 0.41"
+      source  = "resnickio/unifi"
+      version = "~> 0.10"
     }
     local = {
       source  = "hashicorp/local"
