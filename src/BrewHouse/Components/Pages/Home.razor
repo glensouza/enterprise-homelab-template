@@ -1,0 +1,25 @@
+@page "/"
+@using Microsoft.EntityFrameworkCore
+@using BrewHouse.Data
+@using BrewHouse.Storage
+@using Wolverine
+@inject IDbContextFactory<AuctionDbContext> DbContextFactory
+@inject IBlobStore BlobStore
+@inject IMessageBus MessageBus
+
+<h1>Heavy Equipment Auction Portal</h1>
+
+<button @onclick="UploadMockPhoto">Simulate Photo Upload</button>
+<p><i>@UploadStatus</i></p>
+
+<LiveBids />
+
+@code {
+    private string UploadStatus = "Ready.";
+
+    private async Task UploadMockPhoto()
+    {
+        await BlobStore.WriteTextAsync("auctions/equipment/CAT-D9-Front.txt", "mock-image-data");
+        UploadStatus = "Mock photo written to storage backend successfully.";
+    }
+}
