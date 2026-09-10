@@ -10,22 +10,26 @@ locals {
     # why pve1 itself uses VMID 100.
 
     # VLAN 110 — Web / Ingress tier
-    # blazor-web-01/02 bind-mount the NAS media share from the Proxmox HOST
-    # (mount_point below) rather than mounting NFS in-guest - confirmed live
-    # that unprivileged LXCs cannot mount NFS at all, feature flag or not.
-    # pve3/pve4 each mount 10.10.10.90:/volume1/homelab-media at
-    # /mnt/homelab-media (host-level /etc/fstab, not Terraform-managed). A
-    # raw "bind" mount_point is root@pam-only regardless of an API token's
-    # role (confirmed live) - see providers.tf's root@pam password auth.
-    blazor-web-01 = { vm_id = 401, node = var.proxmox_node_1, ip = "10.10.110.101/24", gateway = "10.10.110.1", vlan = 110, cores = 2, memory = 1024, disk = 8, tags = ["terraform", "vlan110", "web"], mount_point = { volume = "/mnt/homelab-media", path = "/mnt/synology/media" } }
-    blazor-web-02 = { vm_id = 302, node = var.proxmox_node_2, ip = "10.10.110.102/24", gateway = "10.10.110.1", vlan = 110, cores = 2, memory = 1024, disk = 8, tags = ["terraform", "vlan110", "web"], mount_point = { volume = "/mnt/homelab-media", path = "/mnt/synology/media" } }
+    # blazor-web-01/02 are privileged and bind-mount the NAS media share from
+    # the Proxmox HOST (mount_point below). Two confirmed-live findings drove
+    # this: (1) unprivileged LXCs cannot mount NFS in-guest at all, feature
+    # flag or not; (2) a bind mount_point on an UNPRIVILEGED container gets
+    # its permissions masked to 0000/nobody:nogroup inside the guest - a
+    # kernel user-namespace safety behavior for mounts made outside that
+    # namespace, not a permissions/ownership mistake on the NAS side.
+    # Privileged containers have no separate user namespace, so neither
+    # limitation applies. pve3/pve4 each mount
+    # 10.10.10.90:/volume1/homelab-media at /mnt/homelab-media (host-level
+    # /etc/fstab, not Terraform-managed).
+    blazor-web-01 = { vm_id = 401, node = var.proxmox_node_1, ip = "10.10.110.101/24", gateway = "10.10.110.1", vlan = 110, cores = 2, memory = 1024, disk = 8, tags = ["terraform", "vlan110", "web"], privileged = true, mount_point = { volume = "/mnt/homelab-media", path = "/mnt/synology/media" } }
+    blazor-web-02 = { vm_id = 302, node = var.proxmox_node_2, ip = "10.10.110.102/24", gateway = "10.10.110.1", vlan = 110, cores = 2, memory = 1024, disk = 8, tags = ["terraform", "vlan110", "web"], privileged = true, mount_point = { volume = "/mnt/homelab-media", path = "/mnt/synology/media" } }
     cloudflared   = { vm_id = 405, node = var.proxmox_node_1, ip = "10.10.110.5/24", gateway = "10.10.110.1", vlan = 110, cores = 1, memory = 512, disk = 4, tags = ["terraform", "vlan110", "ingress"] }
 
     # VLAN 120 — Backend / Data tier (pve4 Primary)
-    # postgresql bind-mounts the NAS postgres-data share the same way - pve4
+    # postgresql: privileged, same reasons as blazor-web-01/02 above. pve4
     # mounts 10.10.10.90:/volume1/homelab-postgres-data at
     # /mnt/homelab-postgres-data (host-level, not Terraform-managed).
-    postgresql = { vm_id = 410, node = var.proxmox_node_1, ip = "10.10.120.110/24", gateway = "10.10.120.1", vlan = 120, cores = 4, memory = 4096, disk = 40, tags = ["terraform", "vlan120", "data"], mount_point = { volume = "/mnt/homelab-postgres-data", path = "/mnt/synology/postgres-data" } }
+    postgresql = { vm_id = 410, node = var.proxmox_node_1, ip = "10.10.120.110/24", gateway = "10.10.120.1", vlan = 120, cores = 4, memory = 4096, disk = 40, tags = ["terraform", "vlan120", "data"], privileged = true, mount_point = { volume = "/mnt/homelab-postgres-data", path = "/mnt/synology/postgres-data" } }
     garnet     = { vm_id = 411, node = var.proxmox_node_1, ip = "10.10.120.111/24", gateway = "10.10.120.1", vlan = 120, cores = 2, memory = 2048, disk = 8, tags = ["terraform", "vlan120", "data"] }
     rabbitmq   = { vm_id = 412, node = var.proxmox_node_1, ip = "10.10.120.112/24", gateway = "10.10.120.1", vlan = 120, cores = 1, memory = 1024, disk = 8, tags = ["terraform", "vlan120", "data"] }
 
@@ -49,7 +53,9 @@ resource "proxmox_virtual_environment_container" "lxc" {
   vm_id       = each.value.vm_id
   description = "Managed by Terraform (terraform/lxc.tf) — do not edit in the GUI."
   tags        = each.value.tags
-  unprivileged  = true
+  # Unprivileged by default (least privilege). A handful of LXCs opt into
+  # privileged = true above - see the notes on blazor-web-01/02/postgresql.
+  unprivileged  = !try(each.value.privileged, false)
   started       = true
   start_on_boot = true
 
