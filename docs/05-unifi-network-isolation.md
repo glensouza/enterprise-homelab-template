@@ -54,13 +54,15 @@ UniFi Network 8.x+ replaced the old ruleset/LAN-IN model with **zone-based firew
 | **Allow** | VLAN 110 (Web) | `10.10.120.112` (RabbitMQ) | `5672` | Allow Blazor apps to publish messages. |
 | **Allow** | VLAN 130 (Management)| `10.10.10.90` (Synology NAS)| `Any` | Allow the VLAN 130 admin/monitoring LXCs to reach the NAS. |
 | **Allow** | `10.10.10.101` (pve1), `10.10.10.102` (pve2), `10.10.10.103` (pve3), `10.10.10.104` (pve4) | `10.10.10.90` (Synology NAS) | `Any` | Allow all four (pre-existing, non-VLAN-130) Proxmox cluster members to reach shared NFS storage — Proxmox mounts cluster-wide storage on every node regardless of which two actually host LXCs. One policy per host — they're on the existing LAN, not a UniFi network Terraform can reference as a group. |
-| **Allow** | VLAN 120 (Data Tier)| `10.10.10.90` (Synology NAS)| `2049, 111` | Allow Postgres to write to NFS mounts. |
+| **Allow** | VLAN 120 (Data Tier)| `10.10.10.90` (Synology NAS)| `111` | Allow Postgres to reach the NFS portmapper (own policy — the API rejects a comma port list). |
+| **Allow** | VLAN 120 (Data Tier)| `10.10.10.90` (Synology NAS)| `2049` | Allow Postgres to write to NFS mounts. |
 | **Block** | VLAN 110 (Web) | VLAN 120 (Data Tier) | `Any` | Block all other Web -> Backend traffic (after the three specific allows above). |
 | **Block** | VLAN 110 (Web) | VLAN 130 (Management) | `Any` | Block Web -> Proxmox GUI / Management. |
 | **Allow** | VLAN 130 (Management)| `Any` | `Any` | Allow administrative/monitoring tools full access. |
 | **Allow** | VLAN 140 (Preview) | `10.10.130.119` (Technitium) | `53` | Allow preview host to resolve `*.pr.brewhouse.internal`. |
 | **Allow** | VLAN 140 (Preview) | `10.10.130.121` (step-ca) | `4443` | Allow Caddy to reach the ACME directory. |
-| **Allow** | `10.10.130.121` (step-ca) | VLAN 140 (Preview) | `80, 443` | Allow the CA to complete ACME HTTP-01/TLS-ALPN-01 validation. |
+| **Allow** | `10.10.130.121` (step-ca) | VLAN 140 (Preview) | `80` | Allow the CA to complete ACME HTTP-01 validation (own policy — the API rejects a comma port list). |
+| **Allow** | `10.10.130.121` (step-ca) | VLAN 140 (Preview) | `443` | Allow the CA to complete ACME TLS-ALPN-01 validation. |
 | **Allow** | `10.10.140.120` (Preview host) | `10.10.120.110` (Postgres) | `5432` | pgAdmin (admin tooling, ADR 21) -> production database. |
 | **Allow** | `10.10.140.120` (Preview host) | `10.10.120.111` (Garnet) | `6379` | RedisInsight (admin tooling, ADR 21) -> production cache. |
 | **Block** | VLAN 140 (Preview) | VLAN 110 (Web) | `Any` | Isolate non-prod from the web tier. |
