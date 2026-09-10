@@ -84,6 +84,14 @@ resource "proxmox_virtual_environment_container" "lxc" {
 
   features {
     nesting = true
+    # Unprivileged LXCs otherwise reject in-container NFS mounts outright -
+    # confirmed live: mount.nfs failed with "Operation not permitted" on
+    # every protocol/port combination (v3, v4, noresvport) despite a correct,
+    # verified-reachable NAS export permission, because the container itself
+    # blocks the mount(2) syscall for NFS without this feature flag. Applied
+    # fleet-wide (not just web/postgres, the two that use nfs-mounts today)
+    # since it's harmless for LXCs that never mount anything.
+    mount = ["nfs"]
   }
 
   lifecycle {
