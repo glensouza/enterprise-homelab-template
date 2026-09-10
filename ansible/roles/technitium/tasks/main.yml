@@ -7,6 +7,13 @@
     path: /etc/dns
   register: technitium_dir
 
+- name: Install curl (install.sh shells out to it for the ASP.NET runtime download)
+  ansible.builtin.apt:
+    name: curl
+    update_cache: true
+    state: present
+  when: not technitium_dir.stat.exists
+
 - name: Download the Technitium install script
   ansible.builtin.get_url:
     url: https://download.technitium.com/dns/install.sh
