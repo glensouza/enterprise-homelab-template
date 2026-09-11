@@ -85,12 +85,15 @@
   notify: [systemd daemon-reload, restart prometheus]
 
 # --- Loki / Tempo / Alloy / Grafana configs ----------------------------------
+# Confirmed live: the loki/tempo apt packages create the loki/tempo system
+# users but give them primary group nogroup (65534), not a same-named group
+# - there is no loki/tempo group to chgrp to.
 - name: Create Loki data directory
   ansible.builtin.file:
     path: /var/lib/loki
     state: directory
     owner: loki
-    group: loki
+    group: nogroup
     mode: "0755"
 
 - name: Configure Loki
@@ -105,7 +108,7 @@
     path: /var/lib/tempo
     state: directory
     owner: tempo
-    group: tempo
+    group: nogroup
     mode: "0755"
 
 - name: Configure Tempo
