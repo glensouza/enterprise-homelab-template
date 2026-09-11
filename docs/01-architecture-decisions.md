@@ -70,7 +70,7 @@
 
 ---
 ## ADR 13: Let's Encrypt Wildcard Certificates via DNS-01 & Kemp LoadMaster
-* **Decision:** Utilize the native Let's Encrypt ACMEv2 client built into the Kemp LoadMaster to automatically request and renew wildcard certificates (`*.smartsoftwarecoffee.com`) using the DNS-01 challenge against the Cloudflare API.
+* **Decision:** Utilize the native Let's Encrypt ACMEv2 client built into the Kemp LoadMaster to automatically request and renew wildcard certificates (`*.smartsoftwarecoffee.com`) using the DNS-01 challenge against the Cloudflare API. `Blazor-App-VIP` (`10.10.110.199:443`) is built as a Content-Switching parent with a single SubVS holding the real servers, not a VS with Real Servers attached directly — confirmed live, Kemp's ACME wizard only lists SubVS-based VSs as valid certificate targets (`docs/09` section 1). The certificate must then be manually assigned to the VS after issuance (`docs/09` section 3) — Kemp does not bind it automatically.
 * **Rationale:** The DNS-01 challenge allows for the issuance of trusted certificates for internal, non-publicly routable networks without opening firewall ports. By terminating SSL at the Kemp LoadMaster, all Blazor backend LXCs are offloaded from certificate management, avoiding "Not Secure" browser warnings for internal admin endpoints.
 
 ---

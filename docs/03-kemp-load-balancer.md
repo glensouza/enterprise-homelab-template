@@ -98,7 +98,9 @@ Kemp forwards to both real servers as plain HTTP regardless of which VIP port th
 
 ## 4. Let's Encrypt wildcard cert on Kemp
 
-See `docs/09-ssl-certificates.md` — bind the cert to the `10.10.110.199:443` Virtual Service (not the WUI's `10.10.10.199`). Confirmed live: several Advanced Properties fields on the `:443` VS (Content Switching, HTTP Header Modifications, "Add Header to Request", etc.) are hidden until a certificate is bound and SSL Acceleration is active — Kemp can't modify HTTP-layer content on traffic it isn't yet decrypting. If `X-Forwarded-Proto` doesn't appear automatically on real-server requests once the cert is bound, add it explicitly there via "Add Header to Request" → `X-Forwarded-Proto` / `https`.
+Full verified procedure lives in `docs/09-ssl-certificates.md` — the short version: this Kemp license's ACME wizard only accepts a VS built as a Content-Switching parent with a **SubVS** (not one with Real Servers attached directly, which is how section 1 above builds it), so `Blazor-App-VIP` had to be restructured before the certificate request would even show it in the "Select a VS" dropdown. Confirmed live: several Advanced Properties fields on a VS (Content Switching, HTTP Header Modifications, "Add Header to Request", etc.) stay hidden until **SSL Acceleration is enabled** on it — a self-signed placeholder cert is sufficient to unlock them, a real one isn't required. Also confirmed live: **issuing the certificate does not bind it to the VS automatically** — that's a separate manual step (`docs/09` section 3) in **Certificates & Security → SSL Certificates**, moving the VS from "Available VSs" to "Assigned VSs" and clicking Save Changes.
+
+Whether Kemp sets `X-Forwarded-Proto` automatically once the real cert is bound (needed for the app-layer redirect in section 3 above) is still unverified — test it once the app is actually deployed (`curl -I http://10.10.110.199` should 301 to `https`), and if it doesn't fire, add the header explicitly via the `:443` VS's Advanced Properties → "Add Header to Request" → `X-Forwarded-Proto` / `https`.
 
 ---
 
