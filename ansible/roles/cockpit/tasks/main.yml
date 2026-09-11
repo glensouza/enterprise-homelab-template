@@ -17,15 +17,20 @@
     group: root
     mode: "0755"
 
-- name: Install the step-ca certificate for this host
-  # Cockpit expects a single PEM file containing the private key followed by
-  # the certificate chain. Renewal = re-run the playbook (certs last 1 year).
+- name: Install the step-ca certificate and key for this host
+  # Cockpit's cockpit-certificate-ensure helper wants separate .cert/.key
+  # files, not one combined PEM - confirmed live ("open: .../0-{{
+  # internal_domain }}.key: No such file or directory"). Renewal = re-run
+  # the playbook (certs last 1 year).
   ansible.builtin.copy:
-    src: "{{ playbook_dir }}/fetched/step-ca/cockpit/{{ inventory_hostname }}.pem"
-    dest: "/etc/cockpit/ws-certs.d/0-{{ internal_domain }}.cert"
+    src: "{{ playbook_dir }}/fetched/step-ca/cockpit/{{ inventory_hostname }}.{{ item.ext }}"
+    dest: "/etc/cockpit/ws-certs.d/0-{{ internal_domain }}.{{ item.dest_ext }}"
     owner: root
     group: root
     mode: "0600"
+  loop:
+    - { ext: crt, dest_ext: cert }
+    - { ext: key, dest_ext: key }
   notify: Restart cockpit
 
 - name: Enable and start Cockpit

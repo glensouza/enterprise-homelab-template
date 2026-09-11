@@ -116,17 +116,21 @@
     --not-after 8760h --force
   loop: "{{ groups['all'] }}"
 
-- name: Combine key and chain into the Cockpit PEM format
-  ansible.builtin.shell: >
-    cat /root/cockpit-certs/{{ item }}.key
-    /root/cockpit-certs/{{ item }}.crt
-    > /root/cockpit-certs/{{ item }}.pem
+# Cockpit's own cockpit-certificate-ensure helper wants separate .cert/.key
+# files (confirmed live: "open: .../0-{{ internal_domain }}.key: No such
+# file or directory") - it does NOT accept one combined PEM the way e.g.
+# Caddy does, despite that being the more common convention. Fetched
+# separately below; consumed by the cockpit role on each LXC.
+- name: Fetch Cockpit certificates to the Ansible controller
+  ansible.builtin.fetch:
+    src: "/root/cockpit-certs/{{ item }}.crt"
+    dest: "fetched/step-ca/cockpit/{{ item }}.crt"
+    flat: true
   loop: "{{ groups['all'] }}"
 
-- name: Fetch Cockpit certificates to the Ansible controller
-  # Consumed by the cockpit role, which installs them on each LXC.
+- name: Fetch Cockpit keys to the Ansible controller
   ansible.builtin.fetch:
-    src: "/root/cockpit-certs/{{ item }}.pem"
-    dest: "fetched/step-ca/cockpit/{{ item }}.pem"
+    src: "/root/cockpit-certs/{{ item }}.key"
+    dest: "fetched/step-ca/cockpit/{{ item }}.key"
     flat: true
   loop: "{{ groups['all'] }}"
