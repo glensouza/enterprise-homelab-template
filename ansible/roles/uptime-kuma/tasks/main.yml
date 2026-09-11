@@ -48,6 +48,14 @@
     home: /opt/uptime-kuma
     create_home: false
 
+# "Own the install directory" below chows /opt/uptime-kuma away from root
+# (the remote_user git runs as), so every re-run after the first hits git's
+# dubious-ownership check - confirmed live: "detected dubious ownership in
+# repository at '/opt/uptime-kuma'".
+- name: Mark /opt/uptime-kuma as a safe git directory for root
+  ansible.builtin.command: git config --global --add safe.directory /opt/uptime-kuma
+  changed_when: false
+
 - name: Clone Uptime Kuma
   ansible.builtin.git:
     repo: https://github.com/louislam/uptime-kuma.git
