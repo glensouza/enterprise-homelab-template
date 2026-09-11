@@ -20,7 +20,7 @@ To achieve a true "green padlock" (trusted SSL) for internal services without ex
 4.  **Request New Certificate:**
     *   **Certificate Identifier:** `Homelab-Wildcard`
     *   **Common Name:** `*.smartsoftwarecoffee.com` (This wildcard covers your apps and admin panels).
-    *   **Select Virtual Service:** Select the parent VIP (e.g., `10.10.10.199`). *Note: To validate, this VS must be configured with SubVSs, not direct Real Servers attached to the parent.*
+    *   **Select Virtual Service:** Select the `:443` VS at `10.10.110.199` (ADR 23 — not the WUI's `10.10.10.199`; that address is management-only and never carries a Virtual Service). *Note: this doc says the VS must use SubVSs rather than direct Real Servers to validate — unverified against the actual build, which has Real Servers attached directly (`docs/03` section 1). If ACME validation rejects the direct-Real-Servers setup when this step is actually run, restructure into a parent VS + SubVS and update this note with what was actually required.*
     *   **DNS API Provider:** Select `CloudFlare`.
     *   **DNS API Username:** Your Cloudflare account email.
     *   **DNS API Access Key:** Your Cloudflare Global API Key.

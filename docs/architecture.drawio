@@ -25,7 +25,7 @@
                 <mxCell id="cloudflared" value="Cloudflared Tunnel LXC&#xa;10.10.110.5 (Node 1)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;" parent="vlan110" vertex="1">
                     <mxGeometry x="40" y="50" width="180" height="60" as="geometry"/>
                 </mxCell>
-                <mxCell id="kemp" value="Kemp LoadMaster VIP 10.10.10.199 (existing LAN)&#xa;VM on pve1, cluster master&#xa;L7 LB | TLS termination (LE wildcard)&#xa;Sticky sessions | /health probes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontStyle=1" parent="vlan110" vertex="1">
+                <mxCell id="kemp" value="Kemp LoadMaster VIP 10.10.110.199 (VLAN 110, eth1)&#xa;WUI 10.10.10.199 (existing LAN, eth0)&#xa;VM 199 on pve1, cluster master&#xa;L7 LB | TLS termination (LE wildcard)&#xa;Source IP persistence | /health probes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontStyle=1" parent="vlan110" vertex="1">
                     <mxGeometry x="40" y="140" width="400" height="70" as="geometry"/>
                 </mxCell>
                 <mxCell id="web01" value="Blazor Web 01&#xa;10.10.110.101:5000 (Node 1)&#xa;.NET 10 systemd | HTTP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;" parent="vlan110" vertex="1">

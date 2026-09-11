@@ -16,8 +16,10 @@ In the **UniFi Network Application**, navigate to **Settings > Networks** and cr
     *   **Router:** UDM-Pro
     *   **Host Address:** `10.10.110.1/24`
     *   **Purpose:** Houses the Cloudflare Tunnel LXC and the Blazor Web LXCs. The Kemp VIP
-        (`10.10.10.199`) and the Synology NAS (`10.10.10.90`) are pre-existing, non-Terraform-managed
-        hardware and stay on the existing `10.10.10.0/24` LAN rather than moving into this VLAN.
+        (`10.10.110.199`) lives here too, via a second NIC on the Kemp VM tagged into this VLAN
+        (ADR 23) — Kemp's WUI (management console, `10.10.10.199`) stays on the existing
+        `10.10.10.0/24` LAN on its first NIC. The Synology NAS (`10.10.10.90`) is pre-existing,
+        non-Terraform-managed hardware and stays on the existing LAN entirely.
 2.  **Backend / Data Tier (VLAN 120)**
     *   **Router:** UDM-Pro
     *   **Host Address:** `10.10.120.1/24`

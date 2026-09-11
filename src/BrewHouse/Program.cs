@@ -2,6 +2,7 @@ using Amazon.Runtime;
 using Amazon.S3;
 using JasperFx;
 using JasperFx.Resources;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using OpenTelemetry;
 using OpenTelemetry.Logs;
@@ -171,9 +172,21 @@ builder.Services.AddServerSideBlazor(options =>
 
 var app = builder.Build();
 
+// Kemp (10.10.110.199) terminates TLS and forwards plain HTTP to :5000 for both its
+// :80 and :443 VIPs, so Kestrel can't tell them apart from the connection alone -
+// only X-Forwarded-Proto (set on the :443 VS's "Add Header to Request") does.
+// KnownProxies is Kemp's own eth1 address (10.10.110.198, "Subnet Originating
+// Requests") - the address Kemp actually connects from, not the VIP.
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+    KnownProxies = { System.Net.IPAddress.Parse("10.10.110.198") },
+});
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
+    app.UseHttpsRedirection();
 }
 
 app.UseStaticFiles();

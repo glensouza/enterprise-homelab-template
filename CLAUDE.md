@@ -96,7 +96,7 @@ VLAN — same pattern as the Kemp VIP and Synology NAS below.
 |------|----|-----------------|
 | Synology NAS | `10.10.10.90` | External Storage |
 | Cloudflared Tunnel LXC | `10.10.110.5` | `pve4` (Node 1 - Primary) |
-| Kemp LoadMaster VIP (sticky sessions, LE wildcard terminated here) | `10.10.10.199` | VM on `pve1` (cluster master) |
+| Kemp LoadMaster VIP (Source IP persistence, LE wildcard terminated here) | `10.10.110.199` (WUI: `10.10.10.199`, existing LAN — ADR 23) | VM 199 on `pve1` (cluster master) |
 | Blazor Web 01 (Primary Web App) | `10.10.110.101` | `pve4` (Node 1 - Primary) |
 | Blazor Web 02 (Secondary Web App) | `10.10.110.102` | `pve3` (Node 2 - Secondary) |
 

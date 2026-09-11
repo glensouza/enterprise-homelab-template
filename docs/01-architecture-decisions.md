@@ -27,7 +27,7 @@
 ---
 
 ## ADR 05: Layer 7 High Availability via Kemp LoadMaster
-* **Decision:** Deploy dual Blazor Web LXCs across two separate Proxmox nodes behind a Kemp LoadMaster Virtual Service VIP (`10.10.10.199`).
+* **Decision:** Deploy dual Blazor Web LXCs across two separate Proxmox nodes behind a Kemp LoadMaster Virtual Service VIP (`10.10.110.199`, VLAN 110 — see ADR 23 for why this differs from the WUI's `10.10.10.199`).
 * **Rationale:** Zero-Downtime Maintenance and active health checking.
 
 ---
@@ -46,7 +46,7 @@
 
 ## ADR 08: SignalR WebSockets Scale-Out via Microsoft Garnet Backplane & Kemp Sticky Sessions
 * **Decision:** Configure Blazor Server SignalR hubs to use Microsoft Garnet as a distributed pub/sub backplane (`AddStackExchangeRedis`), while enforcing L7 Session Persistence (Sticky Sessions) on the Kemp LoadMaster. `BidsHub` (`Hubs/BidsHub.cs`) is a broadcast-only hub on the same backplane: `ProcessBidHandler` pushes `BidPlaced` to `Clients.All` after saving a bid, and every Blazor circuit's `LiveBids.razor` component (via `IBidsClient`/`SignalRBidsClient`) re-renders on receipt - proving the cross-node broadcast rather than just documenting it as possible.
-* **Rationale:** Blazor Server holds circuit state in application RAM. Sticky Sessions ensure a user's persistent WebSocket connection remains anchored to their assigned Blazor LXC node. If a cross-node broadcast occurs (e.g., live auction bid update), Garnet synchronizes the SignalR hubs across `Web 01` and `Web 02` instantaneously. `IBidsClient` is an app-owned abstraction over the concrete `HubConnection` so `LiveBids.razor` is unit-testable with bUnit without a real Kestrel/hub endpoint.
+* **Rationale:** Blazor Server holds circuit state in application RAM. Sticky Sessions ensure a user's persistent WebSocket connection remains anchored to their assigned Blazor LXC node. If a cross-node broadcast occurs (e.g., live auction bid update), Garnet synchronizes the SignalR hubs across `Web 01` and `Web 02` instantaneously. `IBidsClient` is an app-owned abstraction over the concrete `HubConnection` so `LiveBids.razor` is unit-testable with bUnit without a real Kestrel/hub endpoint. Confirmed live: this Kemp license (Free/Trial VLM) exposes only `None`/`Source IP Address` persistence in the GUI — cookie-based `Super HTTP` persistence is not available — so the actual persistence mechanism is Source IP, not a cookie, despite "L7" in this ADR's title.
 
 ---
 ## ADR 09: Full Observability via OpenTelemetry (OTLP)
@@ -121,6 +121,18 @@
 ## ADR 22: GitOps-Driven Infrastructure Changes via a Manual DevOps LXC
 * **Decision:** Terraform and Ansible no longer run from an operator's workstation. A single, manually-provisioned (not Terraform-managed) Debian 12 LXC on `pve1` — outside the fleet Terraform can destroy — hosts the GitHub Actions self-hosted runner, Terraform, Ansible, and the SSH key Ansible uses against every managed LXC. Two workflows drive infrastructure changes the same way `deploy-blazor.yml`/`rollback.yml` drive app changes: `terraform-plan.yml` runs `terraform plan` on every PR touching `terraform/**` and posts the plan as a PR comment; `terraform-apply.yml` is `workflow_dispatch`-only, gated by the `production` environment's required reviewer, and applies the *exact* plan artifact a human already reviewed on the PR — never a freshly regenerated plan — before running `ansible-playbook site.yml` to converge the result. Sensitive inputs (`proxmox_password`, `unifi_password`) are GitHub Actions secrets injected as `TF_VAR_*` environment variables at runtime; non-sensitive inputs are repository variables. No `terraform.tfvars` file is required for the CI path.
 * **Rationale:** Every other production change in this repo goes through a reviewed PR and an approval gate (ADR 11's migration bundle, ADR 16's rollback workflow) — infrastructure was the one exception, since `terraform apply` was always a human running a local command, unreviewed and unaudited. Running it via CI closes that gap. The control box must live outside Terraform's own blast radius (`pve1`, alongside Kemp — see `docs/04`) specifically because it is the thing capable of destroying the fleet: co-locating it with a Terraform-managed LXC risks a bad apply severing the SSH session running that very apply. Applying the saved plan artifact rather than a fresh one at apply time mirrors the EF Core migration bundle's "build once, execute exactly that artifact" discipline (ADR 11) — a plan reviewed on Monday and a plan silently regenerated on Friday are not the same guarantee.
+
+---
+
+## ADR 23: Kemp Dual-NIC Segmentation — WUI on the Existing LAN, VIP on VLAN 110
+* **Decision:** The Kemp LoadMaster VM (`VMID 199` on `pve1`) runs two NICs: `eth0` stays on the existing LAN (`10.10.10.0/24`, untagged), carrying only the WUI at `10.10.10.199`; `eth1` is tagged into VLAN 110 (`qm set 199 -net1 ...,tag=110`, applied outside Terraform since Kemp itself isn't Terraform-managed), carrying the Virtual Service VIP at `10.10.110.199`, alongside the Blazor real servers and the Cloudflare Tunnel LXC it serves.
+* **Rationale:** Confirmed live: Kemp refuses to let a Virtual Service reuse the IP address of *any* of its own interfaces ("Cannot use WUI address as a VIP") — the rule applies per-interface, not just to eth0. The original single-NIC design collided the WUI and the VIP on the same address; splitting onto a second NIC preserves `.199` as the memorable address on *both* segments (the VM's own Proxmox VMID) while eliminating the collision, and additionally moves ingress traffic onto the same VLAN as the real servers and the Cloudflare Tunnel LXC it targets, removing a cross-VLAN hop that existed in the original single-subnet design.
+
+---
+
+## ADR 24: HTTP → HTTPS Redirect Handled at the Application Layer, Not Kemp
+* **Decision:** The Blazor app's port-80 traffic is not redirected by Kemp. Both the `10.10.110.199:80` and `:443` Virtual Services forward to the same real servers (`10.10.110.101/102:5000`, plain HTTP — TLS never reaches them); `src/BrewHouse/Program.cs` calls `UseForwardedHeaders` (trusting `X-Forwarded-Proto`/`X-Forwarded-For` only from Kemp's `eth1` address, `10.10.110.198`) followed by `UseHttpsRedirection()`, so the app itself issues the 301 based on which VIP port the client actually hit.
+* **Rationale:** Confirmed live: this Kemp license exposes no built-in "force HTTPS"/redirect toggle on the Virtual Service (Standard/Advanced Properties have no such field; it may require the licensed ESP add-on), and Advanced Properties itself stays sparser on a VS until a certificate is bound and SSL Acceleration is active. Rather than depend on an unverified/possibly-unlicensed Kemp feature, `UseForwardedHeaders`/`UseHttpsRedirection` is the standard ASP.NET Core pattern for exactly this reverse-proxy scenario, is portable to ADR 15's HAProxy alternative without any app change, and only requires Kemp to attach one standard header on the `:443` VS.
 
 ---
 ### Source Material & Attribution
