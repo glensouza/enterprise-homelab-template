@@ -6,10 +6,14 @@ After=network.target
 [Service]
 User=prometheus
 Group=prometheus
+# --web.listen-address=:9091, not Prometheus's default :9090 - confirmed
+# live: collides with Cockpit's fixed port 9090 on this same host (the only
+# LXC in the fleet running both). Keep in sync with datasources.yml.j2.
 ExecStart=/usr/local/bin/prometheus \
   --config.file=/etc/prometheus/prometheus.yml \
   --storage.tsdb.path=/var/lib/prometheus \
-  --web.enable-remote-write-receiver
+  --web.enable-remote-write-receiver \
+  --web.listen-address=:9091
 Restart=on-failure
 
 [Install]
