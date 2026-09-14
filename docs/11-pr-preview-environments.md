@@ -60,7 +60,7 @@ Why a wildcard record instead of per-PR DNS entries: there is nothing to create 
 2. Builds `brewhouse-pr-<n>:<sha>` from `src/BrewHouse/Dockerfile`, `docker save | ssh … docker load`.
 3. Generates the EF Core migration bundle (ADR 11) and stages `/opt/previews/pr-<n>/` with `docker-compose.yml` (from `deploy/preview/docker-compose.pr.yml`) and a `.env` containing an ephemeral per-PR database password and the four Floci emulator ports — no GitHub secrets required.
 4. `docker compose up -d --wait`, then executes the migration bundle against the PR database (`brewhouse_pr<n>` on the loopback-published port `15432 + <n>`). The one-shot `floci-init` service creates the bucket `brewhouse-auction-pr<n>` in the AWS emulator first — the app waits on it (`service_completed_successfully`), because `S3BlobStore` never creates buckets (real S3 rarely grants `CreateBucket` to an app identity).
-5. Writes the Caddy site file `pr-<n>.pr.brewhouse.internal → 127.0.0.1:<6000+n>` plus four more server blocks in the same file for the emulators (`pr-<n>-aws`/`-azure`/`-gcp`/`-oci`) and reloads Caddy. The first TLS handshake triggers ACME issuance from step-ca.
+5. Writes the Caddy site file `pr-<n>.pr.brewhouse.internal → 127.0.0.1:<6000+n>` plus four more server blocks in the same file for the emulators (`pr-<n>-aws`/`-azure`/`-gcp`/`-oci`), each with its own `tls { ca ...; ca_root ... }` block pointing at step-ca (ADR 25 — required for `.internal` names, not optional), and reloads Caddy. The first TLS handshake triggers ACME issuance from step-ca.
 6. Smoke-tests `https://pr-<n>.pr.brewhouse.internal/health` with the real certificate chain (`--cacert root_ca.crt`) and comments the URL on the PR.
 
 **Merge / close (`pr-preview-cleanup.yml`):**
@@ -86,13 +86,13 @@ scp root@10.10.130.121:/root/.step/certs/root_ca.crt .
 | List running preview stacks | `ssh root@10.10.140.120 "docker compose ls"` |
 | Logs for one PR | `ssh root@10.10.140.120 "cd /opt/previews/pr-<n> && docker compose logs -f app"` |
 | List Caddy sites | `ls /etc/caddy/pr-sites/` on the preview host |
-| Force re-issue a cert | delete the site file, `systemctl reload caddy`, restore file, reload again |
+| Force re-issue a cert | delete the on-disk cert (`/var/lib/caddy/.local/share/caddy/certificates/...`), then `systemctl restart caddy` (not `reload` — confirmed live: a soft reload keeps already-cached in-memory certs even after their on-disk backing is deleted; only a full restart re-evaluates storage) |
 | CA status / ACME directory | `curl --cacert root_ca.crt https://10.10.130.121:4443/acme/acme/directory` |
 | Manually remove a stale PR | run the steps from `pr-preview-cleanup.yml` by hand |
 
 * **`NET::ERR_CERT_AUTHORITY_INVALID`** — the client doesn't trust the step-ca root (section 4).
 * **Hostname doesn't resolve** — the client isn't using Technitium for DNS (section 2, step 4).
-* **Caddy can't obtain a certificate** — check VLAN 140 → `10.10.130.121:4443` and step-ca → preview `80,443` firewall rules (`terraform/unifi.tf`, ADR 19), and that the step-ca LXC resolves `*.pr.brewhouse.internal` via Technitium (the `resolver` role).
+* **Caddy can't obtain a certificate** — check VLAN 140 → `10.10.130.121:4443` and step-ca → preview `80,443` firewall rules (`terraform/unifi.tf`, ADR 19), and that the step-ca LXC resolves `*.pr.brewhouse.internal` via Technitium (the `resolver` role). If the site instead silently serves a **self-signed "Caddy Local Authority" certificate with no error at all**, this isn't a connectivity problem — Caddy's automatic HTTPS defaults to its own internal CA for any `.internal` name unless that specific site has its own `tls { ca ...; ca_root ... }` block (ADR 25); confirm with `caddy adapt --config /etc/caddy/Caddyfile | jq .apps.tls.automation.policies` and look for a `subjects`-scoped policy naming the site.
 * **Port collisions** — app/DB ports are `6000 + <PR#>` / `15432 + <PR#>`; the four Floci emulator ports are `24566/24577/24588/24599 + <PR#>` (mirroring their real ports 4566/4577/4588/4599). GitHub PR numbers are unique, so collisions are impossible in practice.
 
 ## 6. Deliberate simplifications vs. production
