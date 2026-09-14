@@ -21,6 +21,10 @@ storage:
     wal:
       path: /var/lib/tempo/wal
 
-compactor:
-  compaction:
-    block_retention: {{ observability_retention | default('24h') }}
+# No compactor/retention override - confirmed live against the installed
+# Tempo 3.0.3: a top-level `compactor:` block no longer exists at all
+# ("field compactor not found in type app.Config"). block_retention moved
+# under backend-scheduler/backend-worker, Tempo's newer distributed
+# deployment components, which this simple single-binary `target=all`
+# monolithic mode doesn't use. Tempo's own built-in default (336h) is fine
+# for a stub LXC that lives only for the length of one filming session.
