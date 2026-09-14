@@ -3,7 +3,7 @@
 caddy_admin_email: admin@brewhouse.internal
 
 # pgAdmin bootstrap login (change later in the pgAdmin UI if desired).
-# Generated once on the Ansible controller and reused on every run;
-# the credentials/ directory is git-ignored.
+# Generated once on the Ansible controller and reused on every run,
+# cached under /opt/ansible-credentials (ADR 35), outside any git checkout.
 pgadmin_default_email: admin@brewhouse.internal
-pgadmin_default_password: "{{ lookup('ansible.builtin.password', 'credentials/pgadmin/password length=24') }}"
+pgadmin_default_password: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/pgadmin/password length=24') }}"

@@ -20,5 +20,5 @@ postgres_data_dir: "/var/lib/postgresql/{{ postgres_version }}/main"
 postgres_conf_dir: "/etc/postgresql/{{ postgres_version }}/main"
 
 # ADR 30: generated once on the Ansible controller and reused on every run -
-# credentials/ is git-ignored, same pattern as pki.yml's step_ca_password.
-postgres_brewhouse_password: "{{ lookup('ansible.builtin.password', 'credentials/postgres/brewhouse_password length=32 chars=ascii_letters,digits') }}"
+# cached under /opt/ansible-credentials (ADR 35), outside any git checkout.
+postgres_brewhouse_password: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/postgres/brewhouse_password length=32 chars=ascii_letters,digits') }}"

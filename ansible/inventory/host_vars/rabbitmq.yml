@@ -1,5 +1,5 @@
 ---
 # RabbitMQ (ADR 07/10). Generated once on the Ansible controller and reused
-# on every run - credentials/ is git-ignored, same pattern as pki.yml's
+# on every run - cached under /opt/ansible-credentials (ADR 35), outside any git checkout
 # step_ca_password.
-rabbitmq_password: "{{ lookup('ansible.builtin.password', 'credentials/rabbitmq/password length=32 chars=ascii_letters,digits') }}"
+rabbitmq_password: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/rabbitmq/password length=32 chars=ascii_letters,digits') }}"

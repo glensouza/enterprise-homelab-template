@@ -1,9 +1,10 @@
 ---
 # Infisical self-hosted secrets vault (ADR 12/26). Generated once on the
-# Ansible controller and reused on every run - credentials/ is git-ignored,
-# same pattern as pki.yml's step_ca_password.
-infisical_db_password: "{{ lookup('ansible.builtin.password', 'credentials/infisical/db_password length=32 chars=ascii_letters,digits') }}"
+# Ansible controller and reused on every run - cached under
+# /opt/ansible-credentials, outside any git checkout (ADR 35), so every
+# clone that ever runs this playbook resolves to the same value.
+infisical_db_password: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/infisical/db_password length=32 chars=ascii_letters,digits') }}"
 # Must stay hex - Infisical decodes this as a raw AES key, matching the
 # upstream installer's `openssl rand -hex 16` (32 hex chars = 16 bytes).
-infisical_encryption_key: "{{ lookup('ansible.builtin.password', 'credentials/infisical/encryption_key length=32 chars=hexdigits') }}"
-infisical_auth_secret: "{{ lookup('ansible.builtin.password', 'credentials/infisical/auth_secret length=44 chars=ascii_letters,digits') }}"
+infisical_encryption_key: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/infisical/encryption_key length=32 chars=hexdigits') }}"
+infisical_auth_secret: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/infisical/auth_secret length=44 chars=ascii_letters,digits') }}"

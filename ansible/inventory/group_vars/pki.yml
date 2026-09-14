@@ -10,6 +10,6 @@ step_ca_dns_names: 10.10.130.121,step-ca
 step_ca_version: "0.30.2"
 step_cli_version: "0.30.6"
 
-# Generated once on the Ansible controller and reused on every run.
-# The credentials/ directory is git-ignored.
-step_ca_password: "{{ lookup('ansible.builtin.password', 'credentials/step-ca/password length=32') }}"
+# Generated once on the Ansible controller and reused on every run,
+# cached under /opt/ansible-credentials (ADR 35), outside any git checkout.
+step_ca_password: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/step-ca/password length=32') }}"
