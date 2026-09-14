@@ -2,7 +2,13 @@
 # Technitium DNS (ADR 20/21). technitium_api_token lives in the sibling
 # secrets.yml (git-ignored, human-supplied) — see secrets.yml.example.
 # Without it, the technitium role skips zone/record management and you
-# create the zones by hand (docs/11 section 2 step 3).
+# create the zones by hand (docs/11 section 2 step 3). ADR 31: if
+# secrets.yml doesn't exist yet, the role now tries to bootstrap itself
+# first via the API's own default admin/admin login, generating this
+# password and a token automatically - falls through to the manual path
+# above only if that fails (i.e. the default password was already changed
+# by hand at some point).
+technitium_admin_password: "{{ lookup('ansible.builtin.password', 'credentials/technitium/admin_password length=32 chars=ascii_letters,digits') }}"
 
 # Friendly service names (CNAMEs) in the {{ internal_domain }} zone.
 # Hosts themselves get per-host A records automatically (one per LXC in the

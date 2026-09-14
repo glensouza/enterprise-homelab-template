@@ -31,9 +31,61 @@
     enabled: true
     state: started
 
+# ADR 31: self-bootstrap via the API's own default admin/admin login, so
+# secrets.yml doesn't have to be hand-populated from a manually-created UI
+# token before Ansible can manage zones at all. Only attempted when
+# technitium_api_token wasn't already supplied - confirmed live this session
+# that a 401 here (default password already changed by hand, as this LXC's
+# own instance already was) fails gracefully and falls through to the
+# existing manual-token path below, unchanged.
+- name: "Bootstrap: create an API token using the default admin/admin login"
+  ansible.builtin.uri:
+    url: "http://localhost:5380/api/user/createToken?user=admin&pass=admin&tokenName=ansible-bootstrap"
+    method: GET
+    status_code: [200, 401]
+  register: technitium_bootstrap_token
+  when: technitium_api_token is not defined
+  no_log: true
+
+- name: "Bootstrap: change the default admin password"
+  ansible.builtin.uri:
+    url: "http://localhost:5380/api/user/changePassword?pass=admin&newPass={{ technitium_admin_password }}"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ technitium_bootstrap_token.json.token }}"
+    status_code: 200
+  when: >
+    technitium_api_token is not defined and
+    technitium_bootstrap_token.json is defined and
+    technitium_bootstrap_token.json.status | default('') == 'ok'
+  no_log: true
+
+- name: "Bootstrap: use the new token for the rest of this run"
+  ansible.builtin.set_fact:
+    technitium_api_token: "{{ technitium_bootstrap_token.json.token }}"
+  when: >
+    technitium_api_token is not defined and
+    technitium_bootstrap_token.json is defined and
+    technitium_bootstrap_token.json.status | default('') == 'ok'
+  no_log: true
+
+- name: "Bootstrap: tell the operator to save the token for future runs"
+  ansible.builtin.debug:
+    msg: >-
+      Technitium bootstrapped automatically. Save this token to
+      ansible/inventory/group_vars/dns/secrets.yml as technitium_api_token
+      so future runs don't need to bootstrap again -
+      {{ technitium_bootstrap_token.json.token }}
+  when: >
+    technitium_api_token is defined and
+    technitium_bootstrap_token is defined and
+    technitium_bootstrap_token.json is defined and
+    technitium_bootstrap_token.json.status | default('') == 'ok'
+
 # Zone management is API-driven. Set technitium_api_token (create one in the
 # Technitium web UI on http://10.10.130.119:5380 after changing the default
-# admin password) to let Ansible create the zone + wildcard record.
+# admin password) to let Ansible create the zone + wildcard record - or let
+# the bootstrap above do it automatically on a fresh instance.
 - name: Create the preview zone
   ansible.builtin.uri:
     url: "http://localhost:5380/api/zones/create?token={{ technitium_api_token }}&zone={{ preview_domain }}&type=Primary"
