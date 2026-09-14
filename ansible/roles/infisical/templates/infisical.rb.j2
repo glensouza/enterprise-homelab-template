@@ -1,0 +1,5 @@
+infisical_core['ENCRYPTION_KEY'] = '{{ infisical_encryption_key }}'
+infisical_core['AUTH_SECRET'] = '{{ infisical_auth_secret }}'
+infisical_core['HOST'] = '{{ ansible_host }}'
+infisical_core['DB_CONNECTION_URI'] = 'postgres://infisical:{{ infisical_db_password }}@localhost:5432/infisical_db'
+infisical_core['REDIS_URL'] = 'redis://localhost:6379'

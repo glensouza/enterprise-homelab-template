@@ -24,6 +24,11 @@
     - resolver
     - step-ca
 
+- name: Configure Infisical secrets vault (VLAN 130, ADR 12/26)
+  hosts: infisical
+  roles:
+    - infisical
+
 - name: Configure the PR preview host (VLAN 140, ADR 19)
   hosts: preview
   roles:

@@ -1,0 +1,90 @@
+---
+# Infisical self-hosted secrets vault (VLAN 130, ADR 12/26). Bare-metal via
+# the official infisical-core Debian package (an Omnibus-style installer,
+# like GitLab's) - no Docker, per ADR 02. Sequence confirmed against the
+# community-scripts ProxmoxVE LXC installer (ct/infisical.sh /
+# install/infisical-install.sh, see docs/01 ADR 26 for the exact source
+# commit). This LXC gets its OWN local PostgreSQL + Redis - deliberately not
+# the shared brewhouse Postgres LXC, so the vault stays reachable
+# independent of that database's health.
+- name: Install prerequisite packages
+  ansible.builtin.apt:
+    name: [apt-transport-https, redis]
+    state: present
+    update_cache: true
+
+- name: Enable and start Redis
+  ansible.builtin.systemd:
+    name: redis-server
+    enabled: true
+    state: started
+
+- name: Install PostgreSQL
+  ansible.builtin.apt:
+    name: [postgresql, postgresql-contrib]
+    state: present
+
+- name: Enable and start PostgreSQL
+  ansible.builtin.systemd:
+    name: postgresql
+    enabled: true
+    state: started
+
+- name: Create the infisical database role
+  ansible.builtin.command: >
+    su postgres -c "psql -c \"CREATE ROLE infisical WITH LOGIN PASSWORD '{{ infisical_db_password }}';\""
+  register: create_role
+  failed_when: create_role.rc != 0 and 'already exists' not in create_role.stderr
+  changed_when: create_role.rc == 0
+
+- name: Create the infisical database
+  ansible.builtin.command: >
+    su postgres -c "psql -c \"CREATE DATABASE infisical_db OWNER infisical;\""
+  register: create_db
+  failed_when: create_db.rc != 0 and 'already exists' not in create_db.stderr
+  changed_when: create_db.rc == 0
+
+- name: Add the Infisical apt GPG key
+  ansible.builtin.get_url:
+    url: https://artifacts-infisical-core.infisical.com/infisical.gpg
+    dest: /etc/apt/keyrings/infisical.gpg
+    mode: "0644"
+
+- name: Add the Infisical apt repository (deb822, matches the upstream installer)
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/infisical.sources
+    content: |
+      Types: deb
+      URIs: https://artifacts-infisical-core.infisical.com/deb
+      Suites: stable
+      Components: main
+      Signed-By: /etc/apt/keyrings/infisical.gpg
+    mode: "0644"
+  register: infisical_repo
+
+- name: Update apt cache after adding the Infisical repository
+  ansible.builtin.apt:
+    update_cache: true
+  when: infisical_repo.changed
+
+- name: Install infisical-core
+  ansible.builtin.apt:
+    name: infisical-core
+    state: present
+
+- name: Create /etc/infisical
+  ansible.builtin.file:
+    path: /etc/infisical
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Configure Infisical (infisical.rb)
+  ansible.builtin.template:
+    src: infisical.rb.j2
+    dest: /etc/infisical/infisical.rb
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Reconfigure infisical

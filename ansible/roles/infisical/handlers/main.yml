@@ -1,0 +1,4 @@
+---
+- name: Reconfigure infisical
+  ansible.builtin.command: infisical-ctl reconfigure
+  listen: Reconfigure infisical
