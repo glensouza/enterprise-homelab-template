@@ -70,4 +70,10 @@ jobs:
 
       - name: Ansible converge
         working-directory: ansible
-        run: ansible-playbook site.yml
+        # Secrets come from absolute, checkout-independent files - see
+        # ansible-converge.yml / docs/01 ADR 36 for why.
+        run: >
+          ansible-playbook site.yml
+          -e @/opt/ansible-secrets/all.yml
+          -e @/opt/ansible-secrets/dns.yml
+          -e @/opt/ansible-secrets/web.yml

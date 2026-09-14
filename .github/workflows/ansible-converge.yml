@@ -40,4 +40,15 @@ jobs:
 
       - name: Ansible converge
         working-directory: ansible
-        run: ansible-playbook site.yml
+        # Secrets come from absolute, checkout-independent files (ADR 36) -
+        # confirmed live this session, repeatedly: whatever wipes this
+        # runner's _work checkout between jobs (not `clean: false` itself -
+        # something else) kept silently removing group_vars/*/secrets.yml
+        # each time, breaking this run with an undefined-variable error.
+        # -e @file is highest-precedence, so this works whether or not
+        # secrets.yml happens to also exist inside the checkout.
+        run: >
+          ansible-playbook site.yml
+          -e @/opt/ansible-secrets/all.yml
+          -e @/opt/ansible-secrets/dns.yml
+          -e @/opt/ansible-secrets/web.yml
