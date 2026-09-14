@@ -94,7 +94,7 @@
   ansible.builtin.command: >
     rabbitmqctl add_user brewhouse {{ rabbitmq_password }}
   register: rabbitmq_user
-  failed_when: rabbitmq_user.rc != 0 and 'user_already_exists' not in rabbitmq_user.stderr
+  failed_when: rabbitmq_user.rc != 0 and 'already exists' not in rabbitmq_user.stderr
   changed_when: rabbitmq_user.rc == 0
 
 - name: Tag the brewhouse user as administrator
