@@ -182,6 +182,28 @@ resource "unifi_firewall_policy" "web_to_rabbitmq" {
   enabled = true
 }
 
+resource "unifi_firewall_policy" "web_to_infisical" {
+  # Confirmed live: the Infisical Agent on both web LXCs timed out dialing
+  # 10.10.130.116:8080 - drop_web_to_mgmt below blocks all of VLAN 110 ->
+  # VLAN 130 by default, and no exception for Infisical existed yet because
+  # nothing on that LXC was actually reachable until ADR 26 installed it.
+  name     = "Allow Web -> Infisical (8080)"
+  action   = "ALLOW"
+  protocol = "tcp"
+  source = {
+    zone_id         = local.internal_zone_id
+    ips             = [local.vlan110_cidr]
+    matching_target = "IP"
+  }
+  destination = {
+    zone_id         = local.internal_zone_id
+    ips             = ["10.10.130.116"]
+    port            = "8080"
+    matching_target = "IP"
+  }
+  enabled = true
+}
+
 resource "unifi_firewall_policy" "mgmt_to_nas" {
   name     = "Allow Management -> Synology NAS"
   action   = "ALLOW"
@@ -348,6 +370,10 @@ resource "unifi_firewall_policy" "drop_web_to_mgmt" {
     matching_target = "IP"
   }
   enabled = true
+  # Must be evaluated after the specific allow above, or it'd never match.
+  depends_on = [
+    unifi_firewall_policy.web_to_infisical,
+  ]
 }
 
 resource "unifi_firewall_policy" "mgmt_to_any" {
