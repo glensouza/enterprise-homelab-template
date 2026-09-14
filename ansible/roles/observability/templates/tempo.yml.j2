@@ -3,6 +3,12 @@
 # the app-facing endpoint (docs/07); Tempo only receives from Alloy, locally.
 server:
   http_listen_port: 3200
+  # Confirmed live: Tempo's own default grpc_listen_port (9095) collides
+  # with Loki's identical default on this same LXC - neither config set it
+  # explicitly, so both bound 9095 and Tempo lost the race every time,
+  # crash-looping (146,000+ restarts observed) with "address already in
+  # use". Explicit, distinct port needed since they're co-located.
+  grpc_listen_port: 3201
 
 distributor:
   receivers:
