@@ -19,9 +19,26 @@ var brewhouseDb = postgres.AddDatabase("brewhousedb");
 
 // Microsoft Garnet (RESP-compatible, matches VLAN 120 production cache).
 // Tag pinned deliberately - "latest" makes local runs and CI drift apart silently.
+//
+// Two confirmed-live gotchas from wiring this up, both required:
+// 1. Image reference is "microsoft/garnet", NOT "ghcr.io/microsoft/garnet" -
+//    Aspire's DCP fails to pull the ghcr.io-qualified reference directly
+//    ("pull access denied ... repository does not exist"), even though a
+//    plain `docker pull` of that exact reference succeeds and the image
+//    ends up in `docker images` just fine. A DCP/GHCR-specific
+//    incompatibility, not a real permissions issue - CI pre-pulls from
+//    ghcr.io and re-tags to this registry-less local name before tests run
+//    (see deploy-blazor.yml/pr-preview.yml); do the same for local dev:
+//      docker pull ghcr.io/microsoft/garnet:2.1.7
+//      docker tag ghcr.io/microsoft/garnet:2.1.7 microsoft/garnet:2.1.7
+// 2. WithEntrypoint is required - AddRedis("cache") still injects Aspire's
+//    own `redis-server` startup command regardless of the swapped image,
+//    and Garnet's image has no such binary (only /app/GarnetServer),
+//    crashing with exit code 127 ("redis-server: not found") without this.
 var cache = builder.AddRedis("cache")
-    .WithImage("ghcr.io/microsoft/garnet")
+    .WithImage("microsoft/garnet")
     .WithImageTag("2.1.7")
+    .WithEntrypoint("/app/GarnetServer")
     .WithDataVolume("brewhouse-cache-data");
 
 // RabbitMQ with management UI (matches VLAN 120 production broker)

@@ -39,6 +39,13 @@ jobs:
       with:
         dotnet-version: '10.0.x'
 
+    # DCP/GHCR workaround (see deploy-blazor.yml for the full explanation) -
+    # needed here too since this runs the same test suite.
+    - name: Pre-pull and locally re-tag the Garnet image (DCP/GHCR workaround)
+      run: |
+        docker pull ghcr.io/microsoft/garnet:2.1.7
+        docker tag ghcr.io/microsoft/garnet:2.1.7 microsoft/garnet:2.1.7
+
     # Tests gate the preview deploy, same as production (deploy-blazor.yml).
     - name: Restore & Test
       run: dotnet test -c Release

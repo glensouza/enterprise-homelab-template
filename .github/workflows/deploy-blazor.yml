@@ -18,6 +18,19 @@ jobs:
       with:
         dotnet-version: '10.0.x'
 
+    # Confirmed live: Aspire's DCP fails to pull ghcr.io/microsoft/garnet
+    # directly ("pull access denied ... repository does not exist") even
+    # though a plain `docker pull` of the exact same reference succeeds -
+    # a DCP/GHCR-specific incompatibility, not a real access problem.
+    # Re-tagging under a registry-less local name sidesteps it entirely
+    # (BrewHouse.AppHost/Program.cs references this local tag, not the
+    # ghcr.io one, for exactly this reason). Idempotent, so safe to run
+    # every time rather than depending on it having been done once by hand.
+    - name: Pre-pull and locally re-tag the Garnet image (DCP/GHCR workaround)
+      run: |
+        docker pull ghcr.io/microsoft/garnet:2.1.7
+        docker tag ghcr.io/microsoft/garnet:2.1.7 microsoft/garnet:2.1.7
+
     # Tests must pass before anything touches production.
     - name: Restore & Test
       run: dotnet test -c Release
