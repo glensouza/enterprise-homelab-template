@@ -44,11 +44,19 @@
   failed_when: create_db.rc != 0 and 'already exists' not in create_db.stderr
   changed_when: create_db.rc == 0
 
-- name: Add the Infisical apt GPG key
+- name: Download the Infisical apt GPG key
   ansible.builtin.get_url:
     url: https://artifacts-infisical-core.infisical.com/infisical.gpg
-    dest: /etc/apt/keyrings/infisical.gpg
+    dest: /tmp/infisical.gpg.asc
     mode: "0644"
+
+# Confirmed live: this key is ASCII-armored, not binary - apt's Signed-By
+# rejected it outright ("NO_PUBKEY ... not signed") when written as-is,
+# matching the upstream installer's own armored/binary auto-detect (it
+# dearmors whenever the download starts with "BEGIN PGP").
+- name: Dearmor the Infisical apt GPG key
+  ansible.builtin.command: gpg --dearmor --yes -o /etc/apt/keyrings/infisical.gpg /tmp/infisical.gpg.asc
+  changed_when: true
 
 - name: Add the Infisical apt repository (deb822, matches the upstream installer)
   ansible.builtin.copy:
