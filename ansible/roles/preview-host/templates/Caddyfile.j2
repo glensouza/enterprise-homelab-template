@@ -1,11 +1,20 @@
 {
 	email {{ caddy_admin_email }}
-	# Internal PKI (ADR 20): per-site certificates are issued by step-ca
-	# over ACME. The wildcard DNS record in Technitium routes every
-	# pr-*.{{ preview_domain }} hostname here, and step-ca validates
-	# HTTP-01/TLS-ALPN-01 challenges over the LAN (see terraform/unifi.tf).
-	acme_ca {{ step_ca_url }}/acme/acme/directory
-	acme_ca_root /etc/caddy/pki/root_ca.crt
+	# Internal PKI (ADR 20): per-site certificates are issued by step-ca over
+	# ACME. Deliberately NOT set here as a global acme_ca/acme_ca_root —
+	# confirmed live: every hostname here ends in .internal, which fails
+	# Caddy's public-cert-eligibility check, so its automatic-HTTPS logic
+	# injects a subject-scoped override forcing the self-signed "Caddy Local
+	# Authority" issuer for any domain that doesn't have its OWN distinct
+	# automation policy. A global acme_ca identical to each site's `tls { ca
+	# ... }` block gets merged/deduplicated by the Caddyfile adapter into one
+	# subject-less catch-all policy — which doesn't count as "this domain has
+	# its own policy" for that override check, so the internal-CA override
+	# wins anyway. Every site below (and every CI-managed pr-sites/*.caddy
+	# file, and floci.caddy.j2) must instead carry its own `tls { ca
+	# {{ step_ca_url }}/acme/acme/directory; ca_root
+	# /etc/caddy/pki/root_ca.crt }` block — that is what actually produces a
+	# subject-scoped policy Caddy respects over the internal-CA override.
 }
 
 # One file per open PR, written by the pr-preview GitHub Actions workflow:
