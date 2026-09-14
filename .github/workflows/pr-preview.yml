@@ -22,6 +22,7 @@ permissions:
 env:
   PREVIEW_HOST: 10.10.140.120
   PKI_HOST: 10.10.130.121
+  STEP_CA_URL: https://10.10.130.121:4443
   PREVIEW_DOMAIN: pr.brewhouse.internal
   PR_NUMBER: ${{ github.event.pull_request.number }}
 
@@ -102,22 +103,47 @@ jobs:
         scp ./efbundle/efbundle root@${PREVIEW_HOST}:/opt/previews/pr-${PR_NUMBER}/efbundle
         ssh root@${PREVIEW_HOST} "chmod +x /opt/previews/pr-${PR_NUMBER}/efbundle && /opt/previews/pr-${PR_NUMBER}/efbundle --connection 'Host=127.0.0.1;Port=${DB_PORT};Database=brewhouse_pr${PR_NUMBER};Username=brewhouse;Password=${DB_PASSWORD}'"
 
+    # Every site below needs its own explicit `tls` block, not just the
+    # Caddyfile's global acme_ca — Caddy's automatic HTTPS treats any
+    # *.internal-style name as "not publicly issuable" and silently falls
+    # back to its own self-signed "Caddy Local Authority" for it otherwise,
+    # ignoring acme_ca entirely (same fix as ops.caddy.j2/floci.caddy.j2).
     - name: Register the Caddy site and reload
       run: |
         ssh root@${PREVIEW_HOST} "cat > /etc/caddy/pr-sites/pr-${PR_NUMBER}.caddy && systemctl reload caddy" << CADDY_EOF
         pr-${PR_NUMBER}.${PREVIEW_DOMAIN} {
+        	tls {
+        		ca ${STEP_CA_URL}/acme/acme/directory
+        		ca_root /etc/caddy/pki/root_ca.crt
+        	}
         	reverse_proxy 127.0.0.1:${APP_PORT}
         }
         pr-${PR_NUMBER}-aws.${PREVIEW_DOMAIN} {
+        	tls {
+        		ca ${STEP_CA_URL}/acme/acme/directory
+        		ca_root /etc/caddy/pki/root_ca.crt
+        	}
         	reverse_proxy 127.0.0.1:${FLOCI_PORT}
         }
         pr-${PR_NUMBER}-azure.${PREVIEW_DOMAIN} {
+        	tls {
+        		ca ${STEP_CA_URL}/acme/acme/directory
+        		ca_root /etc/caddy/pki/root_ca.crt
+        	}
         	reverse_proxy 127.0.0.1:${FLOCI_AZ_PORT}
         }
         pr-${PR_NUMBER}-gcp.${PREVIEW_DOMAIN} {
+        	tls {
+        		ca ${STEP_CA_URL}/acme/acme/directory
+        		ca_root /etc/caddy/pki/root_ca.crt
+        	}
         	reverse_proxy 127.0.0.1:${FLOCI_GCP_PORT}
         }
         pr-${PR_NUMBER}-oci.${PREVIEW_DOMAIN} {
+        	tls {
+        		ca ${STEP_CA_URL}/acme/acme/directory
+        		ca_root /etc/caddy/pki/root_ca.crt
+        	}
         	reverse_proxy 127.0.0.1:${FLOCI_OCI_PORT}
         }
         CADDY_EOF

@@ -1,18 +1,42 @@
 # Static admin-tooling sites (ADR 21) — rendered by Ansible. Certificates are
 # issued by step-ca over ACME exactly like the per-PR sites. PR sites live in
 # /etc/caddy/pr-sites/ and are managed by CI, not Ansible.
+#
+# Explicit `tls` block required on every site here, confirmed live: Caddy's
+# automatic HTTPS treats any *.internal name as "obviously not publicly
+# issuable" and silently falls back to its own self-signed "Caddy Local
+# Authority" for it, ignoring the global `acme_ca`/`acme_ca_root` in
+# Caddyfile.j2 — those only apply to hostnames that pass Caddy's public-CA
+# eligibility check, which .internal always fails. The per-site `tls { ca
+# ... }` below is what actually forces step-ca to be used.
 portainer.{{ internal_domain }} {
+	tls {
+		ca {{ step_ca_url }}/acme/acme/directory
+		ca_root /etc/caddy/pki/root_ca.crt
+	}
 	reverse_proxy 127.0.0.1:9000
 }
 
 dozzle.{{ internal_domain }} {
+	tls {
+		ca {{ step_ca_url }}/acme/acme/directory
+		ca_root /etc/caddy/pki/root_ca.crt
+	}
 	reverse_proxy 127.0.0.1:8080
 }
 
 pgadmin.{{ internal_domain }} {
+	tls {
+		ca {{ step_ca_url }}/acme/acme/directory
+		ca_root /etc/caddy/pki/root_ca.crt
+	}
 	reverse_proxy 127.0.0.1:8081
 }
 
 redisinsight.{{ internal_domain }} {
+	tls {
+		ca {{ step_ca_url }}/acme/acme/directory
+		ca_root /etc/caddy/pki/root_ca.crt
+	}
 	reverse_proxy 127.0.0.1:5540
 }

@@ -48,7 +48,7 @@ Why a wildcard record instead of per-PR DNS entries: there is nothing to create 
    * `dns` → `technitium` role (installs the server; zone/record via API if `technitium_api_token` is set in `ansible/inventory/group_vars/dns/secrets.yml`)
    * `pki` → `resolver` + `step-ca` roles (initializes the CA with an ACME provisioner, fetches `root_ca.crt` to `ansible/fetched/step-ca/`)
    * `preview` → `resolver` + `docker` + `preview-host` roles (Docker Engine, Caddy wired to the step-ca ACME directory)
-3. **Technitium:** browse `http://10.10.130.119:5380`, change the default `admin` password, and either copy `group_vars/dns/secrets.yml.example` to `group_vars/dns/secrets.yml` (git-ignored), set `technitium_api_token` there, and re-run the playbook, or manually create primary zone `pr.brewhouse.internal` with an A record `*` → `10.10.140.120`.
+3. **Technitium:** browse `http://10.10.130.119:5380`, change the default `admin` password. The API token Ansible needs is a separate credential from that login — generate it under **Administration → Sessions → Create Token** (any name, e.g. `ansible`; shown once, so copy it immediately). Then either copy `group_vars/dns/secrets.yml.example` to `group_vars/dns/secrets.yml` (git-ignored), set `technitium_api_token` to that token, and re-run the playbook, or manually create primary zone `pr.brewhouse.internal` with an A record `*` → `10.10.140.120`.
 4. **Client DNS:** devices that browse previews must resolve via Technitium — set `10.10.130.119` as the DNS server on the admin LAN's DHCP scope (or per-device).
 5. **GitHub:** create a `preview` environment (no required reviewers needed). The self-hosted runner needs Docker CLI, SSH access to `10.10.140.120` / `10.10.130.121`, and `openssl`.
 
