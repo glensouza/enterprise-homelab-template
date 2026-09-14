@@ -1,0 +1,42 @@
+---
+# PatchMon Agent (ADR 34) - enrolls this LXC and installs the agent that
+# reports its pending-update status back to the patchmon server. Confirmed
+# live: /api/v1/hosts/install's script handles a non-interactive (piped)
+# invocation gracefully - it warns and continues rather than blocking on
+# stdin, so it's safe to run unattended exactly as documented.
+- name: Check whether the PatchMon agent is already enrolled
+  ansible.builtin.stat:
+    path: /etc/patchmon/credentials.yml
+  register: patchmon_agent_creds
+
+- name: Enroll this host with PatchMon
+  ansible.builtin.uri:
+    url: "http://{{ hostvars['patchmon'].ansible_host }}:{{ patchmon_port | default(3000) }}/api/v1/auto-enrollment/enroll"
+    method: POST
+    headers:
+      X-Auto-Enrollment-Key: "{{ patchmon_enrollment_token_key }}"
+      X-Auto-Enrollment-Secret: "{{ patchmon_enrollment_token_secret }}"
+    body_format: json
+    body:
+      friendly_name: "{{ inventory_hostname }}"
+      machine_id: "{{ inventory_hostname }}"
+    status_code: 201
+  register: patchmon_enroll
+  when: >
+    not patchmon_agent_creds.stat.exists and
+    patchmon_enrollment_token_key is defined and
+    patchmon_enrollment_token_secret is defined
+  no_log: true
+
+- name: Install the PatchMon agent
+  ansible.builtin.shell: >
+    curl -s
+    -H "X-API-ID: {{ patchmon_enroll.json.host.api_id }}"
+    -H "X-API-KEY: {{ patchmon_enroll.json.host.api_key }}"
+    http://{{ hostvars['patchmon'].ansible_host }}:{{ patchmon_port | default(3000) }}/api/v1/hosts/install
+    | sh
+  when: >
+    not patchmon_agent_creds.stat.exists and
+    patchmon_enroll is defined and
+    patchmon_enroll.json is defined
+  no_log: true

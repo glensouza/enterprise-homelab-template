@@ -73,8 +73,11 @@
     - uptime-kuma
 
 # Runs LAST: the step-ca play above generates and fetches the per-host
-# certificates this role installs.
-- name: Fleet-wide Cockpit with internal-CA certificates (ADR 21)
+# certificates the cockpit role installs, and the patchmon play above
+# already has the PatchMon server (ADR 33) up before this enrolls every
+# host as an agent against it (ADR 34).
+- name: Fleet-wide Cockpit and PatchMon agent enrollment (ADR 21/34)
   hosts: all
   roles:
     - cockpit
+    - patchmon-agent
