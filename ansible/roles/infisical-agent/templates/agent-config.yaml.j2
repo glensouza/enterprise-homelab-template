@@ -1,0 +1,19 @@
+infisical:
+  address: "http://{{ hostvars['infisical'].ansible_host }}:8080"
+auth:
+  type: "universal-auth"
+  config:
+    client-id: "/etc/infisical/client-id"
+    client-secret: "/etc/infisical/client-secret"
+templates:
+  - template-content: |
+{% raw %}
+      {{- with listSecrets "{% endraw %}{{ infisical_project_id }}{% raw %}" "{% endraw %}{{ infisical_environment }}{% raw %}" "/" }}
+      {{- range . }}
+      {{ .Key }}={{ .Value }}
+      {{- end }}
+      {{- end }}
+{% endraw %}
+    destination-path: "/etc/brewhouse/brewhouse.env"
+    config:
+      polling-interval: 5m

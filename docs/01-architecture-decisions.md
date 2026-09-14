@@ -65,7 +65,7 @@
 
 ---
 ## ADR 12: Secrets Delivery via Infisical Agent & systemd EnvironmentFile
-* **Decision:** The Infisical Agent on VLAN 130 renders `/etc/brewhouse/brewhouse.env`, which systemd loads via `EnvironmentFile=`. The `Infisical.Sdk` package has been removed from application code; the app fails fast with a descriptive error if connection strings are missing.
+* **Decision:** The Infisical Agent, running on **each web LXC itself** (VLAN 110 — the Infisical *server* is the one on VLAN 130, ADR 26; the Agent is a separate small process co-located with the app it's feeding), renders `/etc/brewhouse/brewhouse.env`, which systemd loads via `EnvironmentFile=`. The `Infisical.Sdk` package has been removed from application code; the app fails fast with a descriptive error if connection strings are missing. The Agent's install/config (an `infisical-agent` Ansible role, ADR 28) uses a **read-only** machine identity, distinct from the write-scoped one `infisical-secret` uses — the credential that ends up deployed onto two internet-facing-adjacent LXCs should never also be able to overwrite secrets.
 * **Rationale:** No SDK or authentication code lives inside the app, and the pattern works identically for any process type (not just .NET). Secrets still never appear in `appsettings.json` and remain secured within the isolated VLAN 130 Infisical vault.
 
 ---

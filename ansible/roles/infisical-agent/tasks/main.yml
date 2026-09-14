@@ -1,0 +1,91 @@
+---
+# Infisical Agent (VLAN 110, ADR 12) - renders /etc/brewhouse/brewhouse.env
+# from the 4 keys in Infisical (ADR 26/27/28 populate them). This was a
+# manual per-LXC block in LAB-RUNBOOK.md step 8 - moved into Ansible so
+# `ansible-playbook site.yml` finishes with the app actually able to start
+# (ADR 12: it fails fast without this file), not "mostly done, SSH in twice
+# more by hand."
+- name: Add the Infisical CLI apt repository
+  ansible.builtin.shell: curl -1sLf 'https://artifacts-cli.infisical.com/setup.deb.sh' | bash
+  args:
+    creates: /etc/apt/sources.list.d/infisical_infisical-cli.list
+
+- name: Install the Infisical CLI/Agent
+  ansible.builtin.apt:
+    name: infisical
+    state: present
+    update_cache: true
+
+- name: Create /etc/infisical
+  ansible.builtin.file:
+    path: /etc/infisical
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Write the Agent's client-id
+  ansible.builtin.copy:
+    content: "{{ infisical_agent_client_id }}"
+    dest: /etc/infisical/client-id
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
+- name: Write the Agent's client-secret
+  ansible.builtin.copy:
+    content: "{{ infisical_agent_client_secret }}"
+    dest: /etc/infisical/client-secret
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
+- name: Create /etc/brewhouse (Agent's rendered-secrets destination)
+  ansible.builtin.file:
+    path: /etc/brewhouse
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Configure the Agent (agent-config.yaml)
+  ansible.builtin.template:
+    src: agent-config.yaml.j2
+    dest: /etc/infisical/agent-config.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  register: infisical_agent_config
+
+- name: Install infisical-agent.service (canonical copy lives in src/systemd/)
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../src/systemd/infisical-agent.service"
+    dest: /etc/systemd/system/infisical-agent.service
+    owner: root
+    group: root
+    mode: "0644"
+  register: infisical_agent_unit
+
+- name: Reload systemd if the unit changed
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: infisical_agent_unit.changed
+
+- name: Enable and start the Infisical Agent
+  ansible.builtin.systemd:
+    name: infisical-agent
+    enabled: true
+    state: "{{ 'restarted' if (infisical_agent_config.changed or infisical_agent_unit.changed) else 'started' }}"
+
+- name: Wait for the Agent to render brewhouse.env
+  ansible.builtin.wait_for:
+    path: /etc/brewhouse/brewhouse.env
+    timeout: 30
+
+- name: Confirm all 4 keys rendered
+  ansible.builtin.command: grep -c '=' /etc/brewhouse/brewhouse.env
+  register: infisical_env_keys
+  changed_when: false
+  failed_when: infisical_env_keys.stdout | int < 4
