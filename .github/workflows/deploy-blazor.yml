@@ -5,6 +5,16 @@ on:
     branches:
       - main
 
+# Only the latest push's run stays queued - an older one still waiting on
+# approval (or, if already approved, still mid-deploy) gets cancelled the
+# moment a newer push creates another run in this group. Worth knowing:
+# this cancels a run wherever it is in its lifecycle, not just while it's
+# still waiting for approval - if you approve one and then push again
+# before it finishes, the running one is killed mid-deploy too.
+concurrency:
+  group: deploy-blazor
+  cancel-in-progress: true
+
 jobs:
   build-test-and-deploy:
     runs-on: self-hosted

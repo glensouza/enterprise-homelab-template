@@ -18,9 +18,12 @@ on:
       - 'ansible/**'
       - 'src/systemd/**'
 
+# Only the latest push's run stays queued - see deploy-blazor.yml for the
+# same tradeoff note (cancels wherever the older run is, not just while
+# still waiting on approval).
 concurrency:
   group: ansible-converge
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   converge:
