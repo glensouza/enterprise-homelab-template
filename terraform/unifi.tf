@@ -204,6 +204,29 @@ resource "unifi_firewall_policy" "web_to_infisical" {
   enabled = true
 }
 
+resource "unifi_firewall_policy" "web_to_patchmon" {
+  # Confirmed live: a manual curl from blazor-web-01 to
+  # 10.10.130.122:3000/api/v1/auto-enrollment/enroll hung and timed out
+  # (exit 124) rather than failing fast - drop_web_to_mgmt below blocks all
+  # of VLAN 110 -> VLAN 130 by default, and no exception for PatchMon
+  # existed yet, same class of gap as web_to_infisical above (ADR 29).
+  name     = "Allow Web -> PatchMon (3000)"
+  action   = "ALLOW"
+  protocol = "tcp"
+  source = {
+    zone_id         = local.internal_zone_id
+    ips             = [local.vlan110_cidr]
+    matching_target = "IP"
+  }
+  destination = {
+    zone_id         = local.internal_zone_id
+    ips             = ["10.10.130.122"]
+    port            = "3000"
+    matching_target = "IP"
+  }
+  enabled = true
+}
+
 resource "unifi_firewall_policy" "mgmt_to_nas" {
   name     = "Allow Management -> Synology NAS"
   action   = "ALLOW"
@@ -370,9 +393,10 @@ resource "unifi_firewall_policy" "drop_web_to_mgmt" {
     matching_target = "IP"
   }
   enabled = true
-  # Must be evaluated after the specific allow above, or it'd never match.
+  # Must be evaluated after the specific allows above, or they'd never match.
   depends_on = [
     unifi_firewall_policy.web_to_infisical,
+    unifi_firewall_policy.web_to_patchmon,
   ]
 }
 
