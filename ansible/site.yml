@@ -46,6 +46,11 @@
   roles:
     - rabbitmq
 
+- name: Configure PatchMon server (VLAN 130, ADR 33)
+  hosts: patchmon
+  roles:
+    - patchmon
+
 - name: Configure the PR preview host (VLAN 140, ADR 19)
   hosts: preview
   roles:

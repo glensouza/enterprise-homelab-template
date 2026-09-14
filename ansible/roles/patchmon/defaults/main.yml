@@ -1,0 +1,5 @@
+---
+# Pinned release - github.com/PatchMon/PatchMon/releases. Bump deliberately,
+# not automatically (same discipline as garnet_version/step_ca_version).
+patchmon_version: "2.1.3"
+patchmon_port: 3000

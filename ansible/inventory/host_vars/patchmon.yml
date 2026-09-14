@@ -1,0 +1,8 @@
+---
+# PatchMon (ADR 33). Generated once on the Ansible controller and reused on
+# every run - credentials/ is git-ignored, same pattern as pki.yml's
+# step_ca_password.
+patchmon_db_password: "{{ lookup('ansible.builtin.password', 'credentials/patchmon/db_password length=32 chars=ascii_letters,digits') }}"
+patchmon_jwt_secret: "{{ lookup('ansible.builtin.password', 'credentials/patchmon/jwt_secret length=64 chars=hexdigits') }}"
+patchmon_session_secret: "{{ lookup('ansible.builtin.password', 'credentials/patchmon/session_secret length=64 chars=hexdigits') }}"
+patchmon_ai_encryption_key: "{{ lookup('ansible.builtin.password', 'credentials/patchmon/ai_encryption_key length=64 chars=hexdigits') }}"

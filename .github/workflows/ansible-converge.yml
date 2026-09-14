@@ -1,0 +1,40 @@
+name: Ansible Converge
+
+# Runs `ansible-playbook site.yml` on every push to main - the routine,
+# already-idempotent reapply that previously meant SSH-ing into the devops
+# LXC by hand for `git pull && ansible-playbook site.yml`. Deliberately
+# separate from terraform-apply.yml (ADR 22): that one stays plan-then-apply
+# with an explicit reviewed diff, since creating/destroying LXCs/VLANs
+# deserves more ceremony than reapplying config to hosts that already exist.
+# Same production-environment approval gate as deploy-blazor.yml - nothing
+# here runs unattended, this just replaces the manual SSH step with an
+# approval click.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'ansible/**'
+      - 'src/systemd/**'
+
+concurrency:
+  group: ansible-converge
+  cancel-in-progress: false
+
+jobs:
+  converge:
+    runs-on: self-hosted
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Same reasoning as terraform-apply.yml - this is a persistent
+          # self-hosted runner, not ephemeral; default `git clean` would
+          # wipe ansible/credentials/ (generated passwords) on every run.
+          clean: false
+
+      - name: Ansible converge
+        working-directory: ansible
+        run: ansible-playbook site.yml

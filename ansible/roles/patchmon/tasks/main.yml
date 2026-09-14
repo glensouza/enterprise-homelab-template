@@ -1,0 +1,102 @@
+---
+# PatchMon server (VLAN 130, ADR 33) - bare-metal via the official Go
+# binary release (no Docker per ADR 02, despite PatchMon's own docs calling
+# Docker "the preferred and supported" method) - sequenced from the
+# community-scripts ProxmoxVE installer (ct/patchmon.sh /
+# install/patchmon-install.sh, commit
+# 787dbf2420ec8217c967eb4c152cb3003446d327), which confirmed a genuinely
+# portable bare-metal path exists: a statically-linked Go binary, no
+# runtime dependency at all (unlike Garnet's framework-dependent .NET
+# build). Local PostgreSQL + Redis, matching the infisical role's own
+# local-database pattern - Debian's stock Postgres (15) is used here
+# rather than the community script's PGDG-sourced 17, for consistency with
+# every other "give this LXC its own local Postgres" role in this fleet;
+# nothing about PatchMon's own requirements calls for a specific version.
+- name: Install prerequisite packages
+  ansible.builtin.apt:
+    name: [redis-server, postgresql, postgresql-contrib]
+    state: present
+    update_cache: true
+
+- name: Enable and start Redis
+  ansible.builtin.systemd:
+    name: redis-server
+    enabled: true
+    state: started
+
+- name: Enable and start PostgreSQL
+  ansible.builtin.systemd:
+    name: postgresql
+    enabled: true
+    state: started
+
+- name: Create the patchmon database role
+  ansible.builtin.command: >
+    su postgres -c "psql -c \"CREATE ROLE patchmon_usr WITH LOGIN PASSWORD '{{ patchmon_db_password }}';\""
+  register: create_patchmon_role
+  failed_when: create_patchmon_role.rc != 0 and 'already exists' not in create_patchmon_role.stderr
+  changed_when: create_patchmon_role.rc == 0
+  no_log: true
+
+- name: Create the patchmon database
+  ansible.builtin.command: >
+    su postgres -c "psql -c \"CREATE DATABASE patchmon_db OWNER patchmon_usr;\""
+  register: create_patchmon_db
+  failed_when: create_patchmon_db.rc != 0 and 'already exists' not in create_patchmon_db.stderr
+  changed_when: create_patchmon_db.rc == 0
+
+- name: Create /opt/patchmon/agents and /opt/patchmon/ssg-content
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - /opt/patchmon
+    - /opt/patchmon/agents
+    - /opt/patchmon/ssg-content
+
+- name: Download the PatchMon server binary
+  ansible.builtin.get_url:
+    url: "https://github.com/PatchMon/PatchMon/releases/download/v{{ patchmon_version }}/patchmon-server-linux-amd64"
+    dest: /opt/patchmon/patchmon-server
+    mode: "0755"
+  register: patchmon_binary
+
+- name: Download the PatchMon agent binary (linux-amd64 only - the only arch this fleet needs)
+  ansible.builtin.get_url:
+    url: "https://github.com/PatchMon/PatchMon/releases/download/v{{ patchmon_version }}/patchmon-agent-linux-amd64"
+    dest: /opt/patchmon/agents/patchmon-agent-linux-amd64
+    mode: "0755"
+
+- name: Configure PatchMon (.env)
+  ansible.builtin.template:
+    src: patchmon.env.j2
+    dest: /opt/patchmon/.env
+    owner: root
+    group: root
+    mode: "0600"
+  register: patchmon_config
+
+- name: Install patchmon-server.service (canonical copy lives in src/systemd/)
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../src/systemd/patchmon-server.service"
+    dest: /etc/systemd/system/patchmon-server.service
+    owner: root
+    group: root
+    mode: "0644"
+  register: patchmon_unit
+
+- name: Reload systemd if the unit changed
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: patchmon_unit.changed
+
+- name: Enable and start PatchMon
+  ansible.builtin.systemd:
+    name: patchmon-server
+    enabled: true
+    state: >-
+      {{ 'restarted' if (patchmon_config.changed or patchmon_unit.changed or patchmon_binary.changed)
+         else 'started' }}
