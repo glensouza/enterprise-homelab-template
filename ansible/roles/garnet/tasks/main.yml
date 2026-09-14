@@ -9,9 +9,10 @@
 # libcoreclr.so) requiring the .NET runtime already on the host, hence the
 # dotnet-runtime role dependency in site.yml rather than anything here.
 # --config-import-path is confirmed from the comment embedded in Garnet's
-# own shipped garnet.conf; "Address": null (bind all interfaces) is
-# Garnet's own documented default (libs/host/defaults.conf), unlike Redis
-# which defaults to loopback-only.
+# own shipped garnet.conf. Its defaults.conf comments "Address": null as
+# meaning "any" - confirmed live that's wrong, null actually bound
+# loopback-only (same practical default as Redis, just undocumented), so
+# garnet.conf.j2 sets "0.0.0.0" explicitly instead of trusting that comment.
 - name: Install xz-utils (needed to unpack the .tar.xz release)
   ansible.builtin.apt:
     name: xz-utils
