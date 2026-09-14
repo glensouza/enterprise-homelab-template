@@ -1,0 +1,9 @@
+---
+# Pinned release - github.com/microsoft/garnet/releases. Bump deliberately,
+# not automatically (same discipline as step_ca_version/step_cli_version).
+garnet_version: "2.1.7"
+garnet_port: 6379
+# Sized down from Garnet's own 16g default for this LXC's 2048 MB allocation
+# (docs/04-lxc-provisioning.md) - leaves headroom for the OS and the .NET
+# runtime itself.
+garnet_log_memory_size: "512m"

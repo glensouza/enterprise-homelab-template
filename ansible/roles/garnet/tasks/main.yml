@@ -1,0 +1,96 @@
+---
+# Microsoft Garnet (VLAN 120, ADR 04/08) - a RESP-compatible cache, NOT
+# Redis itself, so it isn't in Debian's or Redis's own apt repos. Structured
+# on the community-scripts ProxmoxVE Redis installer (ct/redis.sh /
+# install/redis-install.sh, commit 787dbf2420ec8217c967eb4c152cb3003446d327)
+# for shape only - the actual binary comes from Garnet's own GitHub
+# releases: a framework-dependent build (confirmed via `file` on the
+# extracted GarnetServer binary - dynamically linked, no bundled
+# libcoreclr.so) requiring the .NET runtime already on the host, hence the
+# dotnet-runtime role dependency in site.yml rather than anything here.
+# --config-import-path is confirmed from the comment embedded in Garnet's
+# own shipped garnet.conf; "Address": null (bind all interfaces) is
+# Garnet's own documented default (libs/host/defaults.conf), unlike Redis
+# which defaults to loopback-only.
+- name: Install xz-utils (needed to unpack the .tar.xz release)
+  ansible.builtin.apt:
+    name: xz-utils
+    state: present
+    update_cache: true
+
+- name: Create the garnet system user
+  ansible.builtin.user:
+    name: garnet
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
+- name: Download the Garnet release
+  ansible.builtin.get_url:
+    url: "https://github.com/microsoft/garnet/releases/download/v{{ garnet_version }}/linux-x64-based.tar.xz"
+    dest: "/tmp/garnet-{{ garnet_version }}.tar.xz"
+    mode: "0644"
+
+- name: Extract the full release to a scratch directory
+  ansible.builtin.unarchive:
+    src: "/tmp/garnet-{{ garnet_version }}.tar.xz"
+    dest: /tmp
+    remote_src: true
+
+- name: Copy the net{{ dotnet_channel }} build into /opt/garnet
+  ansible.builtin.copy:
+    src: "/tmp/net{{ dotnet_channel }}/"
+    dest: /opt/garnet/
+    remote_src: true
+    owner: garnet
+    group: garnet
+    mode: preserve
+
+- name: Remove the scratch extraction directory
+  ansible.builtin.file:
+    path: "/tmp/net{{ dotnet_channel }}"
+    state: absent
+
+- name: Make GarnetServer executable
+  ansible.builtin.file:
+    path: /opt/garnet/GarnetServer
+    mode: "0755"
+    owner: garnet
+    group: garnet
+
+- name: Create /etc/garnet
+  ansible.builtin.file:
+    path: /etc/garnet
+    state: directory
+    owner: garnet
+    group: garnet
+    mode: "0755"
+
+- name: Configure Garnet (garnet.conf)
+  ansible.builtin.template:
+    src: garnet.conf.j2
+    dest: /etc/garnet/garnet.conf
+    owner: garnet
+    group: garnet
+    mode: "0644"
+  register: garnet_config
+
+- name: Install garnet.service (canonical copy lives in src/systemd/)
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../src/systemd/garnet.service"
+    dest: /etc/systemd/system/garnet.service
+    owner: root
+    group: root
+    mode: "0644"
+  register: garnet_unit
+
+- name: Reload systemd if the unit changed
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: garnet_unit.changed
+
+- name: Enable and start Garnet
+  ansible.builtin.systemd:
+    name: garnet
+    enabled: true
+    state: "{{ 'restarted' if (garnet_config.changed or garnet_unit.changed) else 'started' }}"

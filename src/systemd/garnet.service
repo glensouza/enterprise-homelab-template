@@ -1,0 +1,17 @@
+[Unit]
+Description=Microsoft Garnet (RESP-compatible cache + SignalR backplane, ADR 04/08)
+After=network.target
+
+[Service]
+Type=simple
+User=garnet
+Group=garnet
+WorkingDirectory=/opt/garnet
+ExecStart=/opt/garnet/GarnetServer --config-import-path /etc/garnet/garnet.conf
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Install]
+WantedBy=multi-user.target

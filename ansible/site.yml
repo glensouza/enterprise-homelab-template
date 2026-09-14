@@ -24,6 +24,17 @@
     - resolver
     - step-ca
 
+- name: Configure Garnet cache & SignalR backplane (VLAN 120, ADR 04/08/27)
+  hosts: garnet
+  roles:
+    - dotnet-runtime
+    - garnet
+
+- name: Configure RabbitMQ message broker (VLAN 120, ADR 07/27)
+  hosts: rabbitmq
+  roles:
+    - rabbitmq
+
 - name: Configure Infisical secrets vault (VLAN 130, ADR 12/26)
   hosts: infisical
   roles:

@@ -1,0 +1,106 @@
+---
+# RabbitMQ (VLAN 120, ADR 07/10) - sourced from the community-scripts
+# ProxmoxVE installer (ct/rabbitmq.sh / install/rabbitmq-install.sh, commit
+# 787dbf2420ec8217c967eb4c152cb3003446d327), adapted for Debian 12
+# (bookworm) - that script targets Debian 13 (trixie), whose single-repo
+# setup doesn't apply here. RabbitMQ's own install docs specify TWO repos
+# for bookworm (rabbitmq-erlang + rabbitmq-server, both path-scoped to
+# /debian/bookworm) since bookworm's own Erlang packages are considered too
+# old for current RabbitMQ.
+- name: Install prerequisite packages
+  ansible.builtin.apt:
+    name: apt-transport-https
+    state: present
+    update_cache: true
+
+- name: Download the RabbitMQ team apt GPG key
+  ansible.builtin.get_url:
+    url: https://keys.openpgp.org/vks/v1/by-fingerprint/0A9AF2115F4687BD29803A206B73A36E6026DFCA
+    dest: /tmp/rabbitmq.gpg.asc
+    mode: "0644"
+
+- name: Dearmor the RabbitMQ team apt GPG key
+  ansible.builtin.command: gpg --dearmor --yes -o /etc/apt/keyrings/rabbitmq.gpg /tmp/rabbitmq.gpg.asc
+  changed_when: true
+
+- name: Add the RabbitMQ Erlang apt repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/rabbitmq-erlang.sources
+    content: |
+      Types: deb
+      URIs: https://deb1.rabbitmq.com/rabbitmq-erlang/debian/bookworm
+      Suites: bookworm
+      Components: main
+      Signed-By: /etc/apt/keyrings/rabbitmq.gpg
+    mode: "0644"
+  register: rabbitmq_erlang_repo
+
+- name: Add the RabbitMQ server apt repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/rabbitmq-server.sources
+    content: |
+      Types: deb
+      URIs: https://deb1.rabbitmq.com/rabbitmq-server/debian/bookworm
+      Suites: bookworm
+      Components: main
+      Signed-By: /etc/apt/keyrings/rabbitmq.gpg
+    mode: "0644"
+  register: rabbitmq_server_repo
+
+- name: Update apt cache after adding the RabbitMQ repositories
+  ansible.builtin.apt:
+    update_cache: true
+  when: rabbitmq_erlang_repo.changed or rabbitmq_server_repo.changed
+
+- name: Install Erlang (RabbitMQ's own repo build, matches upstream install docs)
+  ansible.builtin.apt:
+    name:
+      - erlang-base
+      - erlang-asn1
+      - erlang-crypto
+      - erlang-eldap
+      - erlang-ftp
+      - erlang-inets
+      - erlang-mnesia
+      - erlang-os-mon
+      - erlang-parsetools
+      - erlang-public-key
+      - erlang-runtime-tools
+      - erlang-snmp
+      - erlang-ssl
+      - erlang-syntax-tools
+      - erlang-tftp
+      - erlang-tools
+      - erlang-xmerl
+    state: present
+
+- name: Install rabbitmq-server
+  ansible.builtin.apt:
+    name: rabbitmq-server
+    state: present
+
+- name: Enable and start RabbitMQ
+  ansible.builtin.systemd:
+    name: rabbitmq-server
+    enabled: true
+    state: started
+
+- name: Enable the RabbitMQ management plugin
+  ansible.builtin.command: rabbitmq-plugins enable rabbitmq_management
+  register: rabbitmq_mgmt
+  changed_when: "'already enabled' not in rabbitmq_mgmt.stdout"
+
+- name: Create the brewhouse RabbitMQ user
+  ansible.builtin.command: >
+    rabbitmqctl add_user brewhouse {{ rabbitmq_password }}
+  register: rabbitmq_user
+  failed_when: rabbitmq_user.rc != 0 and 'user_already_exists' not in rabbitmq_user.stderr
+  changed_when: rabbitmq_user.rc == 0
+
+- name: Tag the brewhouse user as administrator
+  ansible.builtin.command: rabbitmqctl set_user_tags brewhouse administrator
+  changed_when: false
+
+- name: Grant the brewhouse user full permissions on the default vhost
+  ansible.builtin.command: rabbitmqctl set_permissions -p / brewhouse ".*" ".*" ".*"
+  changed_when: false
