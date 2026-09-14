@@ -1,7 +1,70 @@
 ---
-# PostgreSQL LXC: pgBackRest PITR (docs/10 section 4) + pg_dump prune timer
-# (docs/04 section 3). Assumes PostgreSQL itself is already installed
-# (community script bootstrap, docs/04 section 2).
+# PostgreSQL LXC: install PostgreSQL itself + create the brewhouse
+# role/database (ADR 30 - was a manual shell block run from the devops LXC,
+# LAB-RUNBOOK.md step 1.2; same treatment this session already gave
+# garnet/rabbitmq/infisical), then pgBackRest PITR (docs/10 section 4) +
+# pg_dump prune timer (docs/04 section 3).
+
+# --- Install PostgreSQL + create the brewhouse role/database -----------------
+- name: Install PostgreSQL
+  ansible.builtin.apt:
+    name: [postgresql, postgresql-contrib]
+    state: present
+    update_cache: true
+
+- name: Enable and start PostgreSQL
+  ansible.builtin.systemd:
+    name: postgresql
+    enabled: true
+    state: started
+
+- name: Create the brewhouse database role
+  ansible.builtin.command: >
+    su postgres -c "psql -c \"CREATE ROLE brewhouse WITH LOGIN PASSWORD '{{ postgres_brewhouse_password }}';\""
+  register: create_brewhouse_role
+  failed_when: create_brewhouse_role.rc != 0 and 'already exists' not in create_brewhouse_role.stderr
+  changed_when: create_brewhouse_role.rc == 0
+  no_log: true
+
+# Always reconcile the live password to the cached lookup value, not just on
+# first create - confirmed live this matters: this exact database already
+# existed from a manual bootstrap earlier (before this role existed), with a
+# password the lookup above knows nothing about. Without this, CREATE ROLE
+# above would just skip ("already exists") and the value pushed to GitHub/
+# Infisical below would silently be wrong - a fresh random string that
+# doesn't match what's actually live. ALTER ROLE has no no-op detection, so
+# this always reports changed; harmless; it's setting Postgres to a password
+# it may already have.
+- name: Reconcile the brewhouse role's password to the cached value
+  ansible.builtin.command: >
+    su postgres -c "psql -c \"ALTER ROLE brewhouse WITH PASSWORD '{{ postgres_brewhouse_password }}';\""
+  changed_when: true
+  no_log: true
+
+- name: Create the brewhouse database
+  ansible.builtin.command: >
+    su postgres -c "psql -c \"CREATE DATABASE brewhouse_db OWNER brewhouse;\""
+  register: create_brewhouse_db
+  failed_when: create_brewhouse_db.rc != 0 and 'already exists' not in create_brewhouse_db.stderr
+  changed_when: create_brewhouse_db.rc == 0
+
+# gh is authenticated on the devops LXC (LAB-RUNBOOK.md section 0), not this
+# LXC - delegate so the command actually runs where `gh auth login` happened.
+- name: Push EFBUNDLE_CONNECTION to GitHub (consumed by the migration bundle in CI)
+  ansible.builtin.command: >
+    gh secret set EFBUNDLE_CONNECTION --repo glensouza/enterprise-homelab-template
+    --body "Host={{ ansible_host }};Port=5432;Database=brewhouse_db;Username=brewhouse;Password={{ postgres_brewhouse_password }}"
+  delegate_to: localhost
+  changed_when: true
+  no_log: true
+
+- name: Push ConnectionStrings__brewhousedb to Infisical (consumed by the running app)
+  ansible.builtin.include_role:
+    name: infisical-secret
+  vars:
+    infisical_secret_name: ConnectionStrings__brewhousedb
+    infisical_secret_value: "Host={{ ansible_host }};Port=5432;Database=brewhouse_db;Username=brewhouse;Password={{ postgres_brewhouse_password }}"
+  when: infisical_project_id is defined
 
 # --- pgBackRest ---------------------------------------------------------------
 - name: Install pgBackRest
