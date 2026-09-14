@@ -21,9 +21,11 @@
   # Cockpit's cockpit-certificate-ensure helper wants separate .cert/.key
   # files, not one combined PEM - confirmed live ("open: .../0-{{
   # internal_domain }}.key: No such file or directory"). Renewal = re-run
-  # the playbook (certs last 1 year).
+  # the playbook (certs last 1 year). Absolute path (ADR 35) - not
+  # playbook_dir-relative, since that still diverges between this LXC's
+  # two separate clones.
   ansible.builtin.copy:
-    src: "{{ playbook_dir }}/fetched/step-ca/cockpit/{{ inventory_hostname }}.{{ item.ext }}"
+    src: "/opt/ansible-fetched/step-ca/cockpit/{{ inventory_hostname }}.{{ item.ext }}"
     dest: "/etc/cockpit/ws-certs.d/0-{{ internal_domain }}.{{ item.dest_ext }}"
     owner: root
     group: root

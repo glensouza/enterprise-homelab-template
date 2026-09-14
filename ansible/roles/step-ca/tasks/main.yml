@@ -66,9 +66,15 @@
 - name: Fetch the root CA certificate to the Ansible controller
   # Consumed by the preview-host role (Caddy acme_ca_root) and by admins
   # installing the root into client trust stores (docs/11 section 4).
+  # Absolute destination (ADR 35's same reasoning, extended to fetched
+  # artifacts, not just generated credentials) - confirmed live this
+  # session: a relative "fetched/..." path resolves independently per
+  # clone, and this LXC has two (this manual one, and the GitHub Actions
+  # runner's own _work checkout), so a fetch done from one clone was
+  # invisible to a preview-host/cockpit role run from the other.
   ansible.builtin.fetch:
     src: /root/.step/certs/root_ca.crt
-    dest: fetched/step-ca/root_ca.crt
+    dest: /opt/ansible-fetched/step-ca/root_ca.crt
     flat: true
 
 # --- Fleet-wide Cockpit certificates (ADR 21) -------------------------------
@@ -124,13 +130,13 @@
 - name: Fetch Cockpit certificates to the Ansible controller
   ansible.builtin.fetch:
     src: "/root/cockpit-certs/{{ item }}.crt"
-    dest: "fetched/step-ca/cockpit/{{ item }}.crt"
+    dest: "/opt/ansible-fetched/step-ca/cockpit/{{ item }}.crt"
     flat: true
   loop: "{{ groups['all'] }}"
 
 - name: Fetch Cockpit keys to the Ansible controller
   ansible.builtin.fetch:
     src: "/root/cockpit-certs/{{ item }}.key"
-    dest: "fetched/step-ca/cockpit/{{ item }}.key"
+    dest: "/opt/ansible-fetched/step-ca/cockpit/{{ item }}.key"
     flat: true
   loop: "{{ groups['all'] }}"

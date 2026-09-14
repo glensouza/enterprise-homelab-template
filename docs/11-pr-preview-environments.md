@@ -46,7 +46,7 @@ Why a wildcard record instead of per-PR DNS entries: there is nothing to create 
 1. **Terraform:** `terraform apply` creates VLAN 140 + firewall rules and the three LXCs (`pr-preview`, `technitium-dns`, `step-ca`) — see `terraform/lxc.tf` / `unifi.tf` and `docs/08`.
 2. **Ansible:** `ansible-playbook site.yml` converges the new hosts:
    * `dns` → `technitium` role (installs the server; zone/record via API if `technitium_api_token` is set in `ansible/inventory/group_vars/dns/secrets.yml`)
-   * `pki` → `resolver` + `step-ca` roles (initializes the CA with an ACME provisioner, fetches `root_ca.crt` to `ansible/fetched/step-ca/`)
+   * `pki` → `resolver` + `step-ca` roles (initializes the CA with an ACME provisioner, fetches `root_ca.crt` to `/opt/ansible-fetched/step-ca/` — an absolute path, `docs/01` ADR 35)
    * `preview` → `resolver` + `docker` + `preview-host` roles (Docker Engine, Caddy wired to the step-ca ACME directory)
 3. **Technitium:** browse `http://10.10.130.119:5380`, change the default `admin` password. The API token Ansible needs is a separate credential from that login — generate it under **Administration → Sessions → Create Token** (any name, e.g. `ansible`; shown once, so copy it immediately). Then either copy `group_vars/dns/secrets.yml.example` to `group_vars/dns/secrets.yml` (git-ignored), set `technitium_api_token` to that token, and re-run the playbook, or manually create primary zone `pr.brewhouse.internal` with an A record `*` → `10.10.140.120`.
 4. **Client DNS:** devices that browse previews must resolve via Technitium — set `10.10.130.119` as the DNS server on the admin LAN's DHCP scope (or per-device).
@@ -69,7 +69,7 @@ Why a wildcard record instead of per-PR DNS entries: there is nothing to create 
 
 ## 4. Trusting the internal CA (one-time per client)
 
-Browsers show the green padlock only after the step-ca root certificate is trusted. Get it from `ansible/fetched/step-ca/root_ca.crt` (fetched by the playbook) or directly:
+Browsers show the green padlock only after the step-ca root certificate is trusted. Get it from `/opt/ansible-fetched/step-ca/root_ca.crt` (fetched by the playbook to this absolute, clone-independent path — `docs/01` ADR 35) or directly:
 
 ```bash
 scp root@10.10.130.121:/root/.step/certs/root_ca.crt .

@@ -51,8 +51,10 @@
 - name: Install the step-ca root certificate for Caddy to trust
   # Fetched to the controller by the step-ca role (which runs earlier in
   # site.yml). Re-run the playbook whenever the CA is re-initialized.
+  # Absolute path (ADR 35) - not playbook_dir-relative, since that still
+  # diverges between this LXC's two separate clones.
   ansible.builtin.copy:
-    src: "{{ playbook_dir }}/fetched/step-ca/root_ca.crt"
+    src: "/opt/ansible-fetched/step-ca/root_ca.crt"
     dest: /etc/caddy/pki/root_ca.crt
     owner: root
     group: root
