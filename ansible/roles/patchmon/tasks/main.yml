@@ -38,6 +38,14 @@
   changed_when: create_patchmon_role.rc == 0
   no_log: true
 
+# Always reconcile, not just on first create (ADR 30/35) - see the
+# infisical role for the exact failure mode this prevents.
+- name: Reconcile the patchmon role's password to the cached value
+  ansible.builtin.command: >
+    su postgres -c "psql -c \"ALTER ROLE patchmon_usr WITH PASSWORD '{{ patchmon_db_password }}';\""
+  changed_when: true
+  no_log: true
+
 - name: Create the patchmon database
   ansible.builtin.command: >
     su postgres -c "psql -c \"CREATE DATABASE patchmon_db OWNER patchmon_usr;\""

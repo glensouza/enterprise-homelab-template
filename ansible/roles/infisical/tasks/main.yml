@@ -36,6 +36,19 @@
   register: create_role
   failed_when: create_role.rc != 0 and 'already exists' not in create_role.stderr
   changed_when: create_role.rc == 0
+  no_log: true
+
+# Always reconcile, not just on first create (ADR 30/35's same lesson,
+# confirmed live twice on this exact role): if the cached
+# infisical_db_password ever changes for any reason and the role already
+# exists, CREATE ROLE above just skips - without this, infisical.rb gets
+# re-rendered with the new value while the live database keeps the old
+# one, and Infisical crash-loops on "password authentication failed".
+- name: Reconcile the infisical role's password to the cached value
+  ansible.builtin.command: >
+    su postgres -c "psql -c \"ALTER ROLE infisical WITH PASSWORD '{{ infisical_db_password }}';\""
+  changed_when: true
+  no_log: true
 
 - name: Create the infisical database
   ansible.builtin.command: >
