@@ -5,6 +5,17 @@
 # `ansible-playbook site.yml` finishes with the app actually able to start
 # (ADR 12: it fails fast without this file), not "mostly done, SSH in twice
 # more by hand."
+# Confirmed live: these minimal Debian images have no curl (same gotcha as
+# the devops LXC bootstrap in LAB-RUNBOOK.md section 0) - `curl ... | bash`
+# silently "succeeds" when curl is missing, because bash receives an empty,
+# already-closed stdin and exits 0 itself; the pipeline's exit status is
+# bash's, not curl's, so nothing catches the failure without this.
+- name: Install curl (needed for the Infisical CLI repo setup script)
+  ansible.builtin.apt:
+    name: curl
+    state: present
+    update_cache: true
+
 - name: Add the Infisical CLI apt repository
   ansible.builtin.shell: curl -1sLf 'https://artifacts-cli.infisical.com/setup.deb.sh' | bash
   args:
