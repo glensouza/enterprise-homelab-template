@@ -1,0 +1,56 @@
+---
+# Reusable: push one secret into Infisical. Call via include_role with
+# infisical_secret_name / infisical_secret_value set. Confirmed live against
+# a real Infisical instance (v0.165.10): POST .../secrets/raw/{name} creates
+# and 400s with "already exists" on a second call; PATCH is the update path
+# - there's no single upsert endpoint, so this always tries create first and
+# falls back to update, mirroring the CREATE ROLE / ALTER ROLE fallback
+# pattern already used in the postgres/rabbitmq roles.
+#
+# Runs from whichever host the calling role is already targeting - every
+# LXC in this fleet can already reach the infisical LXC (no extra firewall
+# rule needed beyond what ADR 26 already opens), so no Infisical-specific
+# delegate_to is required.
+- name: "Infisical: authenticate as the provisioning identity"
+  ansible.builtin.uri:
+    url: "http://{{ hostvars['infisical'].ansible_host }}:8080/api/v1/auth/universal-auth/login"
+    method: POST
+    body_format: json
+    body:
+      clientId: "{{ infisical_provision_client_id }}"
+      clientSecret: "{{ infisical_provision_client_secret }}"
+    status_code: 200
+  register: infisical_auth
+  no_log: true
+
+- name: "Infisical: create {{ infisical_secret_name }}"
+  ansible.builtin.uri:
+    url: "http://{{ hostvars['infisical'].ansible_host }}:8080/api/v3/secrets/raw/{{ infisical_secret_name }}"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ infisical_auth.json.accessToken }}"
+    body_format: json
+    body:
+      workspaceId: "{{ infisical_project_id }}"
+      environment: "{{ infisical_environment }}"
+      secretPath: "/"
+      secretValue: "{{ infisical_secret_value }}"
+    status_code: [200, 400]
+  register: infisical_create
+  no_log: true
+
+- name: "Infisical: update {{ infisical_secret_name }} (already existed)"
+  ansible.builtin.uri:
+    url: "http://{{ hostvars['infisical'].ansible_host }}:8080/api/v3/secrets/raw/{{ infisical_secret_name }}"
+    method: PATCH
+    headers:
+      Authorization: "Bearer {{ infisical_auth.json.accessToken }}"
+    body_format: json
+    body:
+      workspaceId: "{{ infisical_project_id }}"
+      environment: "{{ infisical_environment }}"
+      secretPath: "/"
+      secretValue: "{{ infisical_secret_value }}"
+    status_code: 200
+  when: infisical_create.status == 400
+  no_log: true

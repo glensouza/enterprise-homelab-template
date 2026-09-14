@@ -149,3 +149,11 @@
     - tempo
     - alloy
     - grafana-server
+
+- name: Push OTEL_EXPORTER_OTLP_ENDPOINT to Infisical
+  ansible.builtin.include_role:
+    name: infisical-secret
+  vars:
+    infisical_secret_name: OTEL_EXPORTER_OTLP_ENDPOINT
+    infisical_secret_value: "http://{{ ansible_host }}:4318"
+  when: infisical_project_id is defined

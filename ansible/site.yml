@@ -2,6 +2,16 @@
 # Configuration management for the lab LXCs (docs/08).
 # Run after `terraform apply`:  ansible-playbook site.yml
 # Target a single tier:         ansible-playbook site.yml --limit web
+#
+# Infisical runs FIRST, deliberately - postgres/garnet/rabbitmq/observability
+# each push their own generated connection secret into it as their last task
+# (ADR 28, ansible/roles/infisical-secret), so Infisical has to already be up
+# and reachable before any of those plays run, not after.
+- name: Configure Infisical secrets vault (VLAN 130, ADR 12/26)
+  hosts: infisical
+  roles:
+    - infisical
+
 - name: Configure Blazor web nodes (VLAN 110)
   hosts: web
   roles:
@@ -34,11 +44,6 @@
   hosts: rabbitmq
   roles:
     - rabbitmq
-
-- name: Configure Infisical secrets vault (VLAN 130, ADR 12/26)
-  hosts: infisical
-  roles:
-    - infisical
 
 - name: Configure the PR preview host (VLAN 140, ADR 19)
   hosts: preview

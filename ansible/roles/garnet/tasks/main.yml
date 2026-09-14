@@ -95,3 +95,11 @@
     name: garnet
     enabled: true
     state: "{{ 'restarted' if (garnet_config.changed or garnet_unit.changed) else 'started' }}"
+
+- name: Push ConnectionStrings__cache to Infisical
+  ansible.builtin.include_role:
+    name: infisical-secret
+  vars:
+    infisical_secret_name: ConnectionStrings__cache
+    infisical_secret_value: "{{ ansible_host }}:{{ garnet_port }}"
+  when: infisical_project_id is defined

@@ -104,3 +104,11 @@
 - name: Grant the brewhouse user full permissions on the default vhost
   ansible.builtin.command: rabbitmqctl set_permissions -p / brewhouse ".*" ".*" ".*"
   changed_when: false
+
+- name: Push ConnectionStrings__messaging to Infisical
+  ansible.builtin.include_role:
+    name: infisical-secret
+  vars:
+    infisical_secret_name: ConnectionStrings__messaging
+    infisical_secret_value: "amqp://brewhouse:{{ rabbitmq_password }}@{{ ansible_host }}:5672/"
+  when: infisical_project_id is defined
