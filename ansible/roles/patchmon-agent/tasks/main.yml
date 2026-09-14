@@ -9,6 +9,17 @@
     path: /etc/patchmon/credentials.yml
   register: patchmon_agent_creds
 
+# Confirmed live (again - same gotcha as infisical-agent): these minimal
+# images don't have curl by default, and `curl ... | sh` silently
+# "succeeds" doing nothing when curl is missing, since the pipeline's exit
+# status is `sh`'s (0, empty stdin), not curl's.
+- name: Install curl (needed for the PatchMon install script)
+  ansible.builtin.apt:
+    name: curl
+    state: present
+    update_cache: true
+  when: not patchmon_agent_creds.stat.exists
+
 - name: Enroll this host with PatchMon
   ansible.builtin.uri:
     url: "http://{{ hostvars['patchmon'].ansible_host }}:{{ patchmon_port | default(3000) }}/api/v1/auto-enrollment/enroll"
@@ -28,15 +39,26 @@
     patchmon_enrollment_token_secret is defined
   no_log: true
 
-- name: Install the PatchMon agent
-  ansible.builtin.shell: >
-    curl -s
-    -H "X-API-ID: {{ patchmon_enroll.json.host.api_id }}"
-    -H "X-API-KEY: {{ patchmon_enroll.json.host.api_key }}"
-    http://{{ hostvars['patchmon'].ansible_host }}:{{ patchmon_port | default(3000) }}/api/v1/hosts/install
-    | sh
+# Split download from execution (rather than `curl ... | sh`) so a failed
+# download is a clear, separate failure instead of silently piping nothing
+# into sh - same lesson as the curl-missing bug above.
+- name: Download the PatchMon agent install script
+  ansible.builtin.get_url:
+    url: "http://{{ hostvars['patchmon'].ansible_host }}:{{ patchmon_port | default(3000) }}/api/v1/hosts/install"
+    dest: /tmp/patchmon-install.sh
+    mode: "0755"
+    headers:
+      X-API-ID: "{{ patchmon_enroll.json.host.api_id }}"
+      X-API-KEY: "{{ patchmon_enroll.json.host.api_key }}"
   when: >
     not patchmon_agent_creds.stat.exists and
     patchmon_enroll is defined and
     patchmon_enroll.json is defined
   no_log: true
+
+- name: Run the PatchMon agent install script
+  ansible.builtin.command: sh /tmp/patchmon-install.sh
+  when: >
+    not patchmon_agent_creds.stat.exists and
+    patchmon_enroll is defined and
+    patchmon_enroll.json is defined
