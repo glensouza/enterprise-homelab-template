@@ -83,7 +83,17 @@ jobs:
       run: dotnet publish ./src/BrewHouse/BrewHouse.csproj -c Release -o ./publish /p:UseAppHost=false /p:Version=${{ env.VERSION }}
 
     - name: Install EF Core CLI
-      run: dotnet tool install --global dotnet-ef
+      # Confirmed live: `dotnet tool install --global` puts the binary in
+      # ~/.dotnet/tools, which isn't on this self-hosted runner's PATH -
+      # its own output literally warns "Tools directory ... is not
+      # currently on the PATH environment variable". Every previous run of
+      # this workflow died earlier (the DCP/Polly test flake) before ever
+      # reaching the next step, which is why this was never caught until
+      # that flake cleared. GITHUB_PATH persists across steps within a job,
+      # unlike a plain `export`.
+      run: |
+        dotnet tool install --global dotnet-ef
+        echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
 
     - name: Generate EF Core Migration Bundle
       run: dotnet ef migrations bundle --project ./src/BrewHouse/BrewHouse.csproj --self-contained -r linux-x64 -o ./publish/efbundle
