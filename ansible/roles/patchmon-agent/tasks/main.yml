@@ -1,9 +1,13 @@
 ---
 # PatchMon Agent (ADR 34) - enrolls this LXC and installs the agent that
-# reports its pending-update status back to the patchmon server. Confirmed
-# live: /api/v1/hosts/install's script handles a non-interactive (piped)
-# invocation gracefully - it warns and continues rather than blocking on
-# stdin, so it's safe to run unattended exactly as documented.
+# reports its pending-update status back to the patchmon server. ADR 39:
+# the install script only behaves non-interactively when stdin is truly not
+# a tty (e.g. `curl url | sh`) - Ansible's ssh connection plugin allocates a
+# pty for every command/shell task here regardless, so running the
+# downloaded script directly (not piped) hits its `read -r response`
+# prompt and hangs forever with nothing to answer it. The "Run the PatchMon
+# agent install script" task below redirects stdin from /dev/null to force
+# the same non-interactive path, plus a timeout as a safety net.
 - name: Check whether the PatchMon agent is already enrolled
   ansible.builtin.stat:
     path: /etc/patchmon/credentials.yml
@@ -57,7 +61,8 @@
   no_log: true
 
 - name: Run the PatchMon agent install script
-  ansible.builtin.command: sh /tmp/patchmon-install.sh
+  ansible.builtin.shell: sh /tmp/patchmon-install.sh < /dev/null
+  timeout: 120
   when: >
     not patchmon_agent_creds.stat.exists and
     patchmon_enroll is defined and
