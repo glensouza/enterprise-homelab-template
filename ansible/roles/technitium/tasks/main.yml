@@ -123,3 +123,21 @@
     status_code: 200
   loop: "{{ dns_service_cnames }}"
   when: technitium_api_token is defined
+
+# ADR 41: pve1/Kemp aren't in the inventory (no LXC), so they never get a
+# record from "per-host A record for every LXC" above - added explicitly.
+- name: Add A records for physical/appliance infrastructure
+  ansible.builtin.uri:
+    url: "http://localhost:5380/api/zones/records/add?token={{ technitium_api_token }}&domain={{ item.name }}.{{ internal_domain }}&type=A&zone={{ internal_domain }}&ipAddress={{ item.ip }}&overwrite=true"
+    method: GET
+    status_code: 200
+  loop: "{{ dns_physical_host_records }}"
+  when: technitium_api_token is defined
+
+- name: Push TECHNITIUM_ADMIN_PASSWORD to Infisical
+  ansible.builtin.include_role:
+    name: infisical-secret
+  vars:
+    infisical_secret_name: TECHNITIUM_ADMIN_PASSWORD
+    infisical_secret_value: "{{ technitium_admin_password }}"
+  when: infisical_project_id is defined

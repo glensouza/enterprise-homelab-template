@@ -134,3 +134,12 @@
   ansible.builtin.command:
     cmd: docker compose up -d
     chdir: /opt/floci
+
+# ADR 41: centralize UI credentials in Infisical.
+- name: Push PGADMIN_LOGIN to Infisical
+  ansible.builtin.include_role:
+    name: infisical-secret
+  vars:
+    infisical_secret_name: PGADMIN_LOGIN
+    infisical_secret_value: "{{ pgadmin_default_email }} / {{ pgadmin_default_password }}"
+  when: infisical_project_id is defined

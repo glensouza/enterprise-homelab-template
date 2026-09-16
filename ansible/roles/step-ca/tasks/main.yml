@@ -140,3 +140,39 @@
     dest: "/opt/ansible-fetched/step-ca/cockpit/{{ item }}.key"
     flat: true
   loop: "{{ groups['all'] }}"
+
+# ADR 41: Proxmox (pve1) and Kemp aren't Ansible-managed (no LXC, nothing to
+# install a fetched cert onto automatically) - issued here the same way as
+# Cockpit's certs, then fetched to the controller for the operator to
+# manually upload into each device's own UI (Proxmox: Datacenter -> pve1 ->
+# Certificates; Kemp: System Configuration -> Certificates -> Manage
+# Certificates -> Import). Same 1-year lifetime as Cockpit's.
+- name: Create the physical-host certificate directory on the CA
+  ansible.builtin.file:
+    path: /root/physical-host-certs
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Issue a certificate for every physical/appliance host
+  ansible.builtin.command: >
+    step ca certificate {{ item.name }}.{{ internal_domain }}
+    /root/physical-host-certs/{{ item.name }}.crt /root/physical-host-certs/{{ item.name }}.key
+    --provisioner admin --password-file /root/.step-ca-password
+    --not-after 8760h --force
+  loop: "{{ dns_physical_host_records }}"
+
+- name: Fetch physical-host certificates to the Ansible controller
+  ansible.builtin.fetch:
+    src: "/root/physical-host-certs/{{ item.name }}.crt"
+    dest: "/opt/ansible-fetched/step-ca/physical/{{ item.name }}.crt"
+    flat: true
+  loop: "{{ dns_physical_host_records }}"
+
+- name: Fetch physical-host keys to the Ansible controller
+  ansible.builtin.fetch:
+    src: "/root/physical-host-certs/{{ item.name }}.key"
+    dest: "/opt/ansible-fetched/step-ca/physical/{{ item.name }}.key"
+    flat: true
+  loop: "{{ dns_physical_host_records }}"

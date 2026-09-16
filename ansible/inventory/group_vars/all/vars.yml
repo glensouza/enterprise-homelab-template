@@ -11,3 +11,12 @@ preview_domain: pr.brewhouse.internal
 preview_host_ip: 10.10.140.120
 technitium_dns_server: 10.10.130.119
 step_ca_url: https://10.10.130.121:4443
+
+# Physical/appliance infrastructure (ADR 41) - not in the Ansible inventory
+# at all (no LXC, no host_vars), so the automatic per-host DNS/cert loops
+# (technitium/step-ca roles) never cover them. Hand-maintained, like
+# homepage_static_services. Lives in group_vars/all (not group_vars/dns)
+# since both the dns host (A records) and the pki host (certs) need it.
+dns_physical_host_records:
+  - { name: proxmox, ip: "10.10.10.101" }
+  - { name: kemp, ip: "10.10.10.199" }
