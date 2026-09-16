@@ -40,6 +40,7 @@ just the two below, so the NAS's NFS export must allow all four node IPs.
 | **Technitium DNS** | VLAN 130 (`10.10.130.119`) | **`pve3`** (Node 2) | 1 | 512 MB  | *None* | Local DNS server (`brewhouse.internal`) |
 | **step-ca (internal PKI)** | VLAN 130 (`10.10.130.121`) | **`pve3`** (Node 2) | 1 | 512 MB  | *None* | Utility internal Certificate Authority |
 | **PatchMon** | VLAN 130 (`10.10.130.122`) | **`pve3`** (Node 2) | 1 | 1024 MB | *None* | Fleet-wide OS package/patch tracking — LXC reserved only, no role yet |
+| **Homepage** | VLAN 130 (`10.10.130.120`) | **`pve3`** (Node 2) | 2 | 2048 MB | *None* | Fleet dashboard — auto-populated from every other host's `homepage_service` var (ADR 38) |
 | **PR Preview (non-prod)** | VLAN 140 (`10.10.140.120`) | **`pve4`** (Node 1) | 2 | 4096 MB | *None* | Single non-prod Docker host (per-PR compose stacks + ops UIs) |
 
 *Note: The Observability LXC hosts Grafana Alloy (OTLP receiver) + Loki + Grafana (see `docs/07-observability.md`). The Technitium DNS, step-ca, and PR Preview LXCs implement ephemeral PR environments — see `docs/11-pr-preview-environments.md` (ADR 19/20). The PR Preview LXC runs Docker (non-prod exception to ADR 02) and is firewalled off from all production tiers (VLAN 140, `docs/05`).*

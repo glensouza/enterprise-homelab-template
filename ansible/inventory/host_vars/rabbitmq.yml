@@ -3,3 +3,12 @@
 # on every run - cached under /opt/ansible-credentials (ADR 35), outside any git checkout
 # step_ca_password.
 rabbitmq_password: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/rabbitmq/password length=32 chars=ascii_letters,digits') }}"
+
+# Picked up by the homepage role (ADR 38) to auto-populate the dashboard.
+homepage_service:
+  - group: Infrastructure
+    name: RabbitMQ
+    icon: rabbitmq.png
+    href: "http://{{ ansible_host }}:15672"
+    description: Message broker management UI
+    ping: "{{ ansible_host }}"

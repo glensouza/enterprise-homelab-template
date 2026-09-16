@@ -7,3 +7,40 @@ caddy_admin_email: admin@brewhouse.internal
 # cached under /opt/ansible-credentials (ADR 35), outside any git checkout.
 pgadmin_default_email: admin@brewhouse.internal
 pgadmin_default_password: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/pgadmin/password length=24') }}"
+
+# Picked up by the homepage role (ADR 38) to auto-populate the dashboard.
+# hrefs are the Caddy-fronted hostnames (ops.caddy.j2/floci.caddy.j2), not
+# raw IP:port - these apps aren't reachable any other way (127.0.0.1-bound
+# upstreams behind Caddy's TLS termination). `ping` still targets this
+# host's own IP, since that's what's actually reachable to health-check.
+homepage_service:
+  - group: Preview Tools
+    name: Portainer
+    icon: portainer.png
+    href: "https://portainer.{{ internal_domain }}"
+    description: Docker container management (PR preview host)
+    ping: "{{ ansible_host }}"
+  - group: Preview Tools
+    name: Dozzle
+    icon: dozzle.png
+    href: "https://dozzle.{{ internal_domain }}"
+    description: Live container log viewer (PR preview host)
+    ping: "{{ ansible_host }}"
+  - group: Preview Tools
+    name: pgAdmin
+    icon: pgadmin.png
+    href: "https://pgadmin.{{ internal_domain }}"
+    description: Postgres admin UI (PR preview host)
+    ping: "{{ ansible_host }}"
+  - group: Preview Tools
+    name: RedisInsight
+    icon: redis.png
+    href: "https://redisinsight.{{ internal_domain }}"
+    description: Redis/Garnet browser (PR preview host)
+    ping: "{{ ansible_host }}"
+  - group: Preview Tools
+    name: Floci
+    icon: aws.png
+    href: "https://floci.{{ internal_domain }}"
+    description: AWS/Azure/GCP cloud emulator console (PR preview host)
+    ping: "{{ ansible_host }}"

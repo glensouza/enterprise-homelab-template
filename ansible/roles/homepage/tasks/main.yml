@@ -1,0 +1,177 @@
+---
+# Homepage dashboard (ADR 38, https://gethomepage.dev/). Native install (ADR
+# 02 - no Docker in production): built from source with pnpm/Next.js,
+# structured on the community-scripts ProxmoxVE installer
+# (ct/homepage.sh / install/homepage-install.sh, commit
+# 787dbf2420ec8217c967eb4c152cb3003446d327) for shape only - config content
+# below is entirely ours, generated from every other host's
+# `homepage_service` var rather than the upstream skeleton.
+
+- name: Check whether Homepage is already installed
+  ansible.builtin.stat:
+    path: /opt/homepage/package.json
+  register: homepage_installed
+
+- name: Install apt prerequisites
+  ansible.builtin.apt:
+    name: [ca-certificates, curl, gnupg]
+    update_cache: true
+    state: present
+
+- name: Create apt keyring directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Download the NodeSource apt GPG key
+  ansible.builtin.get_url:
+    url: https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key
+    dest: /tmp/nodesource-repo.gpg.key
+    mode: "0644"
+
+- name: Dearmor the NodeSource apt GPG key
+  ansible.builtin.command: gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg /tmp/nodesource-repo.gpg.key
+  args:
+    creates: /etc/apt/keyrings/nodesource.gpg
+
+- name: Add the NodeSource apt repository (Node.js {{ nodejs_major_version }}.x)
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_{{ nodejs_major_version }}.x nodistro main"
+    state: present
+
+- name: Install Node.js
+  ansible.builtin.apt:
+    name: nodejs
+    update_cache: true
+    state: present
+
+# Homepage's own installer pins pnpm via corepack rather than a global npm
+# install - corepack ships with Node 22 but is opt-in until activated.
+- name: Enable corepack
+  ansible.builtin.command: corepack enable
+  args:
+    creates: /usr/bin/pnpm
+
+- name: Prepare pnpm via corepack
+  ansible.builtin.command: corepack prepare pnpm@latest --activate
+  changed_when: true
+
+- name: Create the Homepage install directory
+  ansible.builtin.file:
+    path: /opt/homepage
+    state: directory
+    mode: "0755"
+
+- name: Download the pinned Homepage release tarball
+  ansible.builtin.get_url:
+    url: "https://github.com/gethomepage/homepage/archive/refs/tags/v{{ homepage_version }}.tar.gz"
+    dest: "/tmp/homepage-{{ homepage_version }}.tar.gz"
+    mode: "0644"
+  when: not homepage_installed.stat.exists
+
+- name: Extract the release tarball into /opt/homepage
+  ansible.builtin.unarchive:
+    src: "/tmp/homepage-{{ homepage_version }}.tar.gz"
+    dest: /opt/homepage
+    remote_src: true
+    extra_opts: ["--strip-components=1"]
+  register: homepage_extract
+  when: not homepage_installed.stat.exists
+
+- name: Allow pnpm to build native dependencies unattended
+  ansible.builtin.lineinfile:
+    path: /opt/homepage/.npmrc
+    line: "onlyBuiltDependencies=*"
+    create: true
+    mode: "0644"
+
+- name: Install dependencies (pnpm install)
+  ansible.builtin.command: pnpm install
+  args:
+    chdir: /opt/homepage
+  when: homepage_extract.changed | default(false)
+
+- name: Create the Homepage config directory
+  ansible.builtin.file:
+    path: /opt/homepage/config
+    state: directory
+    mode: "0755"
+
+# Every other host's homepage_service var (host_vars/group_vars) feeds this -
+# nothing here has to change when a host is added, only when the dashboard's
+# own look changes.
+- name: Template the dashboard config
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/opt/homepage/config/{{ item }}"
+    mode: "0644"
+  loop:
+    - settings.yaml
+    - services.yaml
+    - widgets.yaml
+    - bookmarks.yaml
+    - custom.css
+  notify: restart homepage
+
+- name: Create the branding assets directory
+  ansible.builtin.file:
+    path: /opt/homepage/public/images
+    state: directory
+    mode: "0755"
+
+- name: Install the brand logo and favicon source images
+  ansible.builtin.copy:
+    src: "brand/{{ item }}"
+    dest: "/opt/homepage/public/images/{{ item }}"
+    mode: "0644"
+  loop:
+    - brewhouse-icon.jpg
+    - brewhouse-logo.jpg
+  notify: restart homepage
+
+- name: Template the runtime .env file
+  ansible.builtin.template:
+    src: env.j2
+    dest: /opt/homepage/.env
+    mode: "0600"
+  notify: restart homepage
+
+- name: Build Homepage (pnpm build)
+  ansible.builtin.command: pnpm build
+  args:
+    chdir: /opt/homepage
+  environment:
+    NEXT_PUBLIC_VERSION: "v{{ homepage_version }}"
+    NEXT_PUBLIC_REVISION: source
+    NEXT_TELEMETRY_DISABLED: "1"
+    CI: "true"
+  when: homepage_extract.changed | default(false)
+
+- name: Install homepage.service
+  ansible.builtin.template:
+    src: homepage.service.j2
+    dest: /etc/systemd/system/homepage.service
+    mode: "0644"
+  notify: [systemd daemon-reload, restart homepage]
+
+- name: Flush handlers so the unit and config are current before enabling
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start Homepage
+  ansible.builtin.systemd:
+    name: homepage
+    enabled: true
+    state: started
+    daemon_reload: true
+
+# ADR 41: centralize UI credentials in Infisical rather than scattering
+# them across chat/notes - this is the one a human actually needs (the
+# auth secret is just a signing key, never typed anywhere).
+- name: Push HOMEPAGE_AUTH_PASSWORD to Infisical
+  ansible.builtin.include_role:
+    name: infisical-secret
+  vars:
+    infisical_secret_name: HOMEPAGE_AUTH_PASSWORD
+    infisical_secret_value: "{{ homepage_auth_password }}"
+  when: infisical_project_id is defined

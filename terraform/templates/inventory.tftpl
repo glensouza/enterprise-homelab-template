@@ -31,6 +31,10 @@ all:
       hosts:
         ${uptime_kuma_host.name}:
           ansible_host: ${uptime_kuma_host.ip}
+    homepage:
+      hosts:
+        ${homepage_host.name}:
+          ansible_host: ${homepage_host.ip}
     infra:
       hosts:
 %{ for host in infra_hosts ~}

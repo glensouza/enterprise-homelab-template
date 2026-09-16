@@ -19,3 +19,12 @@ dns_service_cnames:
   - { name: pgadmin, target: pr-preview }
   - { name: redisinsight, target: pr-preview }
   - { name: floci, target: pr-preview }
+
+# Picked up by the homepage role (ADR 38) to auto-populate the dashboard.
+homepage_service:
+  - group: Infrastructure
+    name: Technitium DNS
+    icon: technitium.png
+    href: "http://{{ ansible_host }}:5380"
+    description: Internal DNS zones & records
+    ping: "{{ ansible_host }}"

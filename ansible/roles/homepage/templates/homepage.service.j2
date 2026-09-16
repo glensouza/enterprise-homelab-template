@@ -1,0 +1,21 @@
+# Managed by Ansible (roles/homepage) — manual edits will be overwritten.
+# ExecStart matches the upstream community-scripts installer exactly - `next
+# start` (not `pnpm start`) skips pnpm's own startup overhead on every
+# restart, and CI=true suppresses Next.js's interactive update-check prompt,
+# which would otherwise hang a non-interactive systemd start.
+[Unit]
+Description=Homepage
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+User=root
+WorkingDirectory=/opt/homepage/
+Environment=CI=true
+ExecStart=/opt/homepage/node_modules/.bin/next start
+
+[Install]
+WantedBy=multi-user.target

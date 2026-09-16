@@ -40,6 +40,11 @@ locals {
     technitium-dns = { vm_id = 319, node = var.proxmox_node_2, ip = "10.10.130.119/24", gateway = "10.10.130.1", vlan = 130, cores = 1, memory = 512, disk = 8, tags = ["terraform", "vlan130", "mgmt", "dns"] }
     step-ca        = { vm_id = 321, node = var.proxmox_node_2, ip = "10.10.130.121/24", gateway = "10.10.130.1", vlan = 130, cores = 1, memory = 512, disk = 8, tags = ["terraform", "vlan130", "mgmt", "pki"] }
     patchmon       = { vm_id = 322, node = var.proxmox_node_2, ip = "10.10.130.122/24", gateway = "10.10.130.1", vlan = 130, cores = 1, memory = 1024, disk = 8, tags = ["terraform", "vlan130", "mgmt"] }
+    # ADR 38: Homepage dashboard. cores/memory match gethomepage's own
+    # community-scripts installer defaults (2 vCPU / 4GB recommended for the
+    # pnpm/Next.js build step) trimmed to 2GB - this host only builds once
+    # per version bump, not on every boot.
+    homepage       = { vm_id = 323, node = var.proxmox_node_2, ip = "10.10.130.120/24", gateway = "10.10.130.1", vlan = 130, cores = 2, memory = 2048, disk = 8, tags = ["terraform", "vlan130", "mgmt"] }
 
     # VLAN 140 — Non-Prod Single Docker Host tier (pve4 Primary)
     pr-preview = { vm_id = 420, node = var.proxmox_node_1, ip = "10.10.140.120/24", gateway = "10.10.140.1", vlan = 140, cores = 2, memory = 4096, disk = 60, tags = ["terraform", "vlan140", "preview"] }

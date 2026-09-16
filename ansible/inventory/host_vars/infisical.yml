@@ -8,3 +8,12 @@ infisical_db_password: "{{ lookup('ansible.builtin.password', '/opt/ansible-cred
 # upstream installer's `openssl rand -hex 16` (32 hex chars = 16 bytes).
 infisical_encryption_key: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/infisical/encryption_key length=32 chars=hexdigits') }}"
 infisical_auth_secret: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/infisical/auth_secret length=44 chars=ascii_letters,digits') }}"
+
+# Picked up by the homepage role (ADR 38) to auto-populate the dashboard.
+homepage_service:
+  - group: Management
+    name: Infisical
+    icon: infisical.png
+    href: "http://{{ ansible_host }}:8080"
+    description: Secrets vault back office
+    ping: "{{ ansible_host }}"

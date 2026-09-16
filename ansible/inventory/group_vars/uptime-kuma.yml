@@ -2,3 +2,12 @@
 # Uptime Kuma LXC — stub install (DEMO-AUDIT.md R7 sibling gap, roles/uptime-kuma).
 nodejs_major_version: "20"
 uptime_kuma_version: "2.5.3"
+
+# Picked up by the homepage role (ADR 38) to auto-populate the dashboard.
+homepage_service:
+  - group: Observability
+    name: Uptime Kuma
+    icon: uptime-kuma.png
+    href: "http://{{ ansible_host }}:3001"
+    description: Fleet status page & uptime history
+    ping: "{{ ansible_host }}"

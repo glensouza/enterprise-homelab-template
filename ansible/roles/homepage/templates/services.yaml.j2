@@ -1,0 +1,63 @@
+--- # Managed by Ansible (roles/homepage) — manual edits will be overwritten.
+# Three sources feed this, all merged the same way (list of {group, name,
+# icon, href, description, ping}):
+#  1. Every other host's `homepage_service` var (host_vars/group_vars,
+#     ADR 38) - a LIST now, since one host (pr-preview) fronts several
+#     apps. Add a block there when a new LXC gets a UI worth linking, and
+#     the next `ansible-playbook site.yml` run publishes it here
+#     automatically.
+#  2. A synthesized "Cockpit" tile for every inventory host, unconditional -
+#     Cockpit is fleet-wide (ADR 21), so this needs no per-host var at all
+#     and picks up new hosts the same way #1 does.
+#  3. `homepage_static_services` (group_vars/homepage.yml) - physical/
+#     appliance infrastructure this repo doesn't manage via Ansible
+#     (Proxmox, Kemp) plus the GitHub repo link, so genuinely hand-entered
+#     since there's no inventory entry to derive them from.
+#
+# `ping` on each entry is Homepage's live ICMP health-check indicator -
+# UNVERIFIED against a real running instance (the systemd unit runs as
+# root per the upstream installer, which should be enough for a raw ICMP
+# socket, but confirm live once this is up).
+{% set ns = namespace(groups={}) %}
+
+{% for h in groups['all'] %}
+{%   for svc in hostvars[h].homepage_service | default([]) %}
+{%     if svc.group not in ns.groups %}
+{%       set _ = ns.groups.update({svc.group: []}) %}
+{%     endif %}
+{%     set _ = ns.groups[svc.group].append(svc) %}
+{%   endfor %}
+{% endfor %}
+
+{% for h in groups['all'] %}
+{%   if 'Cockpit' not in ns.groups %}
+{%     set _ = ns.groups.update({'Cockpit': []}) %}
+{%   endif %}
+{%   set _ = ns.groups['Cockpit'].append({
+        'name': h,
+        'icon': 'cockpit.png',
+        'href': 'https://' ~ hostvars[h].ansible_host ~ ':9090',
+        'description': 'System console',
+        'ping': hostvars[h].ansible_host,
+      }) %}
+{% endfor %}
+
+{% for svc in homepage_static_services | default([]) %}
+{%   if svc.group not in ns.groups %}
+{%     set _ = ns.groups.update({svc.group: []}) %}
+{%   endif %}
+{%   set _ = ns.groups[svc.group].append(svc) %}
+{% endfor %}
+
+{% for group_name in ns.groups.keys() | sort %}
+- {{ group_name }}:
+{% for svc in ns.groups[group_name] %}
+    - {{ svc.name }}:
+        icon: {{ svc.icon }}
+        href: {{ svc.href }}
+        description: {{ svc.description }}
+{% if svc.ping is defined %}
+        ping: {{ svc.ping }}
+{% endif %}
+{% endfor %}
+{% endfor %}

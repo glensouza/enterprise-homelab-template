@@ -1,0 +1,26 @@
+/* Managed by Ansible (roles/homepage) — manual edits will be overwritten. */
+/* Brand palette (video-scripts screenshots/, ADR 38): Deep Slate Navy
+   #0D3B7A, Teal/Forest Cyan #005B66, White #FFFFFF. Homepage's theming
+   surface is mostly hashed Tailwind utility classes, which aren't stable
+   selectors across releases - these are best-effort and UNVERIFIED against
+   a real running instance. Check the rendered page in devtools once this
+   is live and adjust selectors as needed; settings.yaml's `color: slate`
+   already gives a reasonable look even if this file needs tweaking. */
+
+:root {
+  --color-primary: #0D3B7A;
+  --color-secondary: #005B66;
+}
+
+body {
+  background-color: #0D3B7A;
+}
+
+.services-group-title {
+  color: #005B66;
+}
+
+a.service-name,
+.service-name {
+  color: #FFFFFF;
+}

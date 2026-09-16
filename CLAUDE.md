@@ -119,6 +119,7 @@ Synology NAS and Kemp are pre-existing, non-Terraform-managed hardware and stay 
 | Technitium DNS (wildcard `*.pr.brewhouse.internal`) | `10.10.130.119` | `pve3` (Node 2 - Secondary) |
 | step-ca internal PKI (ACME, port 4443) | `10.10.130.121` | `pve3` (Node 2 - Secondary) |
 | PatchMon (OS patch tracking — LXC reserved, no role yet) | `10.10.130.122` | `pve3` (Node 2 - Secondary) |
+| Homepage (fleet dashboard, port 3000, ADR 38) | `10.10.130.120` | `pve3` (Node 2 - Secondary) |
 
 ### VLAN 140 — Non-Prod / Preview (`10.10.140.x`)
 | Host | IP | Node Assignment |

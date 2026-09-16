@@ -1,0 +1,58 @@
+---
+# Homepage dashboard (ADR 38, https://gethomepage.dev/). Built from a pinned
+# source-release tarball rather than "latest", matching this repo's
+# convention for other from-source roles (uptime_kuma_version, garnet_version)
+# so a re-run never silently pulls in an untested newer build.
+nodejs_major_version: "22"
+homepage_version: "2.3.0"
+
+# Auth (ADR 41) - required before any public/Cloudflare exposure, since
+# unauthenticated Homepage is effectively an index of the whole fleet's
+# internal attack surface. Confirmed live against the installed source
+# (src/pages/api/auth/[...nextauth].js): HOMEPAGE_AUTH_PASSWORD is compared
+# as plain text (sha256'd internally, not bcrypt - do NOT pre-hash it
+# here), HOMEPAGE_AUTH_SECRET maps to NEXTAUTH_SECRET and must be >= 32
+# characters, and HOMEPAGE_EXTERNAL_URL is mandatory once auth is enabled
+# (must be an absolute http(s) URL with no credentials/query/fragment).
+# Generated once and reused on every run, cached under
+# /opt/ansible-credentials (ADR 35), outside any git checkout.
+homepage_auth_password: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/homepage/auth_password length=24 chars=ascii_letters,digits') }}"
+homepage_auth_secret: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/homepage/auth_secret length=44 chars=ascii_letters,digits') }}"
+
+# Physical/appliance infrastructure with no Ansible inventory entry to
+# derive a tile from (unlike homepage_service, ADR 38) - genuinely
+# hand-maintained, since these three essentially never change.
+# LAB-RUNBOOK.md section 0: pve1 (10.10.10.101) is the Proxmox cluster
+# master and its own web UI shows the whole 4-node cluster, not just
+# itself - one tile covers pve1-4. Kemp's WUI (10.10.10.199) is
+# management-only, on the existing LAN, never in the traffic path
+# (docs/03-kemp-load-balancer.md).
+homepage_static_services:
+  - group: Physical Infrastructure
+    name: Proxmox VE
+    icon: proxmox.png
+    href: "https://10.10.10.101:8006"
+    description: Cluster management (pve1-pve4)
+    ping: 10.10.10.101
+  - group: Physical Infrastructure
+    # No dedicated Kemp icon exists in the dashboard-icons catalog (checked
+    # live - every "kemp"/"loadmaster" variant 404s) - haproxy.png as a
+    # generic load-balancer stand-in.
+    name: Kemp LoadMaster
+    icon: haproxy.png
+    href: "https://10.10.10.199"
+    description: Load balancer WUI (management only)
+    ping: 10.10.10.199
+  - group: Developer
+    name: GitHub Repo
+    icon: github.png
+    href: "https://github.com/glensouza/enterprise-homelab-template"
+    description: Infrastructure-as-code source
+  # The Kemp VIP (docs/03) is the actual product entry point - not tied to
+  # any single LXC's host_vars, so it lives here like Proxmox/Kemp's WUI.
+  - group: Application
+    name: BrewHouse App
+    icon: dotnet.png
+    href: "https://10.10.110.199"
+    description: The Blazor app, load-balanced (Kemp VIP)
+    ping: 10.10.110.199

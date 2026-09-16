@@ -72,6 +72,16 @@
   roles:
     - uptime-kuma
 
+# Reads every other host's `homepage_service` var (host_vars/group_vars,
+# ADR 38) via hostvars - those are inventory-parse-time vars, not runtime
+# facts, so this play has no ordering dependency on the ones above and could
+# run anywhere in this file. Kept here anyway since "list every other
+# service" reads best after they've all been introduced.
+- name: Configure Homepage dashboard (VLAN 130, ADR 38)
+  hosts: homepage
+  roles:
+    - homepage
+
 # Runs LAST: the step-ca play above generates and fetches the per-host
 # certificates the cockpit role installs, and the patchmon play above
 # already has the PatchMon server (ADR 33) up before this enrolls every

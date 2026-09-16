@@ -36,6 +36,10 @@ resource "local_file" "ansible_inventory" {
       name = "uptime-kuma"
       ip   = split("/", local.lxcs["uptime-kuma"].ip)[0]
     }
+    homepage_host = {
+      name = "homepage"
+      ip   = split("/", local.lxcs["homepage"].ip)[0]
+    }
     # Every LXC without a dedicated Ansible group — included in `all` so
     # Cockpit, internal DNS records, and step-ca certs cover the fleet (ADR 21).
     infra_hosts = [

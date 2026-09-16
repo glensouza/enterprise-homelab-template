@@ -2,3 +2,12 @@
 # Observability LXC — stub pipeline (DEMO-AUDIT.md R7, roles/observability).
 prometheus_version: "2.55.1"
 observability_retention: 24h
+
+# Picked up by the homepage role (ADR 38) to auto-populate the dashboard.
+homepage_service:
+  - group: Observability
+    name: Grafana
+    icon: grafana.png
+    href: "http://{{ ansible_host }}:3000"
+    description: Dashboards over Loki/Tempo/Prometheus
+    ping: "{{ ansible_host }}"

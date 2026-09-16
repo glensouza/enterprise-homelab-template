@@ -1,0 +1,15 @@
+--- # Managed by Ansible (roles/homepage) — manual edits will be overwritten.
+# `logo` in settings.yaml is NOT read by this Homepage version - confirmed
+# live by grepping the installed source (src/pages/index.jsx only reads
+# `favicon` from settings; `logo` is a components/widgets/logo widget that
+# takes its own `icon:` option instead) - this is the actual header-row
+# brand mark.
+- logo:
+    icon: /images/brewhouse-icon.jpg
+- resources:
+    cpu: true
+    memory: true
+    disk: /
+- search:
+    provider: duckduckgo
+    target: _blank

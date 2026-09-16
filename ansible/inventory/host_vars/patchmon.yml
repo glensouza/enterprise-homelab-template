@@ -6,3 +6,13 @@ patchmon_db_password: "{{ lookup('ansible.builtin.password', '/opt/ansible-crede
 patchmon_jwt_secret: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/patchmon/jwt_secret length=64 chars=hexdigits') }}"
 patchmon_session_secret: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/patchmon/session_secret length=64 chars=hexdigits') }}"
 patchmon_ai_encryption_key: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/patchmon/ai_encryption_key length=64 chars=hexdigits') }}"
+
+# Picked up by the homepage role (ADR 38) to auto-populate the dashboard -
+# nothing to edit there when this host's service moves or its port changes.
+homepage_service:
+  - group: Management
+    name: PatchMon
+    icon: patchmon.png
+    href: "http://{{ ansible_host }}:3000"
+    description: Patch compliance across the fleet
+    ping: "{{ ansible_host }}"
