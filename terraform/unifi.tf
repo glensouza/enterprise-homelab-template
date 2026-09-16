@@ -86,7 +86,7 @@ resource "unifi_network" "vlan140" {
 #    enough. The `port` field also rejects a comma-separated list ("111,2049",
 #    "80,443") — "policyendpoint: port must be a valid port or port range" —
 #    so a rule needing multiple discrete ports is split into one policy per
-#    port (data_to_nas_nfs, step_ca_to_preview below).
+#    port (step_ca_to_preview below).
 #
 #    matching_target must ALSO be set explicitly on every source/destination
 #    block ("IP" when ips is set, "ANY" when neither is set) — confirmed live:
@@ -227,133 +227,19 @@ resource "unifi_firewall_policy" "web_to_patchmon" {
   enabled = true
 }
 
-resource "unifi_firewall_policy" "mgmt_to_nas" {
-  name     = "Allow Management -> Synology NAS"
-  action   = "ALLOW"
-  protocol = "all"
-  source = {
-    zone_id         = local.internal_zone_id
-    ips             = [local.vlan130_cidr]
-    matching_target = "IP"
-  }
-  destination = {
-    zone_id         = local.internal_zone_id
-    ips             = [local.synology_nas]
-    matching_target = "IP"
-  }
-  enabled = true
-}
-
-# All four Proxmox cluster members (pve1, pve2, pve3, pve4) are pre-existing hardware on the
-# existing 10.10.10.0/24 LAN, not on VLAN 130 — the policy above never covers their
-# vzdump/shared-storage traffic to the NAS. Proxmox mounts cluster-wide storage on every node
-# regardless of which two (pve3/pve4) actually host LXCs, so each host gets its own explicit
-# allow — confirmed live: the NFS storage add failed with "access denied by server" until pve1
-# and pve2 were both allowed through on the NAS side too.
-resource "unifi_firewall_policy" "pve1_to_nas" {
-  name     = "Allow Proxmox pve1 -> Synology NAS"
-  action   = "ALLOW"
-  protocol = "all"
-  source = {
-    zone_id         = local.internal_zone_id
-    ips             = ["10.10.10.101"]
-    matching_target = "IP"
-  }
-  destination = {
-    zone_id         = local.internal_zone_id
-    ips             = [local.synology_nas]
-    matching_target = "IP"
-  }
-  enabled = true
-}
-
-resource "unifi_firewall_policy" "pve2_to_nas" {
-  name     = "Allow Proxmox pve2 -> Synology NAS"
-  action   = "ALLOW"
-  protocol = "all"
-  source = {
-    zone_id         = local.internal_zone_id
-    ips             = ["10.10.10.102"]
-    matching_target = "IP"
-  }
-  destination = {
-    zone_id         = local.internal_zone_id
-    ips             = [local.synology_nas]
-    matching_target = "IP"
-  }
-  enabled = true
-}
-
-resource "unifi_firewall_policy" "pve3_to_nas" {
-  name     = "Allow Proxmox pve3 -> Synology NAS"
-  action   = "ALLOW"
-  protocol = "all"
-  source = {
-    zone_id         = local.internal_zone_id
-    ips             = ["10.10.10.103"]
-    matching_target = "IP"
-  }
-  destination = {
-    zone_id         = local.internal_zone_id
-    ips             = [local.synology_nas]
-    matching_target = "IP"
-  }
-  enabled = true
-}
-
-resource "unifi_firewall_policy" "pve4_to_nas" {
-  name     = "Allow Proxmox pve4 -> Synology NAS"
-  action   = "ALLOW"
-  protocol = "all"
-  source = {
-    zone_id         = local.internal_zone_id
-    ips             = ["10.10.10.104"]
-    matching_target = "IP"
-  }
-  destination = {
-    zone_id         = local.internal_zone_id
-    ips             = [local.synology_nas]
-    matching_target = "IP"
-  }
-  enabled = true
-}
-
-# Split into one policy per port — the API rejects a comma-separated port list.
-resource "unifi_firewall_policy" "data_to_nas_nfs_portmapper" {
-  name     = "Allow Data -> Synology NAS (NFS portmapper 111)"
-  action   = "ALLOW"
-  protocol = "tcp_udp"
-  source = {
-    zone_id         = local.internal_zone_id
-    ips             = [local.vlan120_cidr]
-    matching_target = "IP"
-  }
-  destination = {
-    zone_id         = local.internal_zone_id
-    ips             = [local.synology_nas]
-    port            = "111"
-    matching_target = "IP"
-  }
-  enabled = true
-}
-
-resource "unifi_firewall_policy" "data_to_nas_nfs" {
-  name     = "Allow Data -> Synology NAS (NFS 2049)"
-  action   = "ALLOW"
-  protocol = "tcp_udp"
-  source = {
-    zone_id         = local.internal_zone_id
-    ips             = [local.vlan120_cidr]
-    matching_target = "IP"
-  }
-  destination = {
-    zone_id         = local.internal_zone_id
-    ips             = [local.synology_nas]
-    port            = "2049"
-    matching_target = "IP"
-  }
-  enabled = true
-}
+# ADR 40: pve1-4_to_nas (all four) were removed entirely, not just pve1/2.
+# Tested live: applied with pve3_to_nas/pve4_to_nas also absent, and
+# postgresql's data volume and blazor-web-01/02's media share (both
+# confirmed active/mounted post-apply) needed no explicit rule at all.
+# pve1-4 and the NAS all sit on the same pre-existing 10.10.10.0/24 LAN
+# segment — same-subnet traffic never crosses the gateway's routing/
+# firewall boundary in the first place, so a zone policy for it was never
+# going to do anything either way. (Also: the actual mount is CIFS now, not
+# NFS — see the removed data_to_nas_nfs* policies above — so even the
+# original port-111/2049 rules were already stale before this cleanup.)
+# The "access denied by server" that originally motivated these four rules
+# was almost certainly a NAS-side share-permission issue, not a firewall
+# one.
 
 resource "unifi_firewall_policy" "drop_web_to_data" {
   name     = "Drop Web -> Data (all other)"
@@ -534,6 +420,53 @@ resource "unifi_firewall_policy" "preview_to_garnet" {
   enabled = true
 }
 
+# ADR 41: pr-preview now pushes pgAdmin's login to Infisical (preview-host
+# role), the first thing on VLAN140 that's ever needed to reach Infisical -
+# confirmed live this hung/failed exactly like the PatchMon gap (ADR 40)
+# until this was added. Same class of gap, same fix.
+resource "unifi_firewall_policy" "preview_to_infisical" {
+  name     = "Allow Preview -> Infisical (8080)"
+  action   = "ALLOW"
+  protocol = "tcp"
+  source = {
+    zone_id         = local.internal_zone_id
+    ips             = ["10.10.140.120"]
+    matching_target = "IP"
+  }
+  destination = {
+    zone_id         = local.internal_zone_id
+    ips             = ["10.10.130.116"]
+    port            = "8080"
+    matching_target = "IP"
+  }
+  enabled = true
+}
+
+# Every host in the fleet needs to reach PatchMon to enroll and report
+# package-update status (ADR 34) - VLAN110 already has this (web_to_patchmon,
+# ADR 37) and VLAN120 falls through to the same-zone default-allow (no drop
+# rule exists for data -> mgmt), but VLAN140 is fully dropped by
+# drop_preview_to_mgmt below with no exception carved out yet. Confirmed
+# live: this exact gap is what made the fleet-wide PatchMon enrollment play
+# hang on pr-preview and stall the whole CI run (ADR 39's investigation).
+resource "unifi_firewall_policy" "preview_to_patchmon" {
+  name     = "Allow Preview -> PatchMon (3000)"
+  action   = "ALLOW"
+  protocol = "tcp"
+  source = {
+    zone_id         = local.internal_zone_id
+    ips             = ["10.10.140.120"]
+    matching_target = "IP"
+  }
+  destination = {
+    zone_id         = local.internal_zone_id
+    ips             = ["10.10.130.122"]
+    port            = "3000"
+    matching_target = "IP"
+  }
+  enabled = true
+}
+
 resource "unifi_firewall_policy" "drop_preview_to_web" {
   name     = "Drop Preview -> Web"
   action   = "BLOCK"
@@ -590,5 +523,7 @@ resource "unifi_firewall_policy" "drop_preview_to_mgmt" {
   depends_on = [
     unifi_firewall_policy.preview_to_dns,
     unifi_firewall_policy.preview_to_step_ca,
+    unifi_firewall_policy.preview_to_patchmon,
+    unifi_firewall_policy.preview_to_infisical,
   ]
 }

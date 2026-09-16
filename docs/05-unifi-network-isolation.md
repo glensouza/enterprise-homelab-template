@@ -55,10 +55,7 @@ UniFi Network 8.x+ replaced the old ruleset/LAN-IN model with **zone-based firew
 | **Allow** | VLAN 110 (Web) | `10.10.120.111` (Garnet) | `6379` | Allow Blazor apps to read/write cache & SignalR backplane. |
 | **Allow** | VLAN 110 (Web) | `10.10.120.112` (RabbitMQ) | `5672` | Allow Blazor apps to publish messages. |
 | **Allow** | VLAN 110 (Web) | `10.10.130.116` (Infisical) | `8080` | Allow the Infisical Agent on each web LXC to fetch secrets (ADR 12/28). Confirmed live via Terraform: added *after* `drop_web_to_mgmt` already existed, and `unifi_firewall_policy`'s `index` is controller-assigned and read-only — a newly-created allow rule is appended after an already-existing drop rule regardless of `depends_on` (that only orders the Terraform apply's API calls, not the rule list position of a resource that isn't being changed). Had to `terraform apply -replace=unifi_firewall_policy.drop_web_to_mgmt` to force it to a later index. |
-| **Allow** | VLAN 130 (Management)| `10.10.10.90` (Synology NAS)| `Any` | Allow the VLAN 130 admin/monitoring LXCs to reach the NAS. |
-| **Allow** | `10.10.10.101` (pve1), `10.10.10.102` (pve2), `10.10.10.103` (pve3), `10.10.10.104` (pve4) | `10.10.10.90` (Synology NAS) | `Any` | Allow all four (pre-existing, non-VLAN-130) Proxmox cluster members to reach shared NFS storage — Proxmox mounts cluster-wide storage on every node regardless of which two actually host LXCs. One policy per host — they're on the existing LAN, not a UniFi network Terraform can reference as a group. |
-| **Allow** | VLAN 120 (Data Tier)| `10.10.10.90` (Synology NAS)| `111` | Allow Postgres to reach the NFS portmapper (own policy — the API rejects a comma port list). |
-| **Allow** | VLAN 120 (Data Tier)| `10.10.10.90` (Synology NAS)| `2049` | Allow Postgres to write to NFS mounts. |
+| **Allow** | VLAN 110 (Web) | `10.10.130.122` (PatchMon) | `3000` | Allow web LXCs to enroll with and report to PatchMon (ADR 34/37). Same `index`/`-replace` caveat as the Infisical row above. |
 | **Block** | VLAN 110 (Web) | VLAN 120 (Data Tier) | `Any` | Block all other Web -> Backend traffic (after the three specific allows above). |
 | **Block** | VLAN 110 (Web) | VLAN 130 (Management) | `Any` | Block Web -> Proxmox GUI / Management. |
 | **Allow** | VLAN 130 (Management)| `Any` | `Any` | Allow administrative/monitoring tools full access. |
@@ -68,8 +65,9 @@ UniFi Network 8.x+ replaced the old ruleset/LAN-IN model with **zone-based firew
 | **Allow** | `10.10.130.121` (step-ca) | VLAN 140 (Preview) | `443` | Allow the CA to complete ACME TLS-ALPN-01 validation. |
 | **Allow** | `10.10.140.120` (Preview host) | `10.10.120.110` (Postgres) | `5432` | pgAdmin (admin tooling, ADR 21) -> production database. |
 | **Allow** | `10.10.140.120` (Preview host) | `10.10.120.111` (Garnet) | `6379` | RedisInsight (admin tooling, ADR 21) -> production cache. |
+| **Allow** | VLAN 140 (Preview) | `10.10.130.122` (PatchMon) | `3000` | Allow the preview host to enroll with and report to PatchMon (ADR 34/40) — confirmed live this was missing and hung the fleet-wide enrollment play until added. |
 | **Block** | VLAN 140 (Preview) | VLAN 110 (Web) | `Any` | Isolate non-prod from the web tier. |
 | **Block** | VLAN 140 (Preview) | VLAN 120 (Data Tier) | `Any` | Isolate non-prod from production data (after the two specific allows above). |
-| **Block** | VLAN 140 (Preview) | VLAN 130 (Management) | `Any` | Block all other Preview -> Management traffic (after the two specific allows above). |
+| **Block** | VLAN 140 (Preview) | VLAN 130 (Management) | `Any` | Block all other Preview -> Management traffic (after the three specific allows above). |
 
 *Note: access from the admin LAN to the preview host (HTTPS 443, and SSH from the self-hosted runner) is allowed by the UDM-Pro's default inter-VLAN permit; only VLAN-to-VLAN isolation is locked down above.*

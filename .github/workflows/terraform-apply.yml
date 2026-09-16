@@ -55,6 +55,17 @@ jobs:
       - name: Terraform Init
         run: terraform init -input=false
 
+      - name: Back up UniFi config before touching it (ADR 40)
+        env:
+          # unifi_api_url has no separate secret/variable - variables.tf
+          # defaults it to this same value, matching the other TF_VAR_*
+          # vars above that are deliberately left unset when they have a
+          # safe default (see terraform-plan.yml).
+          UNIFI_API_URL: https://10.10.10.1
+          UNIFI_USERNAME: ${{ vars.UNIFI_USERNAME }}
+          UNIFI_PASSWORD: ${{ secrets.UNIFI_PASSWORD }}
+        run: ./unifi-backup.sh
+
       - name: Download the reviewed plan
         uses: actions/download-artifact@v4
         with:
