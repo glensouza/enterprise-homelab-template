@@ -50,9 +50,14 @@ homepage_static_services:
     description: Infrastructure-as-code source
   # The Kemp VIP (docs/03) is the actual product entry point - not tied to
   # any single LXC's host_vars, so it lives here like Proxmox/Kemp's WUI.
+  # href uses the real public hostname the Kemp VIP's 443 cert is actually
+  # bound to (confirmed live in Kemp's WUI, Blazor-App-VIP SSL properties) -
+  # a raw-IP link would otherwise hit an untrusted cert / SNI mismatch.
+  # ping still targets the VIP's own IP since that's what's reachable
+  # internally for the health check.
   - group: Application
     name: BrewHouse App
     icon: dotnet.png
-    href: "https://10.10.110.199"
+    href: "https://app.smartsoftwarecoffee.com"
     description: The Blazor app, load-balanced (Kemp VIP)
     ping: 10.10.110.199

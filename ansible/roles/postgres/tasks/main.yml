@@ -18,6 +18,37 @@
     enabled: true
     state: started
 
+# Confirmed live: the Debian package default (listen_addresses=localhost,
+# pg_hba.conf only allowing 127.0.0.1/::1) means nothing off-box can ever
+# reach Postgres, even though this role hands out a connection string using
+# the LXC's real LAN IP (EFBUNDLE_CONNECTION below, and
+# ConnectionStrings__brewhousedb for the running app) — this was masked for
+# months by earlier CI failures (DCP/Polly flake, then dotnet-ef PATH) that
+# died before ever reaching a real DB connection. The relevant UniFi
+# firewall policies (web_to_postgres, preview_to_postgres) already exist and
+# pass traffic through fine — this is purely a Postgres-side bind/auth gap.
+- name: Allow PostgreSQL to listen on all interfaces
+  ansible.builtin.template:
+    src: listen-addresses.conf.j2
+    dest: "{{ postgres_conf_dir }}/conf.d/listen-addresses.conf"
+    owner: postgres
+    group: postgres
+    mode: "0644"
+  notify: restart postgresql
+
+- name: Allow remote scram-sha-256 connections from the app/CI/preview networks
+  ansible.builtin.blockinfile:
+    path: "{{ postgres_conf_dir }}/pg_hba.conf"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - remote client access"
+    block: |
+      {% for net in postgres_allowed_networks %}
+      host    all             all             {{ net.cidr }}            scram-sha-256
+      {% endfor %}
+  notify: restart postgresql
+
+- name: Flush handlers so PostgreSQL accepts remote connections before role/DB setup below
+  ansible.builtin.meta: flush_handlers
+
 - name: Create the brewhouse database role
   ansible.builtin.command: >
     su postgres -c "psql -c \"CREATE ROLE brewhouse WITH LOGIN PASSWORD '{{ postgres_brewhouse_password }}';\""
