@@ -2,6 +2,18 @@
 # Prepares the Blazor release layout and systemd unit (docs/10 section 1).
 # The unit file is copied verbatim from src/systemd/ so there is ONE canonical
 # copy in the repo — edit it there, then re-run this playbook.
+
+# Confirmed live: the minimal Debian 12 LXC image has no rsync, and
+# deploy-blazor.yml's "Deploy to Blazor LXC 01/02" steps rsync ./publish/
+# straight to this host - masked until the first deploy that got far enough
+# to reach it (Postgres remote access, ADR 42, was blocking every earlier
+# attempt). "rsync: command not found" (exit 127) on the remote end, not a
+# local/runner problem.
+- name: Install rsync (required by deploy-blazor.yml's rsync-based deploy)
+  ansible.builtin.apt:
+    name: rsync
+    state: present
+
 - name: Create release and config directories
   ansible.builtin.file:
     path: "{{ item.path }}"
