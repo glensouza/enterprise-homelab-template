@@ -204,6 +204,30 @@ resource "unifi_firewall_policy" "web_to_infisical" {
   enabled = true
 }
 
+resource "unifi_firewall_policy" "web_to_homepage" {
+  # ADR 47: exposing Homepage via the Cloudflare Tunnel means the cloudflared
+  # connector (VLAN 110) must reach Homepage (10.10.130.120:3000) directly -
+  # drop_web_to_mgmt below blocks all of VLAN 110 -> VLAN 130 by default, and
+  # no exception for Homepage existed yet since it was never meant to be
+  # reachable from VLAN 110 before this. Same class of gap as
+  # web_to_infisical/web_to_patchmon above (ADR 29/37).
+  name     = "Allow Web -> Homepage (3000)"
+  action   = "ALLOW"
+  protocol = "tcp"
+  source = {
+    zone_id         = local.internal_zone_id
+    ips             = [local.vlan110_cidr]
+    matching_target = "IP"
+  }
+  destination = {
+    zone_id         = local.internal_zone_id
+    ips             = ["10.10.130.120"]
+    port            = "3000"
+    matching_target = "IP"
+  }
+  enabled = true
+}
+
 resource "unifi_firewall_policy" "web_to_patchmon" {
   # Confirmed live: a manual curl from blazor-web-01 to
   # 10.10.130.122:3000/api/v1/auto-enrollment/enroll hung and timed out
@@ -283,6 +307,7 @@ resource "unifi_firewall_policy" "drop_web_to_mgmt" {
   depends_on = [
     unifi_firewall_policy.web_to_infisical,
     unifi_firewall_policy.web_to_patchmon,
+    unifi_firewall_policy.web_to_homepage,
   ]
 }
 
