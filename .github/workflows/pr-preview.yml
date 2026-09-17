@@ -71,7 +71,14 @@ jobs:
       run: docker save "${APP_IMAGE}" | gzip | ssh root@${PREVIEW_HOST} "gunzip | docker load"
 
     - name: Install EF Core CLI
-      run: dotnet tool install --global dotnet-ef
+      # Same fix as deploy-blazor.yml: `dotnet tool install --global` puts the
+      # binary in ~/.dotnet/tools, which isn't on this self-hosted runner's
+      # PATH by default - confirmed live, identical failure here
+      # ("Could not execute because the specified command or file was not
+      # found... dotnet-ef does not exist").
+      run: |
+        dotnet tool install --global dotnet-ef
+        echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
 
     - name: Generate EF Core Migration Bundle
       run: dotnet ef migrations bundle --project ./src/BrewHouse/BrewHouse.csproj --self-contained -r linux-x64 -o ./efbundle/efbundle
