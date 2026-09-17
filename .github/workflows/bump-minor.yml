@@ -16,6 +16,10 @@ jobs:
     - name: Checkout PR branch
       uses: actions/checkout@v4
       with:
+        # Explicit ref, not the default pull_request merge-ref checkout - that
+        # lands in detached HEAD, and this job needs to `git push` back onto
+        # the PR's actual branch below.
+        ref: ${{ github.head_ref }}
         fetch-depth: 0
 
     - name: Bump minor version
