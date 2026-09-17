@@ -105,8 +105,17 @@ jobs:
         FLOCI_OCI_PORT=${FLOCI_OCI_PORT}
         ENV_EOF
 
+    # `down -v` first: confirmed live, a retried/re-synchronized run for the same PR
+    # otherwise reuses the previous attempt's named Postgres volume, whose data
+    # directory was already initialized with THAT run's random DB_PASSWORD (Postgres
+    # only applies POSTGRES_PASSWORD on first init of an empty volume) - the new
+    # random password generated above then fails auth against the stale volume
+    # ("password authentication failed for user brewhouse"). `|| true` since a
+    # first-ever run for this PR has no prior stack/volume to remove.
     - name: Start the preview stack
-      run: ssh root@${PREVIEW_HOST} "cd /opt/previews/pr-${PR_NUMBER} && docker compose --env-file .env up -d --wait"
+      run: |
+        ssh root@${PREVIEW_HOST} "cd /opt/previews/pr-${PR_NUMBER} && docker compose --env-file .env down -v" || true
+        ssh root@${PREVIEW_HOST} "cd /opt/previews/pr-${PR_NUMBER} && docker compose --env-file .env up -d --wait"
 
     # Migrations run before the app is announced, mirroring the production
     # pipeline (ADR 11). The bundle executes on the preview host against the
