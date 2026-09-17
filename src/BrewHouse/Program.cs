@@ -91,7 +91,7 @@ switch (blobStorageProvider)
 {
     case "s3":
         var s3ServiceUrl = builder.Configuration["BlobStorage:S3:ServiceUrl"];
-        var s3BucketName = builder.Configuration["BlobStorage:S3:BucketName"] ?? "brewhouse-auction-blobs";
+        var s3BucketName = builder.Configuration["BlobStorage:S3:BucketName"] ?? "brewhouse-coffee-blobs";
         var s3Config = new AmazonS3Config
         {
             ForcePathStyle = builder.Configuration.GetValue("BlobStorage:S3:ForcePathStyle", true),

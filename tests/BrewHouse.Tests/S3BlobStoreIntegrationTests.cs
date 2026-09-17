@@ -14,7 +14,7 @@ namespace BrewHouse.Tests;
 /// </summary>
 public class S3BlobStoreIntegrationTests : IAsyncLifetime
 {
-    private const string BucketName = "brewhouse-auction-blobs-test";
+    private const string BucketName = "brewhouse-coffee-blobs-test";
     private readonly FlociContainer _floci = new FlociBuilder("floci/floci:1.5.13").Build();
 
     public Task InitializeAsync() => _floci.StartAsync();

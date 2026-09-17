@@ -11,7 +11,7 @@ We use `bUnit` 2.7.2 (stable) integrated with `xUnit` to test Razor components i
 
 ## 2. Messaging Handler Testing (Wolverine Unit Tests)
 Wolverine handlers are plain static classes, so we test them by invoking the `Handle` method directly — no broker, test harness, or container required.
-* **Direct Invocation:** Call `ProcessBidHandler.Handle(message, dbContext, logger)` and assert completion or expected exceptions (e.g., unknown equipment throws `InvalidOperationException`).
+* **Direct Invocation:** Call `ProcessBidHandler.Handle(message, dbContext, logger)` and assert completion or expected exceptions (e.g., unknown coffee lot throws `InvalidOperationException`).
 * **Scope:** An EF Core in-memory context is acceptable here because these tests verify handler logic only, never relational/database behavior.
 
 ## 3. Database Integration Testing (Aspire.Hosting.Testing)

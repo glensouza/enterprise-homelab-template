@@ -28,7 +28,7 @@ services:
       BlobStorage__Provider: s3
       BlobStorage__S3__ServiceUrl: http://floci:4566
       BlobStorage__S3__ForcePathStyle: "true"
-      BlobStorage__S3__BucketName: brewhouse-auction-pr${PR_NUMBER}
+      BlobStorage__S3__BucketName: brewhouse-coffee-pr${PR_NUMBER}
       BlobStorage__S3__AccessKey: test
       BlobStorage__S3__SecretKey: test
       BlobStorage__RootPath: /data/blobs
@@ -136,11 +136,18 @@ services:
       AWS_SECRET_ACCESS_KEY: test
       AWS_DEFAULT_REGION: us-east-1
     entrypoint: ["/bin/sh", "-c"]
-    command: >
-      until aws --endpoint-url http://floci:4566 s3 mb s3://brewhouse-auction-pr${PR_NUMBER} 2>/dev/null
-         || aws --endpoint-url http://floci:4566 s3 ls s3://brewhouse-auction-pr${PR_NUMBER} >/dev/null 2>&1; do
-        echo "waiting for the floci AWS emulator..."; sleep 2;
-      done; echo "bucket brewhouse-auction-pr${PR_NUMBER} ready"
+    # `command` as a single-element LIST, not a plain scalar string -
+    # confirmed live: Compose applies shell-word-splitting to a plain-string
+    # `command` (per the Compose spec) and that splitter chokes on `2>`/`||`/
+    # `;`, silently truncating the script after "s3 mb s3://...". A list with
+    # one multi-line element is passed to the entrypoint verbatim instead.
+    command:
+      - |
+        until aws --endpoint-url http://floci:4566 s3 mb s3://brewhouse-coffee-pr${PR_NUMBER} 2>/dev/null || aws --endpoint-url http://floci:4566 s3 ls s3://brewhouse-coffee-pr${PR_NUMBER} >/dev/null 2>&1; do
+          echo "waiting for the floci AWS emulator..."
+          sleep 2
+        done
+        echo "bucket brewhouse-coffee-pr${PR_NUMBER} ready"
     depends_on:
       - floci
 
