@@ -7,6 +7,12 @@ WorkingDirectory=/var/www/brewhouse/current
 ExecStart=/usr/bin/dotnet /var/www/brewhouse/current/BrewHouse.dll
 Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=ASPNETCORE_URLS=http://0.0.0.0:5000
+# Keeps each circuit's own /hubs/bids connection on this node instead of
+# routing back out through the Kemp VIP (see SignalRBidsClient) - matches
+# the port ASPNETCORE_URLS binds above. Left unset in production, every
+# server-rendered page 500'd (Connection refused hitting the VIP's own :80,
+# which has no listener - confirmed live, ADR 45).
+Environment=Realtime__HubBaseUrl=http://localhost:5000
 # Secrets (ConnectionStrings__brewhousedb, ConnectionStrings__cache,
 # ConnectionStrings__messaging, OTEL_EXPORTER_OTLP_ENDPOINT) are rendered into
 # this file by the Infisical Agent on VLAN 130. The app fails fast without them.
