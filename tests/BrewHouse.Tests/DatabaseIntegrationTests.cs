@@ -38,11 +38,11 @@ public class DatabaseIntegrationTests
 
         // Unique per run - the AppHost keeps a persistent data volume, so a fixed literal
         // would accumulate rows across runs and break SingleAsync on the second one.
-        var model = $"CAT D9 {Guid.NewGuid():N}";
-        db.EquipmentDirectory.Add(new Equipment { Model = model, CurrentBid = 125000m });
+        var origin = $"Ethiopia Yirgacheffe {Guid.NewGuid():N}";
+        db.CoffeeLots.Add(new CoffeeLot { Origin = origin, CurrentBid = 125000m });
         await db.SaveChangesAsync();
 
-        var saved = await db.EquipmentDirectory.SingleAsync(e => e.Model == model);
+        var saved = await db.CoffeeLots.SingleAsync(e => e.Origin == origin);
         Assert.Equal(125000m, saved.CurrentBid);
     }
 }

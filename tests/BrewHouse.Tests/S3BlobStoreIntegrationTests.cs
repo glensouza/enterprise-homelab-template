@@ -32,11 +32,11 @@ public class S3BlobStoreIntegrationTests : IAsyncLifetime
         await client.PutBucketAsync(BucketName);
         var store = new S3BlobStore(client, BucketName);
 
-        await store.WriteTextAsync("auctions/equipment/CAT-D9-Front.txt", "mock-image-data");
-        var content = await store.ReadTextAsync("auctions/equipment/CAT-D9-Front.txt");
+        await store.WriteTextAsync("auctions/coffee/Ethiopia-Yirgacheffe-Front.txt", "mock-image-data");
+        var content = await store.ReadTextAsync("auctions/coffee/Ethiopia-Yirgacheffe-Front.txt");
         Assert.Equal("mock-image-data", content);
 
-        await store.DeleteAsync("auctions/equipment/CAT-D9-Front.txt");
-        await Assert.ThrowsAsync<NoSuchKeyException>(() => store.ReadTextAsync("auctions/equipment/CAT-D9-Front.txt"));
+        await store.DeleteAsync("auctions/coffee/Ethiopia-Yirgacheffe-Front.txt");
+        await Assert.ThrowsAsync<NoSuchKeyException>(() => store.ReadTextAsync("auctions/coffee/Ethiopia-Yirgacheffe-Front.txt"));
     }
 }

@@ -36,21 +36,21 @@ public class ProcessBidHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ExistingEquipment_Updates_CurrentBid_And_Broadcasts()
+    public async Task Handle_ExistingCoffeeLot_Updates_CurrentBid_And_Broadcasts()
     {
         await using var db = CreateContext();
-        db.EquipmentDirectory.Add(new Equipment { Id = 1, Model = "CAT D9" });
+        db.CoffeeLots.Add(new CoffeeLot { Id = 1, Origin = "Ethiopia Yirgacheffe" });
         await db.SaveChangesAsync();
         var (hubContext, clientProxy) = CreateHubContext();
 
         await ProcessBidHandler.Handle(
-            new ProcessBidMessage { EquipmentId = 1, BidAmount = 50000m },
+            new ProcessBidMessage { CoffeeLotId = 1, BidAmount = 50000m },
             db,
             hubContext,
             NullLogger<AuctionDbContext>.Instance);
 
-        var equipment = await db.EquipmentDirectory.FindAsync(1);
-        Assert.Equal(50000m, equipment!.CurrentBid);
+        var coffeeLot = await db.CoffeeLots.FindAsync(1);
+        Assert.Equal(50000m, coffeeLot!.CurrentBid);
         clientProxy.Verify(
             p => p.SendCoreAsync("BidPlaced", new object?[] { 1, 50000m }, It.IsAny<CancellationToken>()),
             Times.Once);
@@ -62,32 +62,32 @@ public class ProcessBidHandlerTests
     public async Task Handle_BidThatDoesNotBeatCurrent_Is_Ignored(int bidAmount)
     {
         await using var db = CreateContext();
-        db.EquipmentDirectory.Add(new Equipment { Id = 1, Model = "CAT D9", CurrentBid = 50000m });
+        db.CoffeeLots.Add(new CoffeeLot { Id = 1, Origin = "Ethiopia Yirgacheffe", CurrentBid = 50000m });
         await db.SaveChangesAsync();
         var (hubContext, clientProxy) = CreateHubContext();
 
         await ProcessBidHandler.Handle(
-            new ProcessBidMessage { EquipmentId = 1, BidAmount = bidAmount },
+            new ProcessBidMessage { CoffeeLotId = 1, BidAmount = bidAmount },
             db,
             hubContext,
             NullLogger<AuctionDbContext>.Instance);
 
-        var equipment = await db.EquipmentDirectory.FindAsync(1);
-        Assert.Equal(50000m, equipment!.CurrentBid);
+        var coffeeLot = await db.CoffeeLots.FindAsync(1);
+        Assert.Equal(50000m, coffeeLot!.CurrentBid);
         clientProxy.Verify(
             p => p.SendCoreAsync(It.IsAny<string>(), It.IsAny<object?[]>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
     [Fact]
-    public async Task Handle_UnknownEquipment_Throws()
+    public async Task Handle_UnknownCoffeeLot_Throws()
     {
         await using var db = CreateContext();
         var (hubContext, _) = CreateHubContext();
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             ProcessBidHandler.Handle(
-                new ProcessBidMessage { EquipmentId = 999, BidAmount = 50000m },
+                new ProcessBidMessage { CoffeeLotId = 999, BidAmount = 50000m },
                 db,
                 hubContext,
                 NullLogger<AuctionDbContext>.Instance));
