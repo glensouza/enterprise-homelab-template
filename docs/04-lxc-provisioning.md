@@ -2,7 +2,7 @@
 
 This guide details the exact steps and resource allocations needed to provision the infrastructure tier.
 
-> **IaC target state (ADR 17):** the matrix below is implemented as code in `terraform/lxc.tf` and converged by `ansible/` — see `docs/08-infrastructure-as-code.md`. Terraform now creates every LXC shell itself (including `postgresql`), so the community scripts in section 2 no longer create their own containers for anything Terraform already manages — PostgreSQL is installed manually on the Terraform-created LXC (section 2 below); the Cloudflared connector is the one payload still bootstrapped via community script (Ansible does not manage either). **Keep the matrix, `terraform/lxc.tf`, and the CLAUDE.md topology in sync.**
+> **IaC target state (ADR 17):** the matrix below is implemented as code in `terraform/lxc.tf` and converged by `ansible/` — see `docs/08-infrastructure-as-code.md`. Terraform now creates every LXC shell itself (including `postgresql`), so the community scripts in section 2 no longer create their own containers for anything Terraform already manages. PostgreSQL install + database creation is now fully automated by the `postgres` Ansible role (ADR 30) as part of `ansible-playbook site.yml` — not a manual step (section 2 below is corrected accordingly); the Cloudflared connector is the one payload still bootstrapped via community script (Ansible does not manage either). **Keep the matrix, `terraform/lxc.tf`, and the CLAUDE.md topology in sync.**
 
 ---
 
@@ -39,7 +39,7 @@ just the two below, so the NAS's NFS export must allow all four node IPs.
 | **Grafana Loki / Observability** | VLAN 130 (`10.10.130.118`) | **`pve3`** (Node 2) | 2 | 2048 MB | *None* | Utility telemetry receiver (Alloy + Loki + Grafana) |
 | **Technitium DNS** | VLAN 130 (`10.10.130.119`) | **`pve3`** (Node 2) | 1 | 512 MB  | *None* | Local DNS server (`brewhouse.internal`) |
 | **step-ca (internal PKI)** | VLAN 130 (`10.10.130.121`) | **`pve3`** (Node 2) | 1 | 512 MB  | *None* | Utility internal Certificate Authority |
-| **PatchMon** | VLAN 130 (`10.10.130.122`) | **`pve3`** (Node 2) | 1 | 1024 MB | *None* | Fleet-wide OS package/patch tracking — LXC reserved only, no role yet |
+| **PatchMon** | VLAN 130 (`10.10.130.122`) | **`pve3`** (Node 2) | 1 | 1024 MB | *None* | Fleet-wide OS package/patch tracking — server + auto-enrolled agent on every LXC (ADR 33/34) |
 | **Homepage** | VLAN 130 (`10.10.130.120`) | **`pve3`** (Node 2) | 2 | 2048 MB | *None* | Fleet dashboard — auto-populated from every other host's `homepage_service` var (ADR 38) |
 | **PR Preview (non-prod)** | VLAN 140 (`10.10.140.120`) | **`pve4`** (Node 1) | 2 | 4096 MB | *None* | Single non-prod Docker host (per-PR compose stacks + ops UIs) |
 
@@ -59,32 +59,22 @@ just the two below, so the NAS's NFS export must allow all four node IPs.
 
 ## 2. Automated Provisioning Commands
 
-### PostgreSQL (on the Terraform-created LXC)
+### PostgreSQL (on the Terraform-created LXC) — fully automated, no manual step
 
 The `postgresql.sh` community script creates its **own** new LXC when run from the Proxmox
 Host Shell — it has no "install into an existing container" mode, so it can't be used against
-the `postgresql` LXC Terraform already provisions (`10.10.120.110`, `terraform/lxc.tf`). No
-Ansible role installs PostgreSQL either (`ansible/roles/postgres` only configures pgBackRest
-and the pg_dump-prune timer, assuming PostgreSQL is already running — confirmed live: that role
-fails outright, `/etc/postgresql/16/main/conf.d does not exist`, if PostgreSQL isn't installed
-first). Install it by hand, once, after `terraform apply` has created the LXC and **before**
-`ansible-playbook site.yml` (`LAB-RUNBOOK.md` §1) and the first EF Core migration bundle run
-(`deploy-blazor.yml`, ADR 11):
-
-```bash
-ssh root@10.10.120.110
-apt update && apt install -y postgresql postgresql-contrib
-
-# App role + database — nothing generates this password for you; pick one now
-# (openssl rand -base64 24 works well) and record it, it's shown nowhere again.
-# `su postgres -c`, not `sudo -u postgres` — this minimal Debian image has no sudo installed
-# (confirmed live: `sudo: command not found`), and you're already root over SSH anyway.
-su postgres -c "psql -c \"CREATE ROLE brewhouse WITH LOGIN PASSWORD '<generated-password>';\""
-su postgres -c "psql -c \"CREATE DATABASE brewhouse_db OWNER brewhouse;\""
-```
-
-The resulting connection string (`Host=10.10.120.110;Port=5432;Database=brewhouse_db;Username=brewhouse;Password=<generated-password>`)
-is what goes into the `EFBUNDLE_CONNECTION` GitHub secret (`LAB-RUNBOOK.md`'s GitHub section).
+the `postgresql` LXC Terraform already provisions (`10.10.120.110`, `terraform/lxc.tf`).
+**This used to require a manual install-by-hand step here — it no longer does (ADR 30).** The
+`postgres` Ansible role now installs PostgreSQL itself as its first task, then creates the
+`brewhouse` role/database, then (ADR 42) configures `listen_addresses`/`pg_hba.conf` for the
+exact remote clients that need it (the app's own runtime connection, the preview host's
+pgAdmin, and the CI runner's EF migration bundle) — the Debian package default only accepts
+`127.0.0.1`/`::1`, which silently blocked all three for months until a deploy finally got far
+enough to hit it (confirmed live). All of this happens automatically as part of
+`ansible-playbook site.yml` (`LAB-RUNBOOK.md` §1) — nothing to do here before or after it. The
+generated `brewhouse` password lives at `/opt/ansible-credentials/postgres/brewhouse_password`
+on the devops LXC and in Infisical as `ConnectionStrings__brewhousedb`; both `EFBUNDLE_CONNECTION`
+and `ConnectionStrings__brewhousedb` are pushed automatically by the same role.
 
 ### Cloudflared Zero-Trust Tunnel
 
