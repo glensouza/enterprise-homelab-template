@@ -7,7 +7,7 @@
 @inject IBlobStore BlobStore
 @inject IMessageBus MessageBus
 
-<h1>Heavy Equipment Auction Portal</h1>
+<h1>BrewHouse Coffee Auction</h1>
 
 <button @onclick="UploadMockPhoto">Simulate Photo Upload</button>
 <p><i>@UploadStatus</i></p>
@@ -19,7 +19,7 @@
 
     private async Task UploadMockPhoto()
     {
-        await BlobStore.WriteTextAsync("auctions/equipment/CAT-D9-Front.txt", "mock-image-data");
+        await BlobStore.WriteTextAsync("auctions/coffee/Ethiopia-Yirgacheffe-Front.txt", "mock-image-data");
         UploadStatus = "Mock photo written to storage backend successfully.";
     }
 }

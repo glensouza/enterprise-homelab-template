@@ -28,7 +28,7 @@ public class SignalRBidsClient : IBidsClient
             .WithUrl(hubUri)
             .WithAutomaticReconnect()
             .Build();
-        _connection.On<int, decimal>("BidPlaced", (equipmentId, currentBid) => BidPlaced?.Invoke(equipmentId, currentBid));
+        _connection.On<int, decimal>("BidPlaced", (coffeeLotId, currentBid) => BidPlaced?.Invoke(coffeeLotId, currentBid));
     }
 
     public Task StartAsync(CancellationToken cancellationToken = default)

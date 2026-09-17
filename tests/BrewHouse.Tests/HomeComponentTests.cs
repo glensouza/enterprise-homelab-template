@@ -45,7 +45,7 @@ public class HomeComponentTests : BunitContext
 
         Assert.Contains("Mock photo written to storage backend successfully.", cut.Markup);
         mockBlobStore.Verify(
-            b => b.WriteTextAsync("auctions/equipment/CAT-D9-Front.txt", "mock-image-data", It.IsAny<CancellationToken>()),
+            b => b.WriteTextAsync("auctions/coffee/Ethiopia-Yirgacheffe-Front.txt", "mock-image-data", It.IsAny<CancellationToken>()),
             Times.Once);
     }
 }

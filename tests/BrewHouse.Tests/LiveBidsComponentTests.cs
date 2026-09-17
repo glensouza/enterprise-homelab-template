@@ -37,7 +37,7 @@ public class LiveBidsComponentTests : BunitContext
             .Options;
         using (var seed = new AuctionDbContext(options))
         {
-            seed.EquipmentDirectory.Add(new Equipment { Id = 1, Model = "CAT D9", CurrentBid = 1000m });
+            seed.CoffeeLots.Add(new CoffeeLot { Id = 1, Origin = "Ethiopia Yirgacheffe", CurrentBid = 1000m });
             seed.SaveChanges();
         }
 
@@ -47,13 +47,13 @@ public class LiveBidsComponentTests : BunitContext
         Services.AddSingleton(CreateBidsClientMock().Object);
 
         var cut = Render<LiveBids>();
-        cut.WaitForState(() => cut.Markup.Contains("CAT D9"));
+        cut.WaitForState(() => cut.Markup.Contains("Ethiopia Yirgacheffe"));
 
         cut.Find("button").Click();
 
         mockMessageBus.Verify(
             b => b.PublishAsync(
-                It.Is<ProcessBidMessage>(m => m.EquipmentId == 1 && m.BidAmount == 1500m),
+                It.Is<ProcessBidMessage>(m => m.CoffeeLotId == 1 && m.BidAmount == 1500m),
                 It.IsAny<DeliveryOptions>()),
             Times.Once);
     }
@@ -66,7 +66,7 @@ public class LiveBidsComponentTests : BunitContext
             .Options;
         using (var seed = new AuctionDbContext(options))
         {
-            seed.EquipmentDirectory.Add(new Equipment { Id = 1, Model = "CAT D9", CurrentBid = 1000m });
+            seed.CoffeeLots.Add(new CoffeeLot { Id = 1, Origin = "Ethiopia Yirgacheffe", CurrentBid = 1000m });
             seed.SaveChanges();
         }
 
@@ -77,7 +77,7 @@ public class LiveBidsComponentTests : BunitContext
         Services.AddSingleton(mockBidsClient.Object);
 
         var cut = Render<LiveBids>();
-        cut.WaitForState(() => cut.Markup.Contains("CAT D9"));
+        cut.WaitForState(() => cut.Markup.Contains("Ethiopia Yirgacheffe"));
 
         // Simulate a bid broadcast arriving from another node via the Garnet backplane.
         mockBidsClient.Raise(c => c.BidPlaced += null, 1, 9999m);
