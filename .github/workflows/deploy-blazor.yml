@@ -16,6 +16,13 @@ on:
       - 'Directory.Packages.props'
       - 'global.json'
       - 'version.txt'
+  # Manual re-run with no code change: needed the moment a web node's
+  # container gets recreated (a Terraform replace, e.g. docs/01 ADR 50) -
+  # the blazor-app role enables the systemd unit but deliberately never
+  # starts it, so a fresh node has nothing on :5000 until this workflow
+  # actually deploys a release to it. Without this, the only way to
+  # re-trigger was a throwaway commit touching a path above.
+  workflow_dispatch: {}
 
 # Only the latest push's run stays queued - an older one still waiting on
 # approval (or, if already approved, still mid-deploy) gets cancelled the
