@@ -92,3 +92,59 @@
     enabled: true
     state: started
     daemon_reload: true
+
+# --- Seed monitors as code (docs/01 ADR 60) -----------------------------------
+# Skips gracefully (same idiom as the technitium role) until
+# uptime_kuma_username/uptime_kuma_password are supplied - this instance's
+# admin account was created by hand through Kuma's own first-run wizard
+# (its password is the operator's personal choice, not something Ansible
+# should generate or ever see typed into a field), so seeding can only run
+# once those are placed in /opt/ansible-secrets/all.yml (ADR 36) directly by
+# whoever completed that wizard.
+- name: Install python3-venv (needed for the monitor-seeding script)
+  # Confirmed live: plain `python3-venv` isn't sufficient on this Debian 12
+  # template - venv creation fails with "ensurepip is not available" until
+  # the version-specific package (matching the system's actual python3.11)
+  # is installed explicitly.
+  ansible.builtin.apt:
+    name: python3.11-venv
+    state: present
+  when: uptime_kuma_username is defined and uptime_kuma_password is defined
+
+- name: Create a venv for the monitor-seeding script
+  ansible.builtin.command: python3 -m venv /opt/uptime-kuma-seed
+  args:
+    creates: /opt/uptime-kuma-seed/bin/python
+  when: uptime_kuma_username is defined and uptime_kuma_password is defined
+
+- name: Install uptime-kuma-api (pinned - see seed_monitors.py for why its
+    add_monitor() can't be used as-is against Kuma 2.x)
+  ansible.builtin.pip:
+    name: uptime-kuma-api==1.2.1
+    virtualenv: /opt/uptime-kuma-seed
+  when: uptime_kuma_username is defined and uptime_kuma_password is defined
+
+- name: Copy the monitor-seeding script
+  ansible.builtin.copy:
+    src: seed_monitors.py
+    dest: /opt/uptime-kuma-seed/seed_monitors.py
+    mode: "0644"
+  when: uptime_kuma_username is defined and uptime_kuma_password is defined
+
+- name: Render the desired monitor list
+  ansible.builtin.copy:
+    content: "{{ uptime_kuma_monitors | to_nice_json }}"
+    dest: /opt/uptime-kuma-seed/monitors.json
+    mode: "0644"
+  when: uptime_kuma_username is defined and uptime_kuma_password is defined
+
+- name: Seed any missing monitors
+  ansible.builtin.command: /opt/uptime-kuma-seed/bin/python /opt/uptime-kuma-seed/seed_monitors.py /opt/uptime-kuma-seed/monitors.json
+  environment:
+    UPTIME_KUMA_URL: "http://localhost:{{ uptime_kuma_port | default(3001) }}"
+    UPTIME_KUMA_USERNAME: "{{ uptime_kuma_username }}"
+    UPTIME_KUMA_PASSWORD: "{{ uptime_kuma_password }}"
+  register: seed_result
+  changed_when: (seed_result.stdout | from_json).added | length > 0
+  no_log: true
+  when: uptime_kuma_username is defined and uptime_kuma_password is defined
