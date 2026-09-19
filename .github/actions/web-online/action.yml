@@ -19,8 +19,25 @@ runs:
   steps:
     - name: Remove app_offline.htm and confirm real health on both nodes
       shell: bash
+      # Confirmed live (docs/01 ADR 52 addendum): right after patch.yml's
+      # reboot, a one-shot curl here raced blazor-app.service's own startup
+      # and failed with "Couldn't connect to server" at 0ms - the app
+      # genuinely wasn't listening yet, not a real health failure. Retries
+      # up to 30s per node, matching the budget ansible/patch.yml's own
+      # health task already uses (retries: 6, delay: 5) for the exact same
+      # post-reboot race on the Ansible side of this same workflow.
       run: |
         ssh root@${{ inputs.web04_ip }} "rm -f /var/www/brewhouse/app_offline.htm"
         ssh root@${{ inputs.web03_ip }} "rm -f /var/www/brewhouse/app_offline.htm"
-        ssh root@${{ inputs.web04_ip }} "curl -fsS http://localhost:5000/health"
-        ssh root@${{ inputs.web03_ip }} "curl -fsS http://localhost:5000/health"
+        for ip in ${{ inputs.web04_ip }} ${{ inputs.web03_ip }}; do
+          for attempt in $(seq 1 10); do
+            if ssh root@$ip "curl -fsS http://localhost:5000/health"; then
+              break
+            fi
+            if [ "$attempt" -eq 10 ]; then
+              echo "::error::$ip never became healthy after 10 attempts (30s)"
+              exit 1
+            fi
+            sleep 3
+          done
+        done
