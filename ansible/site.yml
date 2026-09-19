@@ -61,7 +61,7 @@
 # Stub pipeline (DEMO-AUDIT.md R7) — enough for a real trace on screen; the
 # full build-out is the on-camera subject of S1-09.
 - name: Configure observability (VLAN 130)
-  hosts: observability
+  hosts: observability_hosts
   roles:
     - observability
 
@@ -78,7 +78,7 @@
 # run anywhere in this file. Kept here anyway since "list every other
 # service" reads best after they've all been introduced.
 - name: Configure Homepage dashboard (VLAN 130, ADR 38)
-  hosts: homepage
+  hosts: homepage_hosts
   roles:
     - homepage
 
