@@ -80,10 +80,11 @@ jobs:
           git commit -m "chore: bump ${COMPONENT} to ${latest_version}"
           git push origin "${branch}"
 
+          pr_body=$(printf 'Upstream release: %s\n\nPinned-version bump only (`%s`) - this repo bumps these deliberately, not automatically. Merging into `main` triggers `ansible-converge.yml`, which still needs its own production-environment approval before this reaches the fleet.' \
+            "https://github.com/${REPO}/releases/tag/${latest_tag}" "${FILE}")
+
           gh pr create \
             --title "chore: bump ${COMPONENT} to ${latest_version}" \
             --base main \
             --head "${branch}" \
-            --body "Upstream release: https://github.com/${REPO}/releases/tag/${latest_tag}
-
-Pinned-version bump only (\`${FILE}\`) - this repo bumps these deliberately, not automatically. Merging into \`main\` triggers \`ansible-converge.yml\`, which still needs its own production-environment approval before this reaches the fleet."
+            --body "${pr_body}"
