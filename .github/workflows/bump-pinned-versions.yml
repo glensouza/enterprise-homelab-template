@@ -1,0 +1,89 @@
+name: Bump Pinned Versions
+
+# LAB-RUNBOOK.md §5 layer 2: the app-level, pinned-version binaries
+# `patch.yml`'s `apt upgrade` never touches (docs/01 ADR 20/27). This only
+# ever detects and proposes - it never applies anything itself. Opening the
+# PR is automatic; merging it is the deliberate bump (garnet/defaults/
+# main.yml's own comment: "Bump deliberately, not automatically"). Merging
+# into ansible/** then triggers ansible-converge.yml, which still needs its
+# own production-environment approval before anything reaches the fleet.
+#
+# The Debian LXC template (also listed in LAB-RUNBOOK §5) is deliberately
+# NOT here - it's a Proxmox-level `pveam download` concern, and ADR 22
+# keeps Proxmox itself out of Terraform/Ansible's scope entirely.
+
+on:
+  schedule:
+    - cron: '0 13 * * 1' # Monday 13:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: garnet
+            repo: microsoft/garnet
+            file: ansible/roles/garnet/defaults/main.yml
+            var: garnet_version
+          - component: step-ca
+            repo: smallstep/certificates
+            file: ansible/inventory/group_vars/pki.yml
+            var: step_ca_version
+          - component: step-cli
+            repo: smallstep/cli
+            file: ansible/inventory/group_vars/pki.yml
+            var: step_cli_version
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check latest release and open a PR if newer
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMPONENT: ${{ matrix.component }}
+          REPO: ${{ matrix.repo }}
+          FILE: ${{ matrix.file }}
+          VAR: ${{ matrix.var }}
+        run: |
+          set -euo pipefail
+
+          latest_tag=$(gh api "repos/${REPO}/releases/latest" --jq .tag_name)
+          latest_version="${latest_tag#v}"
+          current_version=$(grep -oP "^${VAR}: \"\K[^\"]+" "${FILE}")
+
+          echo "${COMPONENT}: pinned ${current_version}, latest ${latest_version}"
+
+          if [ "${latest_version}" = "${current_version}" ]; then
+            echo "Already at latest - nothing to do."
+            exit 0
+          fi
+
+          branch="bump/${COMPONENT}-${latest_version}"
+
+          if git ls-remote --exit-code --heads origin "${branch}" >/dev/null 2>&1; then
+            echo "Branch ${branch} already exists - PR presumably already open."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "${branch}"
+          sed -i "s/^${VAR}: \"${current_version}\"/${VAR}: \"${latest_version}\"/" "${FILE}"
+          git add "${FILE}"
+          git commit -m "chore: bump ${COMPONENT} to ${latest_version}"
+          git push origin "${branch}"
+
+          gh pr create \
+            --title "chore: bump ${COMPONENT} to ${latest_version}" \
+            --base main \
+            --head "${branch}" \
+            --body "Upstream release: https://github.com/${REPO}/releases/tag/${latest_tag}
+
+Pinned-version bump only (\`${FILE}\`) - this repo bumps these deliberately, not automatically. Merging into \`main\` triggers \`ansible-converge.yml\`, which still needs its own production-environment approval before this reaches the fleet."
