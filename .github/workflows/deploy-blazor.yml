@@ -123,14 +123,26 @@ jobs:
         ASPNETCORE_ENVIRONMENT: Production
       run: dotnet ./publish/BrewHouse.dll db-apply
 
-    # Symlinked releases: deploy into releases/<sha>, flip 'current', restart, health-gate.
+    # Both nodes go down together for every deploy (not one-at-a-time behind
+    # Kemp) - app_offline.htm (docs/01 ADR 48/49) takes each node fully
+    # offline, including /health, so Kemp shows both down rather than
+    # silently routing live traffic at a half-deployed node. Dropped BEFORE
+    # either rsync starts. Same composite action patch-fleet.yml uses for OS
+    # patching - one place this logic lives, not two copies that can drift.
+    - name: Take both web nodes offline (maintenance page)
+      uses: ./.github/actions/web-offline
+
+    # Symlinked releases: deploy into releases/<sha>, flip 'current', restart.
     # Keeps the last 5 releases per node for instant rollback (see rollback.yml).
+    # /health legitimately 503s while app_offline.htm is present (that's the
+    # point), so the gate here is just "the process didn't crash-loop" - the
+    # real health check happens once both nodes are back online below.
     - name: Deploy to Blazor LXC 01
       run: |
         RELEASE=/var/www/brewhouse/releases/${GITHUB_SHA}
         ssh root@10.10.110.101 "mkdir -p $RELEASE"
         rsync -avz --delete ./publish/ root@10.10.110.101:$RELEASE/
-        ssh root@10.10.110.101 "ln -sfn $RELEASE /var/www/brewhouse/current && systemctl restart blazor-app.service && sleep 5 && curl -fsS http://localhost:5000/health"
+        ssh root@10.10.110.101 "ln -sfn $RELEASE /var/www/brewhouse/current && systemctl restart blazor-app.service && sleep 5 && systemctl is-active --quiet blazor-app.service"
         ssh root@10.10.110.101 "cd /var/www/brewhouse/releases && ls -1t | tail -n +6 | xargs -r rm -rf"
 
     - name: Deploy to Blazor LXC 02
@@ -138,5 +150,10 @@ jobs:
         RELEASE=/var/www/brewhouse/releases/${GITHUB_SHA}
         ssh root@10.10.110.102 "mkdir -p $RELEASE"
         rsync -avz --delete ./publish/ root@10.10.110.102:$RELEASE/
-        ssh root@10.10.110.102 "ln -sfn $RELEASE /var/www/brewhouse/current && systemctl restart blazor-app.service && sleep 5 && curl -fsS http://localhost:5000/health"
+        ssh root@10.10.110.102 "ln -sfn $RELEASE /var/www/brewhouse/current && systemctl restart blazor-app.service && sleep 5 && systemctl is-active --quiet blazor-app.service"
         ssh root@10.10.110.102 "cd /var/www/brewhouse/releases && ls -1t | tail -n +6 | xargs -r rm -rf"
+
+    # Only now, once both nodes are on the new release and confirmed running,
+    # bring them back - and prove they're genuinely healthy, not just alive.
+    - name: Bring both web nodes back online
+      uses: ./.github/actions/web-online

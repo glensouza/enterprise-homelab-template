@@ -21,8 +21,14 @@ locals {
     # limitation applies. pve3/pve4 each mount
     # 10.10.10.90:/volume1/homelab-media at /mnt/homelab-media (host-level
     # /etc/fstab, not Terraform-managed).
-    blazor-web-01 = { vm_id = 401, node = var.proxmox_node_1, ip = "10.10.110.101/24", gateway = "10.10.110.1", vlan = 110, cores = 2, memory = 1024, disk = 8, tags = ["terraform", "vlan110", "web"], privileged = true, mount_point = { volume = "/mnt/homelab-media", path = "/mnt/synology/media" } }
-    blazor-web-02 = { vm_id = 302, node = var.proxmox_node_2, ip = "10.10.110.102/24", gateway = "10.10.110.1", vlan = 110, cores = 2, memory = 1024, disk = 8, tags = ["terraform", "vlan110", "web"], privileged = true, mount_point = { volume = "/mnt/homelab-media", path = "/mnt/synology/media" } }
+    # memory/swap bumped from 1024/0 (2026-09-18) after blazor-web-01 wedged
+    # solid under load (2-core/1GB, load average 16-26, unresponsive to SSH
+    # and even `pct exec`) - see docs/01 ADR 48. 1GB of swap is breathing room
+    # for GC/JIT spikes, not steady-state usage; root cause (OOM vs. CPU
+    # contention) was never confirmed via logs - still worth investigating
+    # rather than relying on swap alone.
+    blazor-web-01 = { vm_id = 401, node = var.proxmox_node_1, ip = "10.10.110.101/24", gateway = "10.10.110.1", vlan = 110, cores = 2, memory = 2048, swap = 1024, disk = 8, tags = ["terraform", "vlan110", "web"], privileged = true, mount_point = { volume = "/mnt/homelab-media", path = "/mnt/synology/media" } }
+    blazor-web-02 = { vm_id = 302, node = var.proxmox_node_2, ip = "10.10.110.102/24", gateway = "10.10.110.1", vlan = 110, cores = 2, memory = 2048, swap = 1024, disk = 8, tags = ["terraform", "vlan110", "web"], privileged = true, mount_point = { volume = "/mnt/homelab-media", path = "/mnt/synology/media" } }
     cloudflared   = { vm_id = 405, node = var.proxmox_node_1, ip = "10.10.110.5/24", gateway = "10.10.110.1", vlan = 110, cores = 1, memory = 512, disk = 4, tags = ["terraform", "vlan110", "ingress"] }
 
     # VLAN 120 — Backend / Data tier (pve4 Primary)
@@ -91,6 +97,7 @@ resource "proxmox_virtual_environment_container" "lxc" {
 
   memory {
     dedicated = each.value.memory
+    swap      = try(each.value.swap, null)
   }
 
   disk {

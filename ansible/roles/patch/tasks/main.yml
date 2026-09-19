@@ -1,0 +1,54 @@
+---
+# Fleet-wide OS patching (docs/01 ADR 49, LAB-RUNBOOK.md §5). Always reboots
+# after patching - no `/var/run/reboot-required` check - a predictable
+# reboot every run is simpler to reason about for a manually triggered,
+# infrequent action than conditional logic that only sometimes reboots.
+- name: apt update + full-upgrade
+  ansible.builtin.apt:
+    update_cache: true
+    upgrade: dist
+    cache_valid_time: 0
+
+- name: apt autoremove
+  ansible.builtin.apt:
+    autoremove: true
+
+# Preview host only (ADR 02 - the sole Docker host in this fleet): recreate
+# the always-on ops stack (Portainer/Dozzle/Watchtower/pgAdmin/RedisInsight,
+# ops-compose.yml.j2) against freshly pulled images immediately, rather than
+# waiting for Watchtower's own nightly 4am schedule. Per-PR preview stacks
+# are never touched here - same rule ops-compose.yml.j2's own comment
+# documents for Watchtower itself.
+- name: Pull latest images for the always-on ops stack (preview host only)
+  ansible.builtin.command:
+    cmd: docker compose --env-file .env pull
+    chdir: /opt/ops
+  when: "'preview' in group_names"
+  changed_when: true
+
+- name: Recreate ops stack containers on the freshly pulled images
+  ansible.builtin.command:
+    cmd: docker compose --env-file .env up -d --remove-orphans
+    chdir: /opt/ops
+  when: "'preview' in group_names"
+  changed_when: true
+
+# devops patches itself last (LAB-RUNBOOK.md's DevOps LXC section) and can't
+# use the normal blocking reboot below - it's the box running this very
+# Ansible process, over the connection this very task is using (ADR 22: the
+# GitHub Actions self-hosted runner lives here too). `ansible.builtin.reboot`
+# expects to reconnect and would just hang or error when the box - and the
+# runner executing it - both disappear mid-module. A delayed, detached
+# reboot instead lets this task, the rest of this play, and the calling
+# GitHub Actions job all finish and report success first; the box goes down
+# on its own a few seconds later, unobserved by (and harmless to) the run
+# that triggered it.
+- name: Reboot (blocking - waits for the host to come back)
+  ansible.builtin.reboot:
+    reboot_timeout: 300
+  when: not (patch_self_reboot | default(false))
+
+- name: Schedule a delayed self-reboot (devops only - see comment above)
+  ansible.builtin.shell: nohup sh -c 'sleep 15 && reboot' >/dev/null 2>&1 &
+  when: patch_self_reboot | default(false)
+  changed_when: true

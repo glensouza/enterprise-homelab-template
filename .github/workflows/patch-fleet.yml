@@ -1,0 +1,78 @@
+name: Patch Fleet
+
+# Fleet-wide OS patching (docs/01 ADR 48/49, LAB-RUNBOOK.md §5). Manual-only,
+# on purpose - unlike ansible-converge.yml (every push to main), patching
+# reboots every LXC, so this never fires from a push or a schedule, only a
+# human clicking Run.
+#
+# Web nodes are bracketed by the same web-offline/web-online composite
+# actions deploy-blazor.yml uses for app version deploys - one place that
+# logic lives, not a second copy reimplemented in Ansible.
+#
+# devops (10.10.10.111) patches itself last, as its own step, because it's
+# the box running this very workflow's self-hosted runner (ADR 22) - a
+# reboot there kills the runner mid-job. ansible/roles/patch schedules that
+# reboot ~15s delayed and detached specifically so the step below still
+# gets to report success first; `continue-on-error` plus the always-run
+# confirmation step after it are the belt-and-suspenders in case that
+# timing is ever tight enough that it doesn't.
+
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: patch-fleet
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    runs-on: self-hosted
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Persistent self-hosted runner, not ephemeral - default `git
+          # clean` would wipe generated state the same way
+          # ansible-converge.yml/terraform-apply.yml already guard against.
+          clean: false
+
+      - name: Take both web nodes offline (maintenance page)
+        uses: ./.github/actions/web-offline
+
+      - name: Patch and reboot the web tier
+        working-directory: ansible
+        run: >
+          ansible-playbook patch.yml
+          -e @/opt/ansible-secrets/all.yml
+          -e @/opt/ansible-secrets/dns.yml
+          -e @/opt/ansible-secrets/web.yml
+          --limit web
+
+      - name: Bring both web nodes back online
+        uses: ./.github/actions/web-online
+
+      - name: Patch every other managed tier (web and devops excluded)
+        working-directory: ansible
+        run: >
+          ansible-playbook patch.yml
+          -e @/opt/ansible-secrets/all.yml
+          -e @/opt/ansible-secrets/dns.yml
+          -e @/opt/ansible-secrets/web.yml
+          --limit 'all:!devops:!web'
+
+      - name: Patch the devops LXC (self) - delayed self-reboot, see role
+        working-directory: ansible
+        continue-on-error: true
+        run: >
+          ansible-playbook patch.yml
+          -e @/opt/ansible-secrets/all.yml
+          -e @/opt/ansible-secrets/dns.yml
+          -e @/opt/ansible-secrets/web.yml
+          --limit devops
+
+      - name: Confirm the run completed
+        if: always()
+        run: |
+          echo "Fleet patch run finished."
+          echo "devops LXC (10.10.10.111) reboots ~15s after its own step reports success - the runner will be briefly unavailable for the next queued job while it comes back."

@@ -1,0 +1,31 @@
+---
+# Fleet-wide patching (docs/01 ADR 48/49, LAB-RUNBOOK.md §5). Manually
+# triggered only, via the "Patch Fleet" GitHub Actions workflow
+# (workflow_dispatch). Every host in the given --limit gets
+# apt update/upgrade/autoremove and an unconditional reboot (ansible/roles/patch).
+#
+# The web tier's app_offline.htm maintenance window is deliberately NOT
+# handled here - patch-fleet.yml brackets its own `--limit web` invocation
+# of this playbook with the reusable web-offline/web-online GitHub Actions
+# composite actions, the same ones deploy-blazor.yml uses for app version
+# deploys. That keeps "take the site down for maintenance" living in
+# exactly one place regardless of which workflow needs it, instead of
+# duplicated here as Ansible tasks and there as shell/scp.
+#
+# Run directly:  ansible-playbook-site.sh -e patch_playbook=1 patch.yml --limit <group>
+# (the wrapper still supplies /opt/ansible-secrets/*.yml - patch.yml doesn't
+# need them itself, but staying consistent with every other playbook
+# invocation in this repo costs nothing and avoids a second convention.)
+#
+# devops (10.10.10.111) patches itself last, as its own `--limit devops`
+# invocation from the workflow, because it's the box running this very
+# playbook (ADR 22) - a normal blocking reboot there would kill the runner
+# before it could report success. `patch_self_reboot` is computed per host
+# from group membership, not passed in, so a plain `--limit devops` run
+# automatically gets the delayed self-reboot without any extra flag.
+- name: Patch and reboot every host in scope
+  hosts: all
+  roles:
+    - patch
+  vars:
+    patch_self_reboot: "{{ 'devops' in group_names }}"

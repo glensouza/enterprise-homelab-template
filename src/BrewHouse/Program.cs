@@ -172,6 +172,29 @@ builder.Services.AddServerSideBlazor(options =>
 
 var app = builder.Build();
 
+// APP_OFFLINE.HTM: reproduces IIS/ASP.NET Core Module's app_offline.htm
+// convention for this Kestrel/systemd host, which has no such thing built
+// in. Checked first, ahead of every other middleware (including /health),
+// so a dropped file takes the node fully offline for every request - Kemp
+// marks it down too, not just human visitors. Fixed path outside any
+// releases/<sha> directory (not ContentRootPath) so it survives the
+// symlink flip a deploy performs mid-maintenance (deploy-blazor.yml,
+// patch.yml - see docs/01 ADR 49). www-data already has read/write there
+// (blazor-app.service's ReadWritePaths).
+const string appOfflinePath = "/var/www/brewhouse/app_offline.htm";
+app.Use(async (context, next) =>
+{
+    if (File.Exists(appOfflinePath))
+    {
+        context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+        context.Response.ContentType = "text/html";
+        await context.Response.SendFileAsync(appOfflinePath);
+        return;
+    }
+
+    await next();
+});
+
 // Kemp (10.10.110.199) terminates TLS and forwards plain HTTP to :5000 for both its
 // :80 and :443 VIPs, so Kestrel can't tell them apart from the connection alone -
 // only X-Forwarded-Proto (set on the :443 VS's "Add Header to Request") does.
