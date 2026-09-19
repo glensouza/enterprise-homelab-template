@@ -7,11 +7,11 @@ description: >
   one action, not two copies.
 
 inputs:
-  web01_ip:
-    description: blazor-web-01's IP
+  web04_ip:
+    description: blazor-web-04's IP (pve4)
     default: "10.10.110.101"
-  web02_ip:
-    description: blazor-web-02's IP
+  web03_ip:
+    description: blazor-web-03's IP (pve3)
     default: "10.10.110.102"
 
 runs:
@@ -20,7 +20,7 @@ runs:
     - name: Remove app_offline.htm and confirm real health on both nodes
       shell: bash
       run: |
-        ssh root@${{ inputs.web01_ip }} "rm -f /var/www/brewhouse/app_offline.htm"
-        ssh root@${{ inputs.web02_ip }} "rm -f /var/www/brewhouse/app_offline.htm"
-        ssh root@${{ inputs.web01_ip }} "curl -fsS http://localhost:5000/health"
-        ssh root@${{ inputs.web02_ip }} "curl -fsS http://localhost:5000/health"
+        ssh root@${{ inputs.web04_ip }} "rm -f /var/www/brewhouse/app_offline.htm"
+        ssh root@${{ inputs.web03_ip }} "rm -f /var/www/brewhouse/app_offline.htm"
+        ssh root@${{ inputs.web04_ip }} "curl -fsS http://localhost:5000/health"
+        ssh root@${{ inputs.web03_ip }} "curl -fsS http://localhost:5000/health"

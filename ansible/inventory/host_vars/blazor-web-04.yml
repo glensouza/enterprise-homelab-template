@@ -5,8 +5,8 @@
 # group_vars/homepage.yml) looks unhealthy.
 homepage_service:
   - group: Application
-    name: Blazor Web 01
+    name: Blazor Web 04
     icon: dotnet.png
-    href: "http://blazor-web-01.{{ internal_domain }}:5000"
+    href: "http://blazor-web-04.{{ internal_domain }}:5000"
     description: Direct app URL (bypasses Kemp VIP)
     ping: "{{ ansible_host }}"

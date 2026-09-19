@@ -1,17 +1,18 @@
 name: Take web nodes offline
 description: >
   Drops app_offline.htm (docs/01 ADR 48/49) on both Blazor web nodes so every
-  request - including /health - 503s with a maintenance page until
-  web-online removes it. Used by both deploy-blazor.yml (app version
-  upgrades) and patch-fleet.yml (OS patching) - the one place this logic
-  lives, so the two workflows can never drift on how "offline" works.
+  real request 503s with a maintenance page until web-online removes it
+  (/health stays exempt - see Program.cs). Used by both deploy-blazor.yml
+  (app version upgrades) and patch-fleet.yml (OS patching) - the one place
+  this logic lives, so the two workflows can never drift on how "offline"
+  works.
 
 inputs:
-  web01_ip:
-    description: blazor-web-01's IP
+  web04_ip:
+    description: blazor-web-04's IP (pve4)
     default: "10.10.110.101"
-  web02_ip:
-    description: blazor-web-02's IP
+  web03_ip:
+    description: blazor-web-03's IP (pve3)
     default: "10.10.110.102"
 
 runs:
@@ -20,5 +21,5 @@ runs:
     - name: scp app_offline.htm to both nodes
       shell: bash
       run: |
-        scp ./src/systemd/app_offline.htm root@${{ inputs.web01_ip }}:/var/www/brewhouse/app_offline.htm
-        scp ./src/systemd/app_offline.htm root@${{ inputs.web02_ip }}:/var/www/brewhouse/app_offline.htm
+        scp ./src/systemd/app_offline.htm root@${{ inputs.web04_ip }}:/var/www/brewhouse/app_offline.htm
+        scp ./src/systemd/app_offline.htm root@${{ inputs.web03_ip }}:/var/www/brewhouse/app_offline.htm

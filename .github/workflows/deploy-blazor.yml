@@ -137,10 +137,12 @@ jobs:
 
     # Symlinked releases: deploy into releases/<sha>, flip 'current', restart.
     # Keeps the last 5 releases per node for instant rollback (see rollback.yml).
-    # /health legitimately 503s while app_offline.htm is present (that's the
-    # point), so the gate here is just "the process didn't crash-loop" - the
-    # real health check happens once both nodes are back online below.
-    - name: Deploy to Blazor LXC 01
+    # /health stays honest even during the maintenance window (Program.cs,
+    # docs/01 ADR 49) - the gate here is just "the process didn't
+    # crash-loop", since a real health check right after a restart can race
+    # the app's own startup; the authoritative check happens once both nodes
+    # are back online below.
+    - name: Deploy to blazor-web-04
       run: |
         RELEASE=/var/www/brewhouse/releases/${GITHUB_SHA}
         ssh root@10.10.110.101 "mkdir -p $RELEASE"
@@ -148,7 +150,7 @@ jobs:
         ssh root@10.10.110.101 "ln -sfn $RELEASE /var/www/brewhouse/current && systemctl restart blazor-app.service && sleep 5 && systemctl is-active --quiet blazor-app.service"
         ssh root@10.10.110.101 "cd /var/www/brewhouse/releases && ls -1t | tail -n +6 | xargs -r rm -rf"
 
-    - name: Deploy to Blazor LXC 02
+    - name: Deploy to blazor-web-03
       run: |
         RELEASE=/var/www/brewhouse/releases/${GITHUB_SHA}
         ssh root@10.10.110.102 "mkdir -p $RELEASE"

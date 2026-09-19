@@ -31,8 +31,11 @@ on:
 
 env:
   PG_HOST: 10.10.120.110
-  WEB01: 10.10.110.101
-  WEB02: 10.10.110.102
+  # blazor-web-04 (pve4) / blazor-web-03 (pve3) - renamed 2026-09-19 from
+  # -01/-02, docs/01 ADR 50. Same IPs, so nothing else in this workflow
+  # needed to change.
+  WEB04: 10.10.110.101
+  WEB03: 10.10.110.102
 
 jobs:
   rollback:
@@ -49,8 +52,8 @@ jobs:
     - name: Stop app services (before DB restore)
       if: inputs.restore_database
       run: |
-        ssh root@${{ env.WEB01 }} "systemctl stop blazor-app.service"
-        ssh root@${{ env.WEB02 }} "systemctl stop blazor-app.service"
+        ssh root@${{ env.WEB04 }} "systemctl stop blazor-app.service"
+        ssh root@${{ env.WEB03 }} "systemctl stop blazor-app.service"
 
     - name: Restore database into a fresh database
       if: inputs.restore_database
@@ -76,15 +79,15 @@ jobs:
         ssh root@${{ env.PG_HOST }} "sudo -u postgres psql -c 'ALTER DATABASE ${{ env.restore_db }} RENAME TO brewhouse_db'"
         echo "Previous database preserved as ${{ env.failed_db }} - drop it manually only after verification."
 
-    - name: Rollback Blazor LXC 01
+    - name: Rollback blazor-web-04
       run: |
         RELEASE=/var/www/brewhouse/releases/${{ inputs.sha }}
-        ssh root@${{ env.WEB01 }} "test -d $RELEASE || { echo 'Release $RELEASE not found on LXC 01'; exit 1; }"
-        ssh root@${{ env.WEB01 }} "ln -sfn $RELEASE /var/www/brewhouse/current && systemctl restart blazor-app.service && sleep 5 && curl -fsS http://localhost:5000/health"
+        ssh root@${{ env.WEB04 }} "test -d $RELEASE || { echo 'Release $RELEASE not found on blazor-web-04'; exit 1; }"
+        ssh root@${{ env.WEB04 }} "ln -sfn $RELEASE /var/www/brewhouse/current && systemctl restart blazor-app.service && sleep 5 && curl -fsS http://localhost:5000/health"
 
-    # Only proceeds if LXC 01 came back healthy - one node always stays up.
-    - name: Rollback Blazor LXC 02
+    # Only proceeds if blazor-web-04 came back healthy - one node always stays up.
+    - name: Rollback blazor-web-03
       run: |
         RELEASE=/var/www/brewhouse/releases/${{ inputs.sha }}
-        ssh root@${{ env.WEB02 }} "test -d $RELEASE || { echo 'Release $RELEASE not found on LXC 02'; exit 1; }"
-        ssh root@${{ env.WEB02 }} "ln -sfn $RELEASE /var/www/brewhouse/current && systemctl restart blazor-app.service && sleep 5 && curl -fsS http://localhost:5000/health"
+        ssh root@${{ env.WEB03 }} "test -d $RELEASE || { echo 'Release $RELEASE not found on blazor-web-03'; exit 1; }"
+        ssh root@${{ env.WEB03 }} "ln -sfn $RELEASE /var/www/brewhouse/current && systemctl restart blazor-app.service && sleep 5 && curl -fsS http://localhost:5000/health"

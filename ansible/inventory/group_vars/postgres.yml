@@ -21,7 +21,7 @@ postgres_conf_dir: "/etc/postgresql/{{ postgres_version }}/main"
 
 # Remote clients allowed past pg_hba.conf (ADR 42) - scoped to exactly what
 # the existing UniFi firewall policies already pass through, not a broad
-# "trust the LAN" rule. VLAN110 is the app (blazor-web-01/02, runtime
+# "trust the LAN" rule. VLAN110 is the app (blazor-web-03/04, runtime
 # ConnectionStrings__brewhousedb); VLAN140 is the preview host (pgAdmin,
 # preview_to_postgres); the /32 is the devops LXC, the only host running the
 # self-hosted GitHub Actions runner that executes the EF migration bundle.

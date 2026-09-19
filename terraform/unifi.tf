@@ -229,7 +229,8 @@ resource "unifi_firewall_policy" "web_to_homepage" {
 }
 
 resource "unifi_firewall_policy" "web_to_patchmon" {
-  # Confirmed live: a manual curl from blazor-web-01 to
+  # Confirmed live: a manual curl from blazor-web-01 (now blazor-web-04,
+  # renamed docs/01 ADR 50; same node, same IP) to
   # 10.10.130.122:3000/api/v1/auto-enrollment/enroll hung and timed out
   # (exit 124) rather than failing fast - drop_web_to_mgmt below blocks all
   # of VLAN 110 -> VLAN 130 by default, and no exception for PatchMon
@@ -253,7 +254,8 @@ resource "unifi_firewall_policy" "web_to_patchmon" {
 
 # ADR 40: pve1-4_to_nas (all four) were removed entirely, not just pve1/2.
 # Tested live: applied with pve3_to_nas/pve4_to_nas also absent, and
-# postgresql's data volume and blazor-web-01/02's media share (both
+# postgresql's data volume and blazor-web-01/02's (now -04/-03, ADR 50)
+# media share (both
 # confirmed active/mounted post-apply) needed no explicit rule at all.
 # pve1-4 and the NAS all sit on the same pre-existing 10.10.10.0/24 LAN
 # segment — same-subnet traffic never crosses the gateway's routing/
