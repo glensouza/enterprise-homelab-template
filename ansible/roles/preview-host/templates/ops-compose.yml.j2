@@ -24,6 +24,7 @@ services:
       com.centurylinklabs.watchtower.enable: "true"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - dozzle_data:/data
     ports:
       - "127.0.0.1:8080:8080"
 
@@ -64,3 +65,4 @@ volumes:
   portainer_data:
   pgadmin_data:
   redisinsight_data:
+  dozzle_data:
