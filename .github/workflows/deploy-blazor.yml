@@ -183,7 +183,16 @@ jobs:
         ssh root@10.10.110.102 "ln -sfn $RELEASE /var/www/brewhouse/current && systemctl restart blazor-app.service && sleep 5 && systemctl is-active --quiet blazor-app.service"
         ssh root@10.10.110.102 "cd /var/www/brewhouse/releases && ls -1t | tail -n +6 | xargs -r rm -rf"
 
-    # Only now, once both nodes are on the new release and confirmed running,
-    # bring them back - and prove they're genuinely healthy, not just alive.
+    # Once both nodes are on the new release and confirmed running, bring
+    # them back - and prove they're genuinely healthy, not just alive.
+    # if: always() is load-bearing, not decoration: confirmed live, a
+    # failure in ANY step above (the "Take both web nodes offline" step
+    # itself included - one scp succeeded, the next failed on a changed SSH
+    # host key from a just-recreated node) stops the job by default, and
+    # without this, the maintenance page stays up with nothing left to ever
+    # take it back down - a real production outage, not a hypothetical one.
+    # web-online's rm -f/health-check are safe to run even if offline never
+    # happened (idempotent either way).
     - name: Bring both web nodes back online
+      if: always()
       uses: ./.github/actions/web-online

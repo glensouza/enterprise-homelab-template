@@ -49,7 +49,17 @@ jobs:
           -e @/opt/ansible-secrets/web.yml
           --limit web
 
+      # if: always() is load-bearing (docs/01 ADR 49 addendum, confirmed
+      # live in deploy-blazor.yml's own run of this same pattern): without
+      # it, a failure in either step above stops the job here and the
+      # maintenance page never comes back down - a real outage, not a
+      # hypothetical. Safe to always run - web-online's rm -f/health-check
+      # are idempotent even if offline never happened. Every tier below
+      # (not web) deliberately keeps its default behavior and skips on a
+      # failure here - no reason to keep patching the rest of the fleet if
+      # the web tier itself had a problem.
       - name: Bring both web nodes back online
+        if: always()
         uses: ./.github/actions/web-online
 
       - name: Patch every other managed tier (web and devops excluded)
