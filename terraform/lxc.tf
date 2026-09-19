@@ -1,6 +1,12 @@
 # Master Infrastructure Matrix — the single source of truth mirrors
 # docs/04-lxc-provisioning.md. Keep IPs/VLANs/resources in sync with that
 # document and the CLAUDE.md topology matrix when you change them.
+#
+# This PR exists to get a reviewed terraform-plan.yml run/artifact for the
+# blazor-web-01/02 -> -04/-03 rename (docs/01 ADR 50) and the ADR 48 memory
+# bump, which landed via a direct push to main (ADR 22's normal PR gate was
+# bypassed this session) - so terraform-apply.yml has a real plan_run_id to
+# apply against instead of a manual SSH-run plan.
 locals {
   lxcs = {
     # VMID convention: hundreds digit = the Proxmox node hosting it (1xx = pve1,
