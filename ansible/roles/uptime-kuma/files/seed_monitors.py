@@ -15,14 +15,32 @@ socket event correlation) instead of reimplementing a full Socket.IO client.
 Usage: seed_monitors.py <monitors.json>
 Reads UPTIME_KUMA_URL, UPTIME_KUMA_USERNAME, UPTIME_KUMA_PASSWORD from the
 environment.
+
+Confirmed live: the socket.io login handshake can time out transiently
+(observed once against the real fleet during a fleet-wide converge, with
+plenty of other Ansible tasks running concurrently) even though the exact
+same call succeeds a moment later against the exact same instance - retried
+here rather than left to intermittently fail the whole play.
 """
 import json
 import os
 import sys
+import time
 
 from uptime_kuma_api import UptimeKumaApi, MonitorType
 from uptime_kuma_api.api import _convert_monitor_input, _check_arguments_monitor
 from uptime_kuma_api.event import Event
+
+
+def login_with_retry(api, username, password, attempts=3, delay=10):
+    for attempt in range(1, attempts + 1):
+        try:
+            api.login(username, password)
+            return
+        except Exception:
+            if attempt == attempts:
+                raise
+            time.sleep(delay)
 
 
 def main():
@@ -33,9 +51,9 @@ def main():
     username = os.environ["UPTIME_KUMA_USERNAME"]
     password = os.environ["UPTIME_KUMA_PASSWORD"]
 
-    api = UptimeKumaApi(url, timeout=15)
+    api = UptimeKumaApi(url, timeout=30)
     try:
-        api.login(username, password)
+        login_with_retry(api, username, password)
         existing_names = {m["name"] for m in api.get_monitors()}
 
         added = []
