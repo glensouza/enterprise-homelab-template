@@ -66,8 +66,9 @@ UniFi Network 8.x+ replaced the old ruleset/LAN-IN model with **zone-based firew
 | **Allow** | `10.10.140.120` (Preview host) | `10.10.120.110` (Postgres) | `5432` | pgAdmin (admin tooling, ADR 21) -> production database. |
 | **Allow** | `10.10.140.120` (Preview host) | `10.10.120.111` (Garnet) | `6379` | RedisInsight (admin tooling, ADR 21) -> production cache. |
 | **Allow** | VLAN 140 (Preview) | `10.10.130.122` (PatchMon) | `3000` | Allow the preview host to enroll with and report to PatchMon (ADR 34/40) — confirmed live this was missing and hung the fleet-wide enrollment play until added. |
+| **Allow** | VLAN 140 (Preview) | `10.10.130.123` (Authentik) | `9443` | Allow Caddy on the preview host to reach Authentik's forward-auth check for Dozzle/RedisInsight (ADR 59). Same `index`/`replace_triggered_by` caveat as the Infisical/PatchMon rows above — codified this time via the drop rule's own `lifecycle.replace_triggered_by` instead of a manual `-replace` apply. |
 | **Block** | VLAN 140 (Preview) | VLAN 110 (Web) | `Any` | Isolate non-prod from the web tier. |
 | **Block** | VLAN 140 (Preview) | VLAN 120 (Data Tier) | `Any` | Isolate non-prod from production data (after the two specific allows above). |
-| **Block** | VLAN 140 (Preview) | VLAN 130 (Management) | `Any` | Block all other Preview -> Management traffic (after the three specific allows above). |
+| **Block** | VLAN 140 (Preview) | VLAN 130 (Management) | `Any` | Block all other Preview -> Management traffic (after the four specific allows above). |
 
 *Note: access from the admin LAN to the preview host (HTTPS 443, and SSH from the self-hosted runner) is allowed by the UDM-Pro's default inter-VLAN permit; only VLAN-to-VLAN isolation is locked down above.*

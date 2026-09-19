@@ -577,4 +577,20 @@ resource "unifi_firewall_policy" "drop_preview_to_mgmt" {
     unifi_firewall_policy.preview_to_infisical,
     unifi_firewall_policy.preview_to_authentik,
   ]
+  # docs/05: unifi_firewall_policy's controller-assigned index is read-only -
+  # depends_on above only orders Terraform's own API calls, not this rule's
+  # position in the controller's evaluated list. A brand-new allow gets
+  # appended AFTER an already-existing drop like this one, so it would never
+  # actually match (confirmed live twice before: the Infisical and PatchMon
+  # web_to_* exceptions both needed a manual `terraform apply
+  # -replace=unifi_firewall_policy.drop_web_to_mgmt` outside any commit to
+  # fix). replace_triggered_by forces this drop rule to be destroyed and
+  # recreated in the same apply that creates preview_to_authentik, so it
+  # lands at a fresh, later index automatically - no more tribal-knowledge
+  # manual step for this one going forward.
+  lifecycle {
+    replace_triggered_by = [
+      unifi_firewall_policy.preview_to_authentik,
+    ]
+  }
 }
