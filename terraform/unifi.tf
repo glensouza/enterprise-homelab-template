@@ -494,6 +494,29 @@ resource "unifi_firewall_policy" "preview_to_patchmon" {
   enabled = true
 }
 
+# docs/01 ADR 59/60: Caddy on the preview host calls out to Authentik's
+# forward_auth check (Dozzle/RedisInsight, both fronted by ops.caddy.j2) on
+# every request - unlike the other preview_to_* rules above, this one is on
+# the hot path for every page load of those two apps, not just an
+# occasional admin action.
+resource "unifi_firewall_policy" "preview_to_authentik" {
+  name     = "Allow Preview -> Authentik (9443)"
+  action   = "ALLOW"
+  protocol = "tcp"
+  source = {
+    zone_id         = local.internal_zone_id
+    ips             = ["10.10.140.120"]
+    matching_target = "IP"
+  }
+  destination = {
+    zone_id         = local.internal_zone_id
+    ips             = ["10.10.130.123"]
+    port            = "9443"
+    matching_target = "IP"
+  }
+  enabled = true
+}
+
 resource "unifi_firewall_policy" "drop_preview_to_web" {
   name     = "Drop Preview -> Web"
   action   = "BLOCK"
@@ -552,5 +575,23 @@ resource "unifi_firewall_policy" "drop_preview_to_mgmt" {
     unifi_firewall_policy.preview_to_step_ca,
     unifi_firewall_policy.preview_to_patchmon,
     unifi_firewall_policy.preview_to_infisical,
+    unifi_firewall_policy.preview_to_authentik,
   ]
+  # docs/05: unifi_firewall_policy's controller-assigned index is read-only -
+  # depends_on above only orders Terraform's own API calls, not this rule's
+  # position in the controller's evaluated list. A brand-new allow gets
+  # appended AFTER an already-existing drop like this one, so it would never
+  # actually match (confirmed live twice before: the Infisical and PatchMon
+  # web_to_* exceptions both needed a manual `terraform apply
+  # -replace=unifi_firewall_policy.drop_web_to_mgmt` outside any commit to
+  # fix). Tried lifecycle.replace_triggered_by referencing
+  # preview_to_authentik here to codify the fix instead of repeating the
+  # manual step a third time - confirmed live via the actual `terraform
+  # plan` output that it does NOT fire: replace_triggered_by only reacts to
+  # a planned change on an attribute of an already-tracked resource, not to
+  # a referenced resource merely being newly created (no prior state to
+  # diff against). Reverted; the fix is the same manual step as before -
+  # after this PR is applied, run `terraform apply
+  # -replace=unifi_firewall_policy.drop_preview_to_mgmt` directly (see
+  # LAB-RUNBOOK.md) to force this rule to a fresh, later index.
 }

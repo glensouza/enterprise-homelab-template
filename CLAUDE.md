@@ -120,6 +120,7 @@ Synology NAS and Kemp are pre-existing, non-Terraform-managed hardware and stay 
 | step-ca internal PKI (ACME, port 4443) | `10.10.130.121` | `pve3` (Node 2 - Secondary) |
 | PatchMon (OS patch tracking — LXC reserved, no role yet) | `10.10.130.122` | `pve3` (Node 2 - Secondary) |
 | Homepage (fleet dashboard, port 3000, ADR 38) | `10.10.130.120` | `pve3` (Node 2 - Secondary) |
+| Authentik (SSO, HTTPS 9443, ADR 59) | `10.10.130.123` | `pve3` (Node 2 - Secondary) |
 
 ### VLAN 140 — Non-Prod / Preview (`10.10.140.x`)
 | Host | IP | Node Assignment |
@@ -130,7 +131,7 @@ Synology NAS and Kemp are pre-existing, non-Terraform-managed hardware and stay 
 
 The whole lab is `terraform apply && ansible-playbook site.yml` — see `docs/08-infrastructure-as-code.md`:
 
-- **Terraform** (`terraform/`): `bpg/proxmox` for the 12 LXCs, `resnickio/unifi` for the VLAN 110/120/130/140 networks and the zone-based firewall policy matrix (not `paultyng/unifi` — its legacy `LAN_IN`/`rule_index` model is rejected by UniFi Network 8.x+, ADR 17). `lxc.tf` / `unifi.tf` are code mirrors of `docs/04` / `docs/05` — change all three together. Apply renders the Ansible inventory.
+- **Terraform** (`terraform/`): `bpg/proxmox` for the 15 LXCs, `resnickio/unifi` for the VLAN 110/120/130/140 networks and the zone-based firewall policy matrix (not `paultyng/unifi` — its legacy `LAN_IN`/`rule_index` model is rejected by UniFi Network 8.x+, ADR 17). `lxc.tf` / `unifi.tf` are code mirrors of `docs/04` / `docs/05` — change all three together. Apply renders the Ansible inventory.
 - **Ansible** (`ansible/`): converges the web nodes (dotnet-runtime, blazor-app), the Postgres node (pgBackRest + pg-dump-prune), the preview infrastructure (technitium DNS, step-ca PKI, resolver, docker + preview-host incl. the ops stack on VLAN 140), and fleet-wide Cockpit (`hosts: all`, runs last — needs the certs the step-ca play fetches). Units are copied verbatim from `src/systemd/` — edit them there and re-run the playbook.
 - **Kemp LoadMaster** remains GUI-managed (no supported Terraform provider).
 
