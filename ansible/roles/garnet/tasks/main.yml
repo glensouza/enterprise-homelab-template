@@ -46,6 +46,7 @@
     owner: garnet
     group: garnet
     mode: preserve
+  register: garnet_binary
 
 - name: Remove the scratch extraction directory
   ansible.builtin.file:
@@ -94,7 +95,7 @@
   ansible.builtin.systemd:
     name: garnet
     enabled: true
-    state: "{{ 'restarted' if (garnet_config.changed or garnet_unit.changed) else 'started' }}"
+    state: "{{ 'restarted' if (garnet_binary.changed or garnet_config.changed or garnet_unit.changed) else 'started' }}"
 
 - name: Push ConnectionStrings__cache to Infisical
   ansible.builtin.include_role:
