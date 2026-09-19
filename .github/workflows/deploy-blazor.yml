@@ -98,6 +98,24 @@ jobs:
     - name: Generate EF Core Migration Bundle
       run: dotnet ef migrations bundle --project ./src/BrewHouse/BrewHouse.csproj --self-contained -r linux-x64 -o ./publish/efbundle
 
+    # Both nodes go down together, and BEFORE anything below touches the
+    # live database - not just before the rsync/restart steps. Confirmed
+    # live as a real bug in an earlier version of this workflow: the offline
+    # step used to sit after Execute Migration Bundle/Apply Wolverine
+    # Envelope Schema, so a schema-breaking migration would apply while both
+    # nodes were still fully online serving the OLD code against the NEW
+    # schema - exactly the failure mode a maintenance window exists to
+    # prevent. app_offline.htm (docs/01 ADR 48/49) takes each node offline
+    # for every real request; /health stays exempt (Program.cs) so Kemp
+    # keeps routing normally to a node that's up but maintenance-paged -
+    # Kemp's actual VIP config has no Sorry Server/redirect fallback,
+    # confirmed live, so a health check that also failed here would leave
+    # visitors at Kemp's own generic error instead of this page. Same
+    # composite action patch-fleet.yml uses for OS patching - one place this
+    # logic lives, not two copies that can drift.
+    - name: Take both web nodes offline (maintenance page)
+      uses: ./.github/actions/web-offline
+
     # Pre-migration safety net: dump the database to the Synology NAS mount on
     # the Postgres LXC (local peer auth as the postgres OS user - no password needed).
     - name: Backup Database (pg_dump to NAS)
@@ -122,18 +140,6 @@ jobs:
         ConnectionStrings__messaging: amqp://unused-by-db-apply:5672
         ASPNETCORE_ENVIRONMENT: Production
       run: dotnet ./publish/BrewHouse.dll db-apply
-
-    # Both nodes go down together for every deploy (not one-at-a-time behind
-    # Kemp) - app_offline.htm (docs/01 ADR 48/49) takes each node offline for
-    # every real request. /health stays exempt (Program.cs) so Kemp keeps
-    # routing normally to a node that's up but maintenance-paged - Kemp's
-    # actual VIP config has no Sorry Server/redirect fallback, confirmed
-    # live, so a health check that also failed here would leave visitors at
-    # Kemp's own generic error instead of this page. Dropped BEFORE either
-    # rsync starts. Same composite action patch-fleet.yml uses for OS
-    # patching - one place this logic lives, not two copies that can drift.
-    - name: Take both web nodes offline (maintenance page)
-      uses: ./.github/actions/web-offline
 
     # Symlinked releases: deploy into releases/<sha>, flip 'current', restart.
     # Keeps the last 5 releases per node for instant rollback (see rollback.yml).
