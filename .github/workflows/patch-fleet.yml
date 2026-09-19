@@ -9,6 +9,14 @@ name: Patch Fleet
 # actions deploy-blazor.yml uses for app version deploys - one place that
 # logic lives, not a second copy reimplemented in Ansible.
 #
+# Order, confirmed live and corrected (docs/01 ADR 53): web goes offline
+# FIRST, then everything web actually depends on (Postgres, Garnet,
+# RabbitMQ, ADR 10's deep health checks) gets patched+rebooted WHILE web is
+# still safely offline, THEN web itself patches+reboots, THEN web comes
+# back online - last, not first, because bringing it back before its own
+# dependencies are done patching would surface a real, user-visible outage
+# (backend mid-reboot) on top of a normal maintenance window, not avoid one.
+#
 # devops (10.10.10.111) patches itself last, as its own step, because it's
 # the box running this very workflow's self-hosted runner (ADR 22) - a
 # reboot there kills the runner mid-job. ansible/roles/patch schedules that
@@ -40,6 +48,18 @@ jobs:
       - name: Take both web nodes offline (maintenance page)
         uses: ./.github/actions/web-offline
 
+      # Everything web depends on (Postgres, Garnet, RabbitMQ, plus every
+      # other tier) patches+reboots FIRST, while web is already safely
+      # offline - not after web is back online serving real traffic.
+      - name: Patch every other managed tier (web and devops excluded)
+        working-directory: ansible
+        run: >
+          ansible-playbook patch.yml
+          -e @/opt/ansible-secrets/all.yml
+          -e @/opt/ansible-secrets/dns.yml
+          -e @/opt/ansible-secrets/web.yml
+          --limit 'all:!devops:!web'
+
       - name: Patch and reboot the web tier
         working-directory: ansible
         run: >
@@ -49,27 +69,17 @@ jobs:
           -e @/opt/ansible-secrets/web.yml
           --limit web
 
-      # if: always() is load-bearing (docs/01 ADR 49 addendum, confirmed
-      # live in deploy-blazor.yml's own run of this same pattern): without
-      # it, a failure in either step above stops the job here and the
-      # maintenance page never comes back down - a real outage, not a
-      # hypothetical. Safe to always run - web-online's rm -f/health-check
-      # are idempotent even if offline never happened. Every tier below
-      # (not web) deliberately keeps its default behavior and skips on a
-      # failure here - no reason to keep patching the rest of the fleet if
-      # the web tier itself had a problem.
+      # if: always() is load-bearing (docs/01 ADR 49/52, confirmed live in
+      # deploy-blazor.yml's own run of this same pattern): without it, a
+      # failure in any step above stops the job here and the maintenance
+      # page never comes back down - a real outage, not a hypothetical.
+      # Safe to run unconditionally either way: web-online's own /health
+      # gate will correctly report the node unhealthy (and Kemp will keep
+      # it out of rotation) if something upstream genuinely didn't recover,
+      # which is strictly better than leaving the site stuck offline.
       - name: Bring both web nodes back online
         if: always()
         uses: ./.github/actions/web-online
-
-      - name: Patch every other managed tier (web and devops excluded)
-        working-directory: ansible
-        run: >
-          ansible-playbook patch.yml
-          -e @/opt/ansible-secrets/all.yml
-          -e @/opt/ansible-secrets/dns.yml
-          -e @/opt/ansible-secrets/web.yml
-          --limit 'all:!devops:!web'
 
       - name: Patch the devops LXC (self) - delayed self-reboot, see role
         working-directory: ansible
