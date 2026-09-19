@@ -86,8 +86,17 @@
 # certificates the cockpit role installs, and the patchmon play above
 # already has the PatchMon server (ADR 33) up before this enrolls every
 # host as an agent against it (ADR 34).
+#
+# devops is excluded (docs/01 ADR 49): adding it to inventory made it part
+# of `all` for the first time, and this play tried to SSH into it like
+# every other host - confirmed live, it fails UNREACHABLE, because devops
+# only holds the brewhouse_ansible private key to connect OUT to the rest
+# of the fleet (ADR 22); nothing ever added that key to devops's own
+# authorized_keys, since Ansible never needed to reach it before patch.yml.
+# Cockpit/PatchMon coverage for devops itself stays a follow-up, not bundled
+# into an unrelated fix here.
 - name: Fleet-wide Cockpit and PatchMon agent enrollment (ADR 21/34)
-  hosts: all
+  hosts: all:!devops
   roles:
     - cockpit
     - patchmon-agent
