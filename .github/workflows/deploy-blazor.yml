@@ -4,6 +4,18 @@ on:
   push:
     branches:
       - main
+    # Confirmed live: with no paths filter at all, this used to queue a
+    # full deploy (and wait on a production approval) for ANY push to main
+    # - docs, terraform, anything. Scoped to exactly what dotnet publish
+    # actually builds from: the app project itself, its two version/package
+    # inputs, and version.txt (drives the resolved semantic version). Not
+    # src/BrewHouse.AppHost (local-dev/Aspire only, never deployed) or
+    # src/systemd (that's ansible-converge.yml's job, not this workflow's).
+    paths:
+      - 'src/BrewHouse/**'
+      - 'Directory.Packages.props'
+      - 'global.json'
+      - 'version.txt'
 
 # Only the latest push's run stays queued - an older one still waiting on
 # approval (or, if already approved, still mid-deploy) gets cancelled the
