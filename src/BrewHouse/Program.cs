@@ -174,17 +174,23 @@ var app = builder.Build();
 
 // APP_OFFLINE.HTM: reproduces IIS/ASP.NET Core Module's app_offline.htm
 // convention for this Kestrel/systemd host, which has no such thing built
-// in. Checked first, ahead of every other middleware (including /health),
-// so a dropped file takes the node fully offline for every request - Kemp
-// marks it down too, not just human visitors. Fixed path outside any
+// in. Checked first, ahead of every other middleware, so a dropped file
+// takes the node offline for every real request. /health is deliberately
+// EXEMPT (confirmed live against Kemp's actual config, docs/01 ADR 49): the
+// VIP has no "Sorry Server" and no Not-Available-Redirection configured, so
+// if /health also 503'd here, Kemp would mark both real servers Down with
+// nothing to fall back to - visitors would hit Kemp's own generic error,
+// never this page. Keeping /health honest lets Kemp keep routing normally,
+// so real requests still reach a live Kestrel process serving the
+// maintenance page - the whole point. Fixed path outside any
 // releases/<sha> directory (not ContentRootPath) so it survives the
 // symlink flip a deploy performs mid-maintenance (deploy-blazor.yml,
-// patch.yml - see docs/01 ADR 49). www-data already has read/write there
-// (blazor-app.service's ReadWritePaths).
+// patch.yml). www-data already has read/write there (blazor-app.service's
+// ReadWritePaths).
 const string appOfflinePath = "/var/www/brewhouse/app_offline.htm";
 app.Use(async (context, next) =>
 {
-    if (File.Exists(appOfflinePath))
+    if (!context.Request.Path.StartsWithSegments("/health") && File.Exists(appOfflinePath))
     {
         context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
         context.Response.ContentType = "text/html";

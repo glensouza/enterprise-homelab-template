@@ -124,10 +124,13 @@ jobs:
       run: dotnet ./publish/BrewHouse.dll db-apply
 
     # Both nodes go down together for every deploy (not one-at-a-time behind
-    # Kemp) - app_offline.htm (docs/01 ADR 48/49) takes each node fully
-    # offline, including /health, so Kemp shows both down rather than
-    # silently routing live traffic at a half-deployed node. Dropped BEFORE
-    # either rsync starts. Same composite action patch-fleet.yml uses for OS
+    # Kemp) - app_offline.htm (docs/01 ADR 48/49) takes each node offline for
+    # every real request. /health stays exempt (Program.cs) so Kemp keeps
+    # routing normally to a node that's up but maintenance-paged - Kemp's
+    # actual VIP config has no Sorry Server/redirect fallback, confirmed
+    # live, so a health check that also failed here would leave visitors at
+    # Kemp's own generic error instead of this page. Dropped BEFORE either
+    # rsync starts. Same composite action patch-fleet.yml uses for OS
     # patching - one place this logic lives, not two copies that can drift.
     - name: Take both web nodes offline (maintenance page)
       uses: ./.github/actions/web-offline
