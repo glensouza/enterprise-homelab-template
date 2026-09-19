@@ -68,7 +68,7 @@
 # Stub install (DEMO-AUDIT.md R7 sibling gap) — a real status page, no
 # monitors configured yet.
 - name: Configure Uptime Kuma (VLAN 130)
-  hosts: uptime-kuma
+  hosts: uptime_kuma
   roles:
     - uptime-kuma
 
