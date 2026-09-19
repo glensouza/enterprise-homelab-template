@@ -1,0 +1,14 @@
+---
+# Authentik SSO (docs/01 ADR 59/62), VLAN 130.
+
+# ADR 30-style: generated once on the Ansible controller and reused on every
+# run - cached under /opt/ansible-credentials (ADR 35), outside any git
+# checkout. Unlike uptime_kuma_username/password (ADR 60, a human-chosen
+# login Ansible never touches), this admin account is entirely
+# Ansible-provisioned from first boot, so generating it the same way as
+# postgres_brewhouse_password is the right call, not a boundary violation.
+authentik_db_password: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/authentik/db_password length=32 chars=ascii_letters,digits') }}"
+authentik_secret_key: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/authentik/secret_key length=64 chars=ascii_letters,digits') }}"
+authentik_bootstrap_email: "admin@{{ internal_domain }}"
+authentik_bootstrap_password: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/authentik/bootstrap_password length=32 chars=ascii_letters,digits') }}"
+authentik_bootstrap_token: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/authentik/bootstrap_token length=64 chars=ascii_letters,digits') }}"

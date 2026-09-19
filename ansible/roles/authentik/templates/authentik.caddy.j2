@@ -1,0 +1,15 @@
+{
+	email admin@{{ internal_domain }}
+}
+
+# TLS terminated here, same pattern as ops.caddy.j2/preview-host (ADR 21) -
+# Authentik itself only listens on loopback HTTP (docs/01 ADR 61). Standard,
+# well-trodden Authentik deployment shape (reverse proxy in front for TLS)
+# rather than guessing at its own embedded-HTTPS cert-loading mechanism.
+authentik.{{ internal_domain }} {
+	tls {
+		ca {{ step_ca_url }}/acme/acme/directory
+		ca_root /etc/caddy/pki/root_ca.crt
+	}
+	reverse_proxy 127.0.0.1:{{ authentik_http_port }}
+}

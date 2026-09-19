@@ -1,0 +1,44 @@
+---
+# Managed by Ansible (roles/authentik) - manual edits will be overwritten.
+#
+# A deliberately PARTIAL override of authentik/lib/default.yml's baked-in
+# defaults (docs/01 ADR 59/62) - Authentik's own config loader layers this
+# file over its internal defaults, then environment variables over that
+# (the header of default.yml itself: "override the settings in this file").
+# Unlike community-scripts' authentik-install.sh, which copies the FULL
+# default.yml and yq-edits specific keys in place, this only lists what
+# actually differs for this deployment - notably postgresql.host and the
+# cache/channel redis urls, since this repo reuses the existing shared
+# postgresql and garnet LXCs (ADR 59) rather than the script's local-Postgres/
+# implicit-localhost-redis assumption.
+secret_key: "{{ authentik_secret_key }}"
+
+postgresql:
+  host: "{{ hostvars['postgresql'].ansible_host }}"
+  name: authentik
+  user: authentik
+  password: "{{ authentik_db_password }}"
+  port: 5432
+
+cache:
+  url: "redis://{{ hostvars['garnet'].ansible_host }}:{{ hostvars['garnet'].garnet_port }}/{{ authentik_redis_cache_db }}"
+
+channel:
+  url: "redis://{{ hostvars['garnet'].ansible_host }}:{{ hostvars['garnet'].garnet_port }}/{{ authentik_redis_channel_db }}"
+
+disable_startup_analytics: true
+
+events:
+  context_processors:
+    geoip: /opt/authentik-data/geoip/GeoLite2-City.mmdb
+    asn: /opt/authentik-data/geoip/GeoLite2-ASN.mmdb
+
+blueprints_dir: /opt/authentik-data/blueprints
+cert_discovery_dir: /opt/authentik-data/certs
+
+email:
+  template_dir: /opt/authentik-data/templates
+
+storage:
+  file:
+    path: /opt/authentik-data

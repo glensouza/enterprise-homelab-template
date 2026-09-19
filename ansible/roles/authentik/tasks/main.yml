@@ -1,0 +1,425 @@
+---
+# Authentik SSO (VLAN 130, ADR 04/59/61). No supported non-Docker install
+# path exists upstream - this mirrors community-scripts' authentik-install.sh
+# (a from-source Rust/Go/Node/Python build) to stay consistent with ADR 02's
+# "no Docker in production" pattern every other role here follows, a
+# deliberate choice accepting the added build complexity. Diverges from that
+# reference script in two structural ways: reuses the existing shared
+# postgresql/garnet LXCs instead of a local Postgres + implicit-localhost
+# Redis (docs/01 ADR 59), and fronts it with Caddy + step-ca ACME for TLS
+# instead of Authentik's own embedded HTTPS listener (docs/01 ADR 61 - the
+# standard, well-documented Authentik deployment shape, safer than guessing
+# at its embedded-listener cert-loading mechanism). Only the core/embedded
+# outpost is built - the separate LDAP/RAC/Radius Go outposts aren't needed
+# for OIDC + forward-auth (Proxy provider), so the Go toolchain this role
+# would otherwise need is skipped entirely.
+#
+# Installed into /opt/authentik-{{ authentik_version }}, with /opt/authentik
+# a symlink to it (same reasoning as the garnet role, docs/01 ADR 58):
+# copying a new version's files over an already-running binary hits
+# `OSError: [Errno 26] Text file busy` on Linux, confirmed live there first.
+
+- name: Install build dependencies
+  ansible.builtin.apt:
+    name:
+      - build-essential
+      - pkg-config
+      - libffi-dev
+      - libxslt-dev
+      - zlib1g-dev
+      - libpq-dev
+      - krb5-multidev
+      - libkrb5-dev
+      - heimdal-multidev
+      - libclang-dev
+      - libltdl-dev
+      - libmaxminddb0
+      - python3-dev
+      - libxml2-dev
+      - libxml2
+      - libxslt1-dev
+      - automake
+      - autoconf
+      - libtool
+      - libtool-bin
+      - gcc
+      - cmake
+      - clang
+      - libunwind-18-dev
+      - git
+      - curl
+    update_cache: true
+    state: present
+
+- name: Create the authentik system user
+  ansible.builtin.user:
+    name: authentik
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
+- name: Stat /opt/authentik (pre-symlink layouts would leave it a real directory)
+  ansible.builtin.stat:
+    path: /opt/authentik
+  register: authentik_opt_stat
+
+- name: Remove /opt/authentik if it's a real directory, not the symlink (one-time migration)
+  ansible.builtin.file:
+    path: /opt/authentik
+    state: absent
+  when: authentik_opt_stat.stat.exists and not authentik_opt_stat.stat.islnk
+
+- name: Check if this version is already installed
+  ansible.builtin.stat:
+    path: "/opt/authentik-{{ authentik_version }}/pyproject.toml"
+  register: authentik_version_installed
+
+- name: Download the Authentik source release
+  ansible.builtin.get_url:
+    url: "https://github.com/goauthentik/authentik/archive/refs/tags/version/{{ authentik_version }}.tar.gz"
+    dest: "/tmp/authentik-{{ authentik_version }}.tar.gz"
+    mode: "0644"
+  when: not authentik_version_installed.stat.exists
+
+- name: Create a scratch directory for extraction
+  # GitHub's source tarball extracts to a single top-level directory whose
+  # exact name isn't predictable (varies with how the tag is spelled) -
+  # extracting into its own empty scratch dir first, rather than straight
+  # into /opt, means the "find the one directory that came out of this"
+  # step below can never accidentally match an unrelated /opt entry (in
+  # particular /opt/authentik-data, which also starts with "authentik-").
+  ansible.builtin.file:
+    path: "/tmp/authentik-src-{{ authentik_version }}"
+    state: directory
+    mode: "0755"
+  when: not authentik_version_installed.stat.exists
+
+- name: Extract the Authentik source to the scratch directory
+  ansible.builtin.unarchive:
+    src: "/tmp/authentik-{{ authentik_version }}.tar.gz"
+    dest: "/tmp/authentik-src-{{ authentik_version }}"
+    remote_src: true
+  when: not authentik_version_installed.stat.exists
+
+- name: Find the extracted directory
+  ansible.builtin.find:
+    paths: "/tmp/authentik-src-{{ authentik_version }}"
+    file_type: directory
+    depth: 1
+  register: authentik_extracted_dir
+  when: not authentik_version_installed.stat.exists
+
+- name: Move the extracted source to the stable versioned path
+  ansible.builtin.command: "mv {{ authentik_extracted_dir.files[0].path }} /opt/authentik-{{ authentik_version }}"
+  when: not authentik_version_installed.stat.exists
+
+- name: Remove the now-empty scratch directory
+  ansible.builtin.file:
+    path: "/tmp/authentik-src-{{ authentik_version }}"
+    state: absent
+  when: not authentik_version_installed.stat.exists
+
+- name: Check if xmlsec is already built
+  ansible.builtin.command: xmlsec1-config --version
+  register: xmlsec_check
+  failed_when: false
+  changed_when: false
+
+- name: Download the xmlsec source release
+  ansible.builtin.get_url:
+    url: "https://github.com/lsh123/xmlsec/releases/download/{{ xmlsec_version }}/xmlsec1-{{ xmlsec_version }}.tar.gz"
+    dest: "/tmp/xmlsec-{{ xmlsec_version }}.tar.gz"
+    mode: "0644"
+  when: xmlsec_check.rc != 0
+
+- name: Extract xmlsec
+  ansible.builtin.unarchive:
+    src: "/tmp/xmlsec-{{ xmlsec_version }}.tar.gz"
+    dest: /opt
+    remote_src: true
+  when: xmlsec_check.rc != 0
+
+- name: Build and install xmlsec
+  ansible.builtin.shell: |
+    set -e
+    ./autogen.sh
+    make -j "$(nproc)"
+    make install
+    ldconfig
+  args:
+    chdir: "/opt/xmlsec1-{{ xmlsec_version }}"
+  when: xmlsec_check.rc != 0
+
+- name: Check if rustup is already installed
+  ansible.builtin.stat:
+    path: /root/.cargo/bin/rustup
+  register: rustup_stat
+
+- name: Install rustup (minimal profile, stable default)
+  ansible.builtin.shell: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+  when: not rustup_stat.stat.exists
+
+- name: Install the toolchain pinned by this Authentik release
+  ansible.builtin.shell: |
+    source /root/.cargo/env
+    rustup install
+    rustup default "$(sed -n 's/channel = "\(.*\)"/\1/p' rust-toolchain.toml)"
+  args:
+    chdir: "/opt/authentik-{{ authentik_version }}"
+    executable: /bin/bash
+  changed_when: true
+
+- name: Check if uv is already installed
+  ansible.builtin.stat:
+    path: /root/.local/bin/uv
+  register: uv_stat
+
+- name: Install uv
+  ansible.builtin.shell: curl -LsSf https://astral.sh/uv/install.sh | sh
+  environment:
+    UV_PYTHON_INSTALL_DIR: /usr/local/bin
+  when: not uv_stat.stat.exists
+
+- name: Create apt keyring directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Download the NodeSource apt GPG key
+  ansible.builtin.get_url:
+    url: https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key
+    dest: /tmp/nodesource-repo.gpg.key
+    mode: "0644"
+
+- name: Dearmor the NodeSource apt GPG key
+  ansible.builtin.command: gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg /tmp/nodesource-repo.gpg.key
+  args:
+    creates: /etc/apt/keyrings/nodesource.gpg
+
+- name: Add the NodeSource apt repository (Node.js {{ nodejs_major_version }}.x)
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_{{ nodejs_major_version }}.x nodistro main"
+    state: present
+
+- name: Install Node.js
+  ansible.builtin.apt:
+    name: nodejs
+    update_cache: true
+    state: present
+
+- name: Install pnpm
+  # Plain npm, not community.general.npm - no other role in this repo
+  # depends on that collection being present on the runner.
+  ansible.builtin.command: npm install -g pnpm@12
+  args:
+    creates: /usr/lib/node_modules/pnpm/bin/pnpm.cjs
+
+- name: Build the web frontend
+  ansible.builtin.shell: |
+    export NODE_ENV=production
+    pnpm install --frozen-lockfile
+    pnpm run build
+    pnpm run build:sfe
+  args:
+    chdir: "/opt/authentik-{{ authentik_version }}/web"
+    creates: "/opt/authentik-{{ authentik_version }}/web/dist/index.html"
+    executable: /bin/bash
+
+- name: Build the core/worker binary (this can take 10+ minutes - confirmed live)
+  ansible.builtin.shell: |
+    source /root/.cargo/env
+    cargo build --package authentik --no-default-features --features core --locked --release
+    mkdir -p bin
+    cp ./target/release/authentik bin/
+    rm -rf ./target
+  args:
+    chdir: "/opt/authentik-{{ authentik_version }}"
+    creates: "/opt/authentik-{{ authentik_version }}/bin/authentik"
+    executable: /bin/bash
+
+- name: Install the Python virtualenv (uv sync)
+  ansible.builtin.shell: |
+    export PATH="/usr/local/bin:$PATH"
+    export UV_NO_BINARY_PACKAGE="cryptography lxml python-kadmin-rs xmlsec"
+    export UV_COMPILE_BYTECODE=1
+    export UV_LINK_MODE=copy
+    export UV_NATIVE_TLS=1
+    export UV_HTTP_TIMEOUT=300
+    /root/.local/bin/uv sync --locked --no-install-project --no-dev
+  args:
+    chdir: "/opt/authentik-{{ authentik_version }}"
+    creates: "/opt/authentik-{{ authentik_version }}/.venv/bin/python"
+
+- name: Install krb5.conf
+  ansible.builtin.copy:
+    src: "/opt/authentik-{{ authentik_version }}/authentik/sources/kerberos/krb5.conf"
+    dest: /etc/krb5.conf
+    remote_src: true
+    mode: "0644"
+
+- name: Create /opt/authentik-data and its subdirectories (persistent, not versioned)
+  ansible.builtin.file:
+    path: "/opt/authentik-data/{{ item }}"
+    state: directory
+    owner: authentik
+    group: authentik
+    mode: "0755"
+  loop:
+    - certs
+    - media
+    - geoip
+    - templates
+    - blueprints
+
+- name: Copy the bundled test GeoIP databases (no MaxMind license configured)
+  ansible.builtin.copy:
+    src: "/opt/authentik-{{ authentik_version }}/tests/geoip/{{ item.src }}"
+    dest: "/opt/authentik-data/geoip/{{ item.dest }}"
+    remote_src: true
+    owner: authentik
+    group: authentik
+    mode: "0644"
+  loop:
+    - { src: "GeoLite2-ASN-Test.mmdb", dest: "GeoLite2-ASN.mmdb" }
+    - { src: "GeoLite2-City-Test.mmdb", dest: "GeoLite2-City.mmdb" }
+
+- name: Copy any new shipped blueprints into the persistent data directory
+  # force: false = only copies files that don't already exist at the
+  # destination, so this is safe to run on every converge unconditionally:
+  # the first run seeds everything, a later version bump adds only genuinely
+  # new blueprint files, and anything already there (including a manually
+  # customized blueprint) is never overwritten.
+  ansible.builtin.copy:
+    src: "/opt/authentik-{{ authentik_version }}/blueprints/"
+    dest: /opt/authentik-data/blueprints/
+    remote_src: true
+    force: false
+    owner: authentik
+    group: authentik
+
+- name: Create /etc/authentik
+  ansible.builtin.file:
+    path: /etc/authentik
+    state: directory
+    owner: authentik
+    group: authentik
+    mode: "0750"
+
+- name: Configure Authentik (config.yml)
+  ansible.builtin.template:
+    src: config.yml.j2
+    dest: /etc/authentik/config.yml
+    owner: authentik
+    group: authentik
+    mode: "0640"
+  register: authentik_config
+
+- name: Own the versioned install directory
+  ansible.builtin.file:
+    path: "/opt/authentik-{{ authentik_version }}"
+    owner: authentik
+    group: authentik
+    recurse: true
+
+- name: Point /opt/authentik at the current version (systemd units' stable path)
+  ansible.builtin.file:
+    path: /opt/authentik
+    src: "/opt/authentik-{{ authentik_version }}"
+    state: link
+    force: true
+  register: authentik_symlink
+
+- name: Install the server/worker environment files
+  ansible.builtin.template:
+    src: "{{ item }}.env.j2"
+    dest: "/etc/default/{{ item }}"
+    owner: root
+    group: root
+    mode: "0640"
+  loop:
+    - authentik-server
+    - authentik-worker
+  register: authentik_env
+
+- name: Install authentik-server.service / authentik-worker.service (canonical copy lives in src/systemd/)
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../src/systemd/{{ item }}.service"
+    dest: "/etc/systemd/system/{{ item }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - authentik-server
+    - authentik-worker
+  register: authentik_unit
+
+- name: Reload systemd if a unit changed
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: authentik_unit.changed
+
+- name: Enable and start authentik-server
+  ansible.builtin.systemd:
+    name: authentik-server
+    enabled: true
+    state: "{{ 'restarted' if (authentik_symlink.changed or authentik_config.changed or authentik_unit.changed or authentik_env.changed) else 'started' }}"
+
+- name: Enable and start authentik-worker
+  ansible.builtin.systemd:
+    name: authentik-worker
+    enabled: true
+    state: "{{ 'restarted' if (authentik_symlink.changed or authentik_config.changed or authentik_unit.changed or authentik_env.changed) else 'started' }}"
+
+# --- Caddy front-end (TLS, docs/01 ADR 61) ------------------------------------
+- name: Install apt prerequisites for the Caddy repository
+  ansible.builtin.apt:
+    name: [debian-keyring, debian-archive-keyring, apt-transport-https]
+    state: present
+
+- name: Add the Caddy apt GPG key
+  ansible.builtin.get_url:
+    url: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
+    dest: /etc/apt/keyrings/caddy-stable.asc
+    mode: "0644"
+
+- name: Add the Caddy apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/caddy-stable.asc] https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main"
+    state: present
+
+- name: Install Caddy
+  ansible.builtin.apt:
+    name: caddy
+    update_cache: true
+    state: present
+
+- name: Create the Caddy PKI directory
+  ansible.builtin.file:
+    path: /etc/caddy/pki
+    state: directory
+    mode: "0755"
+
+- name: Install the step-ca root certificate for Caddy to trust
+  ansible.builtin.copy:
+    src: "/opt/ansible-fetched/step-ca/root_ca.crt"
+    dest: /etc/caddy/pki/root_ca.crt
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart authentik-caddy
+
+- name: Install the Caddyfile
+  ansible.builtin.template:
+    src: authentik.caddy.j2
+    dest: /etc/caddy/Caddyfile
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart authentik-caddy
+
+- name: Enable and start Caddy
+  ansible.builtin.systemd:
+    name: caddy
+    enabled: true
+    state: started

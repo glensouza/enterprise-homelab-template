@@ -97,6 +97,31 @@
     infisical_secret_value: "Host={{ ansible_host }};Port=5432;Database=brewhouse_db;Username=brewhouse;Password={{ postgres_brewhouse_password }}"
   when: infisical_project_id is defined
 
+# --- authentik role/database (docs/01 ADR 59) ---------------------------------
+# Same pattern as brewhouse above - Authentik reuses this shared Postgres LXC
+# rather than getting its own, matching this repo's general "don't stand up a
+# redundant per-app datastore when a shared one already exists" convention.
+- name: Create the authentik database role
+  ansible.builtin.command: >
+    su postgres -c "psql -c \"CREATE ROLE authentik WITH LOGIN PASSWORD '{{ hostvars['authentik'].authentik_db_password }}';\""
+  register: create_authentik_role
+  failed_when: create_authentik_role.rc != 0 and 'already exists' not in create_authentik_role.stderr
+  changed_when: create_authentik_role.rc == 0
+  no_log: true
+
+- name: Reconcile the authentik role's password to the cached value
+  ansible.builtin.command: >
+    su postgres -c "psql -c \"ALTER ROLE authentik WITH PASSWORD '{{ hostvars['authentik'].authentik_db_password }}';\""
+  changed_when: true
+  no_log: true
+
+- name: Create the authentik database
+  ansible.builtin.command: >
+    su postgres -c "psql -c \"CREATE DATABASE authentik OWNER authentik;\""
+  register: create_authentik_db
+  failed_when: create_authentik_db.rc != 0 and 'already exists' not in create_authentik_db.stderr
+  changed_when: create_authentik_db.rc == 0
+
 # --- pgBackRest ---------------------------------------------------------------
 - name: Install pgBackRest
   ansible.builtin.apt:

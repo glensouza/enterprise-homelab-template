@@ -1,0 +1,18 @@
+[Unit]
+Description=authentik Server
+After=network.target
+Wants=network.target
+
+[Service]
+User=authentik
+Group=authentik
+EnvironmentFile=/etc/default/authentik-server
+ExecStartPre=/usr/bin/mkdir -p "${PROMETHEUS_MULTIPROC_DIR}"
+ExecStartPre=/usr/bin/mkdir -p "${TMPDIR}"
+ExecStart=/opt/authentik/bin/authentik server
+WorkingDirectory=/opt/authentik/
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

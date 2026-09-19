@@ -51,6 +51,11 @@
   roles:
     - patchmon
 
+- name: Configure Authentik SSO (VLAN 130, ADR 59/61)
+  hosts: authentik
+  roles:
+    - authentik
+
 - name: Configure the PR preview host (VLAN 140, ADR 19)
   hosts: preview
   roles:

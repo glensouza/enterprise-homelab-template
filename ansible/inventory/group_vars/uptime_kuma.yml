@@ -54,7 +54,7 @@ uptime_kuma_monitors:
     port: 3000
   - name: "Authentik"
     type: HTTP
-    url: "https://authentik.{{ internal_domain }}:9443"
+    url: "https://authentik.{{ internal_domain }}"
     ignoreTls: true
   - name: "Grafana / Observability"
     type: PORT
