@@ -584,13 +584,14 @@ resource "unifi_firewall_policy" "drop_preview_to_mgmt" {
   # actually match (confirmed live twice before: the Infisical and PatchMon
   # web_to_* exceptions both needed a manual `terraform apply
   # -replace=unifi_firewall_policy.drop_web_to_mgmt` outside any commit to
-  # fix). replace_triggered_by forces this drop rule to be destroyed and
-  # recreated in the same apply that creates preview_to_authentik, so it
-  # lands at a fresh, later index automatically - no more tribal-knowledge
-  # manual step for this one going forward.
-  lifecycle {
-    replace_triggered_by = [
-      unifi_firewall_policy.preview_to_authentik,
-    ]
-  }
+  # fix). Tried lifecycle.replace_triggered_by referencing
+  # preview_to_authentik here to codify the fix instead of repeating the
+  # manual step a third time - confirmed live via the actual `terraform
+  # plan` output that it does NOT fire: replace_triggered_by only reacts to
+  # a planned change on an attribute of an already-tracked resource, not to
+  # a referenced resource merely being newly created (no prior state to
+  # diff against). Reverted; the fix is the same manual step as before -
+  # after this PR is applied, run `terraform apply
+  # -replace=unifi_firewall_policy.drop_preview_to_mgmt` directly (see
+  # LAB-RUNBOOK.md) to force this rule to a fresh, later index.
 }
