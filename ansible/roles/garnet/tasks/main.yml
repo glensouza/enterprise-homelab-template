@@ -38,10 +38,29 @@
     dest: /tmp
     remote_src: true
 
-- name: Copy the net{{ dotnet_channel }} build into /opt/garnet
+- name: Stat /opt/garnet (pre-symlink layouts left it as a real directory)
+  ansible.builtin.stat:
+    path: /opt/garnet
+  register: garnet_opt_stat
+
+# Confirmed live (2026-09-19, the first real version bump this role ever
+# went through): copying straight into /opt/garnet while GarnetServer is
+# still running against it hits `OSError: [Errno 26] Text file busy` -
+# Ansible's copy module truncate-writes changed files in place rather than
+# an atomic rename, and you can't truncate a binary the kernel currently
+# has mapped for execution. Installing each release into its own versioned
+# directory and swapping a symlink avoids ever writing to a file that's
+# actually running - only a restart (below) makes the new version live.
+- name: Remove /opt/garnet if it's a real directory, not the symlink (one-time migration)
+  ansible.builtin.file:
+    path: /opt/garnet
+    state: absent
+  when: garnet_opt_stat.stat.exists and not garnet_opt_stat.stat.islnk
+
+- name: Copy the net{{ dotnet_channel }} build into /opt/garnet-{{ garnet_version }}
   ansible.builtin.copy:
     src: "/tmp/net{{ dotnet_channel }}/"
-    dest: /opt/garnet/
+    dest: "/opt/garnet-{{ garnet_version }}/"
     remote_src: true
     owner: garnet
     group: garnet
@@ -55,10 +74,18 @@
 
 - name: Make GarnetServer executable
   ansible.builtin.file:
-    path: /opt/garnet/GarnetServer
+    path: "/opt/garnet-{{ garnet_version }}/GarnetServer"
     mode: "0755"
     owner: garnet
     group: garnet
+
+- name: Point /opt/garnet at the current version (garnet.service's stable path)
+  ansible.builtin.file:
+    path: /opt/garnet
+    src: "/opt/garnet-{{ garnet_version }}"
+    state: link
+    force: true
+  register: garnet_symlink
 
 - name: Create /etc/garnet
   ansible.builtin.file:
@@ -95,7 +122,7 @@
   ansible.builtin.systemd:
     name: garnet
     enabled: true
-    state: "{{ 'restarted' if (garnet_binary.changed or garnet_config.changed or garnet_unit.changed) else 'started' }}"
+    state: "{{ 'restarted' if (garnet_binary.changed or garnet_symlink.changed or garnet_config.changed or garnet_unit.changed) else 'started' }}"
 
 - name: Push ConnectionStrings__cache to Infisical
   ansible.builtin.include_role:
