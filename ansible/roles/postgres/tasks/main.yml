@@ -116,8 +116,21 @@
   no_log: true
 
 - name: Create the authentik database
+  # Confirmed live: this whole cluster's databases (postgres, brewhouse_db,
+  # template0/1) are SQL_ASCII/C - this LXC's underlying locale was never
+  # configured for UTF-8 when Postgres was first initialized, so every
+  # CREATE DATABASE without an explicit ENCODING inherits that. Harmless for
+  # brewhouse_db so far (Npgsql apparently doesn't hit the same pitfall),
+  # but psycopg3 (Authentik's driver) defensively returns bytes instead of
+  # str for SQL_ASCII connections, which broke its own version-check code
+  # with "TypeError: cannot use a string pattern on a bytes-like object".
+  # UTF8 requires basing off template0, not the (also SQL_ASCII) template1 -
+  # LC_COLLATE/LC_CTYPE stay "C" (not changing collation behavior, only the
+  # encoding). Deliberately scoped to just this one database - fixing the
+  # cluster-wide SQL_ASCII default would mean touching brewhouse_db's real
+  # production data, a separate, much bigger decision (docs/01 ADR 65).
   ansible.builtin.command: >
-    su postgres -c "psql -c \"CREATE DATABASE authentik OWNER authentik;\""
+    su postgres -c "psql -c \"CREATE DATABASE authentik OWNER authentik ENCODING UTF8 LC_COLLATE \\\"C\\\" LC_CTYPE \\\"C\\\" TEMPLATE template0;\""
   register: create_authentik_db
   failed_when: create_authentik_db.rc != 0 and 'already exists' not in create_authentik_db.stderr
   changed_when: create_authentik_db.rc == 0

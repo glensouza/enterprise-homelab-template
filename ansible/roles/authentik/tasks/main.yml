@@ -147,9 +147,15 @@
   when: xmlsec_check.rc != 0
 
 - name: Build and install xmlsec
+  # Confirmed live: the release tarball ships a pre-generated ./configure
+  # (standard autotools release practice) but no ./autogen.sh - that script
+  # regenerates configure from configure.ac via autoreconf, which release
+  # tarballs don't need and don't include. community-scripts' own install
+  # sequence runs against a git checkout instead, where autogen.sh exists;
+  # this role fetches the release tarball, so ./configure is the right call.
   ansible.builtin.shell: |
     set -e
-    ./autogen.sh
+    ./configure
     make -j "$(nproc)"
     make install
     ldconfig
@@ -176,15 +182,55 @@
     executable: /bin/bash
   changed_when: true
 
+# Confirmed live: needed even though this role deliberately skips the
+# LDAP/RAC/Radius Go outposts - the core binary's own `cargo build` pulls in
+# aws-lc-fips-sys as a transitive dependency, whose build script shells out
+# to `go` for its own CMake-driven codegen (`Could not find Go` otherwise).
+# Nothing to do with the outposts; a build-time requirement of the core
+# crate itself.
+- name: Determine the Go version pinned by this Authentik release
+  ansible.builtin.command: awk '/^go /{print $2; exit}' go.mod
+  args:
+    chdir: "/opt/authentik-{{ authentik_version }}"
+  register: authentik_go_version
+  changed_when: false
+
+- name: Check if that Go version is already installed
+  ansible.builtin.command: /usr/local/go/bin/go version
+  register: go_check
+  failed_when: false
+  changed_when: false
+
+- name: Download Go
+  ansible.builtin.get_url:
+    url: "https://go.dev/dl/go{{ authentik_go_version.stdout }}.linux-amd64.tar.gz"
+    dest: "/tmp/go{{ authentik_go_version.stdout }}.tar.gz"
+    mode: "0644"
+  when: authentik_go_version.stdout not in (go_check.stdout | default(''))
+
+- name: Remove any previous Go install
+  ansible.builtin.file:
+    path: /usr/local/go
+    state: absent
+  when: authentik_go_version.stdout not in (go_check.stdout | default(''))
+
+- name: Extract Go to /usr/local
+  ansible.builtin.unarchive:
+    src: "/tmp/go{{ authentik_go_version.stdout }}.tar.gz"
+    dest: /usr/local
+    remote_src: true
+  when: authentik_go_version.stdout not in (go_check.stdout | default(''))
+
 - name: Check if uv is already installed
   ansible.builtin.stat:
     path: /root/.local/bin/uv
   register: uv_stat
 
 - name: Install uv
+  # UV_PYTHON_INSTALL_DIR is irrelevant here - this step only installs the
+  # uv/uvx binaries themselves, not any Python interpreter. It's set on the
+  # actual `uv sync` task below instead, which is the one that matters.
   ansible.builtin.shell: curl -LsSf https://astral.sh/uv/install.sh | sh
-  environment:
-    UV_PYTHON_INSTALL_DIR: /usr/local/bin
   when: not uv_stat.stat.exists
 
 - name: Create apt keyring directory
@@ -220,7 +266,7 @@
   # depends on that collection being present on the runner.
   ansible.builtin.command: npm install -g pnpm@12
   args:
-    creates: /usr/lib/node_modules/pnpm/bin/pnpm.cjs
+    creates: /usr/lib/node_modules/pnpm/bin/pnpm.mjs
 
 - name: Build the web frontend
   ansible.builtin.shell: |
@@ -230,12 +276,18 @@
     pnpm run build:sfe
   args:
     chdir: "/opt/authentik-{{ authentik_version }}/web"
-    creates: "/opt/authentik-{{ authentik_version }}/web/dist/index.html"
+    # Confirmed live: this build produces per-entry-point bundles
+    # (dist/admin/, dist/user/, dist/flow/, ...), not a single dist/index.html
+    # - there's no unversioned marker file, every filename embeds the
+    # version, so the directory itself is the stable check.
+    creates: "/opt/authentik-{{ authentik_version }}/web/dist/admin"
     executable: /bin/bash
 
 - name: Build the core/worker binary (this can take 10+ minutes - confirmed live)
   ansible.builtin.shell: |
     source /root/.cargo/env
+    export PATH="/usr/local/go/bin:$PATH"
+    export AWS_LC_FIPS_SYS_CC=clang
     cargo build --package authentik --no-default-features --features core --locked --release
     mkdir -p bin
     cp ./target/release/authentik bin/
@@ -248,6 +300,14 @@
 - name: Install the Python virtualenv (uv sync)
   ansible.builtin.shell: |
     export PATH="/usr/local/bin:$PATH"
+    # Confirmed live: without this, `uv sync` (run as root) installs its
+    # managed Python interpreter under /root/.local/share/uv/python/ - the
+    # .venv/bin/python symlink then points into root's home, which the
+    # unprivileged authentik user can't traverse at all ("Permission
+    # denied" the instant the service tries to exec it). A shared,
+    # world-readable location fixes this for every later invocation
+    # (server/worker both run as the authentik user).
+    export UV_PYTHON_INSTALL_DIR=/usr/local/uv-python
     export UV_NO_BINARY_PACKAGE="cryptography lxml python-kadmin-rs xmlsec"
     export UV_COMPILE_BYTECODE=1
     export UV_LINK_MODE=copy
