@@ -4,6 +4,21 @@ A production-grade, highly available, decentralized home lab architecture templa
 
 This repository utilizes a consolidated AI-Native approach via a single `CLAUDE.md` file, teaching Claude Code your exact architecture, network layout, safety guardrails, and required developer workflow (auto-updating tests and docs).
 
+## Action Statuses
+
+[![Ansible Converge](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/ansible-converge.yml/badge.svg)](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/ansible-converge.yml)
+[![Bump Minor Version on PR](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/bump-minor.yml/badge.svg)](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/bump-minor.yml)
+[![Bump Pinned Versions](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/bump-pinned-versions.yml/badge.svg)](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/bump-pinned-versions.yml)
+[![Deploy .NET 10 Blazor App to LXC](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/deploy-blazor.yml/badge.svg)](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/deploy-blazor.yml)
+[![Patch Fleet](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/patch-fleet.yml/badge.svg)](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/patch-fleet.yml)
+[![PR Build & Test](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/pr-build-test.yml/badge.svg)](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/pr-build-test.yml)
+[![PR Preview Cleanup](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/pr-preview-cleanup.yml/badge.svg)](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/pr-preview-cleanup.yml)
+[![PR Preview Deploy](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/pr-preview.yml/badge.svg)](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/pr-preview.yml)
+[![Rollback Blazor App](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/rollback.yml/badge.svg)](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/rollback.yml)
+[![Secret Scan](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/secret-scan.yml)
+[![Terraform Apply](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/terraform-apply.yml/badge.svg)](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/terraform-apply.yml)
+[![Terraform Plan](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/terraform-plan.yml/badge.svg)](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/terraform-plan.yml)
+
 ## Repository Structure
 
 ```text
