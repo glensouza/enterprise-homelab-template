@@ -21,10 +21,16 @@ postgresql:
   port: 5432
 
 cache:
-  url: "redis://{{ hostvars['garnet'].ansible_host }}:{{ hostvars['garnet'].garnet_port }}/{{ authentik_redis_cache_db }}"
+  # Port hardcoded (6379, matches garnet_port's own default and the
+  # firewall rules elsewhere in this repo) rather than
+  # hostvars['garnet'].garnet_port - confirmed live that a role's own
+  # defaults/main.yml vars aren't reliably visible via hostvars from a
+  # different host's task ("AnsibleUndefinedVariable: ... has no attribute
+  # 'garnet_port'"), unlike ansible_host, which inventory always populates.
+  url: "redis://{{ hostvars['garnet'].ansible_host }}:6379/{{ authentik_redis_cache_db }}"
 
 channel:
-  url: "redis://{{ hostvars['garnet'].ansible_host }}:{{ hostvars['garnet'].garnet_port }}/{{ authentik_redis_channel_db }}"
+  url: "redis://{{ hostvars['garnet'].ansible_host }}:6379/{{ authentik_redis_channel_db }}"
 
 disable_startup_analytics: true
 
