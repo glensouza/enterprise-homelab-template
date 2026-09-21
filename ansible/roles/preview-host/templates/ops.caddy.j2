@@ -36,8 +36,8 @@ dozzle.{{ internal_domain }} {
 		}
 	}
 	handle_errors {
-		@redirect expression `{err.status_code} in [401, 403]`
-		redirect @redirect https://authentik.{{ internal_domain }}/outpost.goauthentik.io/start?rd={scheme}://{host}{uri} 302
+		@redirect expression `{http.error.status_code} in [401, 403]`
+		redir @redirect https://authentik.{{ internal_domain }}/outpost.goauthentik.io/start?rd={scheme}://{host}{uri} 302
 	}
 
 	reverse_proxy 127.0.0.1:8080
@@ -66,8 +66,8 @@ redisinsight.{{ internal_domain }} {
 		}
 	}
 	handle_errors {
-		@redirect expression `{err.status_code} in [401, 403]`
-		redirect @redirect https://authentik.{{ internal_domain }}/outpost.goauthentik.io/start?rd={scheme}://{host}{uri} 302
+		@redirect expression `{http.error.status_code} in [401, 403]`
+		redir @redirect https://authentik.{{ internal_domain }}/outpost.goauthentik.io/start?rd={scheme}://{host}{uri} 302
 	}
 
 	reverse_proxy 127.0.0.1:5540

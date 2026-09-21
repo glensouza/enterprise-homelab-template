@@ -1,7 +1,13 @@
 ---
-# Points DNS at the Technitium server (ADR 20, docs/11) so the preview host
-# and step-ca can resolve the internal zone (pr-*.{{ preview_domain }} for
-# ACME validation). The VLAN gateway remains as a fallback resolver.
+# Points DNS at the Technitium server (ADR 20/67, docs/11) so every host can
+# resolve the internal zone - originally just the preview host and step-ca
+# (pr-*.{{ preview_domain }} for ACME validation), now fleet-wide (ADR 67):
+# any host resolving a *.{{ internal_domain }} hostname (Uptime Kuma's
+# hostname-based monitors; the caddy-forward-auth role's forward_auth call
+# to authentik.{{ internal_domain }}, ADR 66) needs this too, not just the
+# two hosts that happened to need it first. The VLAN gateway remains as a
+# fallback resolver. search is the main lab zone, not the narrower PR-preview
+# subzone, since this now covers hosts that only ever look up the former.
 - name: Configure resolv.conf
   ansible.builtin.copy:
     dest: /etc/resolv.conf
@@ -11,4 +17,4 @@
     content: |
       nameserver {{ technitium_dns_server }}
       nameserver {{ ansible_default_ipv4.gateway }}
-      search {{ preview_domain }}
+      search {{ internal_domain }}

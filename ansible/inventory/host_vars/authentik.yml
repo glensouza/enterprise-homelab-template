@@ -12,3 +12,15 @@ authentik_secret_key: "{{ lookup('ansible.builtin.password', '/opt/ansible-crede
 authentik_bootstrap_email: "admin@{{ internal_domain }}"
 authentik_bootstrap_password: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/authentik/bootstrap_password length=32 chars=ascii_letters,digits') }}"
 authentik_bootstrap_token: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/authentik/bootstrap_token length=64 chars=ascii_letters,digits') }}"
+
+# Picked up by the homepage role (ADR 38) to auto-populate the dashboard -
+# nothing to edit there when this host's service moves or its port changes.
+# Links to the TLS-terminated Caddy front (ADR 61), not the loopback-only
+# :9000 Authentik itself listens on directly.
+homepage_service:
+  - group: Management
+    name: Authentik
+    icon: authentik.png
+    href: "https://authentik.{{ internal_domain }}"
+    description: SSO / identity provider
+    ping: "{{ ansible_host }}"

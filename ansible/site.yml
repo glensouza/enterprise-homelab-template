@@ -29,10 +29,22 @@
   roles:
     - technitium
 
+# Fleet-wide (docs/01 ADR 67): previously only pki/preview got this role,
+# via their own roles: list below (now removed - this play covers them
+# too). Every other host still pointed at the generic UniFi gateway, which
+# has no idea about brewhouse.internal, so any hostname-based
+# *.brewhouse.internal request from those hosts (Uptime Kuma's own
+# hostname-based monitors; the new caddy-forward-auth role's forward_auth
+# call to authentik.brewhouse.internal, ADR 66) NXDOMAINs instead of
+# resolving. Runs right after the dns play so Technitium is already up.
+- name: Point every host's DNS at Technitium (VLAN 130, ADR 20/67)
+  hosts: all:!devops
+  roles:
+    - resolver
+
 - name: Configure step-ca internal PKI (VLAN 130, ADR 20)
   hosts: pki
   roles:
-    - resolver
     - step-ca
 
 - name: Configure Garnet cache & SignalR backplane (VLAN 120, ADR 04/08/27)
@@ -59,7 +71,6 @@
 - name: Configure the PR preview host (VLAN 140, ADR 19)
   hosts: preview
   roles:
-    - resolver
     - docker
     - preview-host
 
