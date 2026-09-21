@@ -58,7 +58,7 @@ locals {
     # never actually recovered on its own across repeated restarts) -
     # same class of gap as ADR 48's web-node OOM, and the same fix: more
     # headroom for the Erlang VM plus swap as breathing room for spikes,
-    # not steady-state usage (docs/01 ADR 63).
+    # not steady-state usage (docs/01 ADR 62).
     rabbitmq   = { vm_id = 412, node = var.proxmox_node_1, ip = "10.10.120.112/24", gateway = "10.10.120.1", vlan = 120, cores = 1, memory = 2048, swap = 1024, disk = 8, tags = ["terraform", "vlan120", "data"] }
 
     # VLAN 130 — Management / Infrastructure tier (Infisical back-office portal on pve4 Primary)

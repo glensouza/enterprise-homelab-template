@@ -33,7 +33,7 @@ just the two below, so the NAS's NFS export must allow all four node IPs.
 | **Cloudflared** | VLAN 110 (`10.10.110.5`)   | **`pve4`** (Node 1) | 1 | 512 MB  | *None* | Primary ingress connector / Cloudflare tunnel |
 | **PostgreSQL** | VLAN 120 (`10.10.120.110`) | **`pve4`** (Node 1) | 4 | 4096 MB | `/volume1/homelab-postgres-data` | Primary database engine (PostgreSQL + pgvector) |
 | **Garnet** | VLAN 120 (`10.10.120.111`) | **`pve4`** (Node 1) | 2 | 2048 MB | *None* | Primary cache & SignalR scale-out backplane |
-| **RabbitMQ** | VLAN 120 (`10.10.120.112`) | **`pve4`** (Node 1) | 1 | 1024 MB | *None* | Primary message broker for Wolverine |
+| **RabbitMQ** | VLAN 120 (`10.10.120.112`) | **`pve4`** (Node 1) | 1 | 2048 MB (+1024 MB swap) | *None* | Primary message broker for Wolverine — bumped from 1024 MB/no swap (ADR 62) after a confirmed-live persistent OOM-kill crash loop |
 | **Infisical** | VLAN 130 (`10.10.130.116`) | **`pve4`** (Node 1) | 2 | 1536 MB | *None* | Back-office admin portal for secret management |
 | **Uptime Kuma** | VLAN 130 (`10.10.130.117`) | **`pve3`** (Node 2) | 1 | 512 MB  | *None* | Utility monitoring container |
 | **Grafana Loki / Observability** | VLAN 130 (`10.10.130.118`) | **`pve3`** (Node 2) | 2 | 2048 MB | *None* | Utility telemetry receiver (Alloy + Loki + Grafana) |
