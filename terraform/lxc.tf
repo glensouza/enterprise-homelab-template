@@ -73,18 +73,21 @@ locals {
     # pnpm/Next.js build step) trimmed to 2GB - this host only builds once
     # per version bump, not on every boot.
     homepage       = { vm_id = 323, node = var.proxmox_node_2, ip = "10.10.130.120/24", gateway = "10.10.130.1", vlan = 130, cores = 2, memory = 2048, disk = 8, tags = ["terraform", "vlan130", "mgmt"] }
-    # SSO (docs/01 ADR 59). cores/memory/disk match community-scripts'
-    # authentik-install.sh defaults as-is, not trimmed like homepage above -
-    # unlike Homepage's Next.js build, Authentik's install compiles a Rust
-    # binary from source (cargo build --release, upstream's own comment:
-    # "may take more than 10 minutes"), and this repo already learned the
-    # hard way (ADR 48) not to undersize an LXC that does real build/link
-    # work. swap added for the same reason. Persistent data
-    # (/opt/authentik-data - certs, media, blueprints) lives on this LXC's
-    # own root disk, not a second Proxmox volume like community-scripts'
-    # ct/authentik.sh mounts - small enough (low hundreds of MB) that the
-    # extra moving part isn't worth it here.
-    authentik      = { vm_id = 324, node = var.proxmox_node_2, ip = "10.10.130.123/24", gateway = "10.10.130.1", vlan = 130, cores = 4, memory = 8192, swap = 2048, disk = 16, tags = ["terraform", "vlan130", "mgmt", "sso"] }
+    # SSO (docs/01 ADR 59/63). VMID 417/pve4, not the original 324/pve3 -
+    # confirmed live via a plain memory sum (Copilot review, PR #7) that
+    # pve3 (8GB physical) was already committed past capacity even before
+    # Authentik, and an 8GB LXC memory limit there put a SINGLE container's
+    # limit at the entire node's physical RAM. Moved to pve4 (16GB, already
+    # hosting the other heavier workloads: Postgres, the preview host) and
+    # trimmed from community-scripts' 8192MB default to 3072MB - reusing the
+    # shared postgresql/garnet LXCs (ADR 59) means this instance's own
+    # steady-state footprint is much lighter than community-scripts' assumed
+    # self-contained-stack deployment; swap stays generous (3072MB) as
+    # headroom for the one-time cargo/pnpm build spike specifically, not
+    # steady-state serving. pve4's LXC memory limits still sum to
+    # meaningfully more than 16GB after this - a real, deliberately accepted
+    # overcommit (docs/01 ADR 63), not one this trim fully eliminates.
+    authentik      = { vm_id = 417, node = var.proxmox_node_1, ip = "10.10.130.123/24", gateway = "10.10.130.1", vlan = 130, cores = 4, memory = 3072, swap = 3072, disk = 16, tags = ["terraform", "vlan130", "mgmt", "sso"] }
 
     # VLAN 140 — Non-Prod Single Docker Host tier (pve4 Primary)
     pr-preview = { vm_id = 420, node = var.proxmox_node_1, ip = "10.10.140.120/24", gateway = "10.10.140.1", vlan = 140, cores = 2, memory = 4096, disk = 60, tags = ["terraform", "vlan140", "preview"] }

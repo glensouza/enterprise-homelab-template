@@ -120,7 +120,7 @@ Synology NAS and Kemp are pre-existing, non-Terraform-managed hardware and stay 
 | step-ca internal PKI (ACME, port 4443) | `10.10.130.121` | `pve3` (Node 2 - Secondary) |
 | PatchMon (OS patch tracking — LXC reserved, no role yet) | `10.10.130.122` | `pve3` (Node 2 - Secondary) |
 | Homepage (fleet dashboard, port 3000, ADR 38) | `10.10.130.120` | `pve3` (Node 2 - Secondary) |
-| Authentik (SSO, HTTPS 443 via its own Caddy, ADR 59/61) | `10.10.130.123` | `pve3` (Node 2 - Secondary) |
+| Authentik (SSO, HTTPS 443 via its own Caddy, ADR 59/61/63) | `10.10.130.123` | `pve4` (Node 1 - Primary) |
 
 ### VLAN 140 — Non-Prod / Preview (`10.10.140.x`)
 | Host | IP | Node Assignment |
