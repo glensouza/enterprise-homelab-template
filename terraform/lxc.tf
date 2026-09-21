@@ -52,7 +52,14 @@ locals {
     # /mnt/homelab-postgres-data (host-level, not Terraform-managed).
     postgresql = { vm_id = 410, node = var.proxmox_node_1, ip = "10.10.120.110/24", gateway = "10.10.120.1", vlan = 120, cores = 4, memory = 4096, disk = 40, tags = ["terraform", "vlan120", "data"], privileged = true, mount_point = { volume = "/mnt/homelab-postgres-data", path = "/mnt/synology/postgres-data" } }
     garnet     = { vm_id = 411, node = var.proxmox_node_1, ip = "10.10.120.111/24", gateway = "10.10.120.1", vlan = 120, cores = 2, memory = 2048, disk = 8, tags = ["terraform", "vlan120", "data"] }
-    rabbitmq   = { vm_id = 412, node = var.proxmox_node_1, ip = "10.10.120.112/24", gateway = "10.10.120.1", vlan = 120, cores = 1, memory = 1024, disk = 8, tags = ["terraform", "vlan120", "data"] }
+    # memory/swap bumped from 1024/0 (2026-09-21) after the LXC hit a
+    # persistent OOM-kill crash loop (`systemctl status rabbitmq-server`:
+    # "Active: activating (auto-restart) (Result: oom-kill)", confirmed live,
+    # never actually recovered on its own across repeated restarts) -
+    # same class of gap as ADR 48's web-node OOM, and the same fix: more
+    # headroom for the Erlang VM plus swap as breathing room for spikes,
+    # not steady-state usage (docs/01 ADR 63).
+    rabbitmq   = { vm_id = 412, node = var.proxmox_node_1, ip = "10.10.120.112/24", gateway = "10.10.120.1", vlan = 120, cores = 1, memory = 2048, swap = 1024, disk = 8, tags = ["terraform", "vlan120", "data"] }
 
     # VLAN 130 — Management / Infrastructure tier (Infisical back-office portal on pve4 Primary)
     infisical      = { vm_id = 416, node = var.proxmox_node_1, ip = "10.10.130.116/24", gateway = "10.10.130.1", vlan = 130, cores = 2, memory = 1536, disk = 16, tags = ["terraform", "vlan130", "mgmt"] }
