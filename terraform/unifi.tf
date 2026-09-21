@@ -494,13 +494,16 @@ resource "unifi_firewall_policy" "preview_to_patchmon" {
   enabled = true
 }
 
-# docs/01 ADR 59/60: Caddy on the preview host calls out to Authentik's
+# docs/01 ADR 59/61: Caddy on the preview host calls out to Authentik's
 # forward_auth check (Dozzle/RedisInsight, both fronted by ops.caddy.j2) on
 # every request - unlike the other preview_to_* rules above, this one is on
 # the hot path for every page load of those two apps, not just an
-# occasional admin action.
+# occasional admin action. Port 443, not the 9443 ADR 59 originally assumed
+# (ADR 61) - Authentik itself ended up loopback-only behind its own Caddy
+# instance, terminating TLS on the standard port, rather than exposing an
+# embedded HTTPS listener directly.
 resource "unifi_firewall_policy" "preview_to_authentik" {
-  name     = "Allow Preview -> Authentik (9443)"
+  name     = "Allow Preview -> Authentik (443)"
   action   = "ALLOW"
   protocol = "tcp"
   source = {
@@ -511,7 +514,7 @@ resource "unifi_firewall_policy" "preview_to_authentik" {
   destination = {
     zone_id         = local.internal_zone_id
     ips             = ["10.10.130.123"]
-    port            = "9443"
+    port            = "443"
     matching_target = "IP"
   }
   enabled = true
