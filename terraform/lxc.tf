@@ -87,6 +87,19 @@ locals {
     # steady-state serving. pve4's LXC memory limits still sum to
     # meaningfully more than 16GB after this - a real, deliberately accepted
     # overcommit (docs/01 ADR 63), not one this trim fully eliminates.
+    #
+    # Addendum, confirmed live applying this exact VMID/node move: the
+    # replace (a genuinely new container, same class of event as ADR 50's
+    # web-node rename) left the fleet-wide converge's first pass unable to
+    # reach the new LXC at all ("Connection timed out") - it simply hadn't
+    # finished booting sshd yet when Ansible got to its play, seconds after
+    # `terraform apply` returned. Same shape as ADR 52's post-reboot race,
+    # just on first boot instead of a reboot. No code fix applied here (the
+    # existing retry pattern is scoped to the web tier's own health check,
+    # not a generic post-create boot wait for every LXC) - a second
+    # converge pass succeeded once the LXC was actually up, which is enough
+    # for a one-time LXC creation, unlike the recurring reboot case ADR 52
+    # covers.
     authentik      = { vm_id = 417, node = var.proxmox_node_1, ip = "10.10.130.123/24", gateway = "10.10.130.1", vlan = 130, cores = 4, memory = 3072, swap = 3072, disk = 16, tags = ["terraform", "vlan130", "mgmt", "sso"] }
 
     # VLAN 140 — Non-Prod Single Docker Host tier (pve4 Primary)
