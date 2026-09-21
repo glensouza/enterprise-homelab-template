@@ -1,0 +1,29 @@
+# Managed by Ansible (roles/caddy-forward-auth) — manual edits will be overwritten.
+#
+# Single-site Caddy front for {{ caddy_fa_fqdn }} (docs/01 ADR 66): TLS via
+# step-ca ACME (same pattern as roles/authentik and roles/preview-host —
+# Caddy's automatic HTTPS refuses to ACME-issue for *.internal names, so the
+# explicit `tls { ca ... }` below is required), gated by an Authentik
+# forward-auth check against the embedded outpost before the app itself is
+# reached.
+{{ caddy_fa_fqdn }} {
+	tls {
+		ca {{ step_ca_url }}/acme/acme/directory
+		ca_root /etc/caddy/pki/root_ca.crt
+	}
+
+	forward_auth https://authentik.{{ internal_domain }} {
+		uri /outpost.goauthentik.io/auth/caddy
+		copy_headers X-Authentik-Username X-Authentik-Groups X-Authentik-Email X-Authentik-Name X-Authentik-Uid X-Authentik-Jwt X-Authentik-Meta-Jwks X-Authentik-Meta-Outpost X-Authentik-Meta-Provider X-Authentik-Meta-App X-Authentik-Meta-Version
+		trusted_proxies private_ranges
+		transport http {
+			tls_trust_pool file /etc/caddy/pki/root_ca.crt
+		}
+	}
+	handle_errors {
+		@redirect expression `{err.status_code} in [401, 403]`
+		redirect @redirect https://authentik.{{ internal_domain }}/outpost.goauthentik.io/start?rd={scheme}://{host}{uri} 302
+	}
+
+	reverse_proxy {{ caddy_fa_backend }}
+}

@@ -9,6 +9,10 @@
 # Caddyfile.j2 — those only apply to hostnames that pass Caddy's public-CA
 # eligibility check, which .internal always fails. The per-site `tls { ca
 # ... }` below is what actually forces step-ca to be used.
+#
+# Dozzle and RedisInsight additionally sit behind Authentik forward-auth
+# (docs/01 ADR 66) — tier-2 SSO per the S3-01 rollout. Portainer/pgAdmin stay
+# open here; they're slated for tier-1 native OIDC, not forward-auth.
 portainer.{{ internal_domain }} {
 	tls {
 		ca {{ step_ca_url }}/acme/acme/directory
@@ -22,6 +26,20 @@ dozzle.{{ internal_domain }} {
 		ca {{ step_ca_url }}/acme/acme/directory
 		ca_root /etc/caddy/pki/root_ca.crt
 	}
+
+	forward_auth https://authentik.{{ internal_domain }} {
+		uri /outpost.goauthentik.io/auth/caddy
+		copy_headers X-Authentik-Username X-Authentik-Groups X-Authentik-Email X-Authentik-Name X-Authentik-Uid X-Authentik-Jwt X-Authentik-Meta-Jwks X-Authentik-Meta-Outpost X-Authentik-Meta-Provider X-Authentik-Meta-App X-Authentik-Meta-Version
+		trusted_proxies private_ranges
+		transport http {
+			tls_trust_pool file /etc/caddy/pki/root_ca.crt
+		}
+	}
+	handle_errors {
+		@redirect expression `{err.status_code} in [401, 403]`
+		redirect @redirect https://authentik.{{ internal_domain }}/outpost.goauthentik.io/start?rd={scheme}://{host}{uri} 302
+	}
+
 	reverse_proxy 127.0.0.1:8080
 }
 
@@ -38,5 +56,19 @@ redisinsight.{{ internal_domain }} {
 		ca {{ step_ca_url }}/acme/acme/directory
 		ca_root /etc/caddy/pki/root_ca.crt
 	}
+
+	forward_auth https://authentik.{{ internal_domain }} {
+		uri /outpost.goauthentik.io/auth/caddy
+		copy_headers X-Authentik-Username X-Authentik-Groups X-Authentik-Email X-Authentik-Name X-Authentik-Uid X-Authentik-Jwt X-Authentik-Meta-Jwks X-Authentik-Meta-Outpost X-Authentik-Meta-Provider X-Authentik-Meta-App X-Authentik-Meta-Version
+		trusted_proxies private_ranges
+		transport http {
+			tls_trust_pool file /etc/caddy/pki/root_ca.crt
+		}
+	}
+	handle_errors {
+		@redirect expression `{err.status_code} in [401, 403]`
+		redirect @redirect https://authentik.{{ internal_domain }}/outpost.goauthentik.io/start?rd={scheme}://{host}{uri} 302
+	}
+
 	reverse_proxy 127.0.0.1:5540
 }

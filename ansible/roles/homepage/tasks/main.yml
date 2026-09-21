@@ -175,3 +175,14 @@
     infisical_secret_name: HOMEPAGE_AUTH_PASSWORD
     infisical_secret_value: "{{ homepage_auth_password }}"
   when: infisical_project_id is defined
+
+# Tier-2 forward-auth (docs/01 ADR 66) for the internal homepage.{{ internal_domain }}
+# name only - does not touch the pre-existing public Cloudflare Tunnel route
+# (homepage.smartsoftwarecoffee.com, ADR 47), which still hits port 3000
+# directly and is unaffected by this new Caddy front.
+- name: Front Homepage with Caddy + Authentik forward-auth
+  ansible.builtin.include_role:
+    name: caddy-forward-auth
+  vars:
+    caddy_fa_fqdn: "homepage.{{ internal_domain }}"
+    caddy_fa_backend: "127.0.0.1:3000"

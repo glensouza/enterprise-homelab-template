@@ -1,0 +1,5 @@
+---
+- name: Restart caddy-forward-auth
+  ansible.builtin.systemd:
+    name: caddy
+    state: restarted

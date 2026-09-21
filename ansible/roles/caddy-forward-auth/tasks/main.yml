@@ -1,0 +1,61 @@
+---
+# Shared role (docs/01 ADR 66): installs Caddy fronted by step-ca ACME TLS
+# plus an Authentik forward-auth gate, for a single-app LXC that has no
+# reverse proxy of its own yet. Mirrors roles/authentik's own Caddy
+# front-end block (which predates this role and stays as-is rather than
+# being migrated onto it) and roles/preview-host's step-ca trust setup.
+#
+# Callers set caddy_fa_fqdn (e.g. "kuma.{{ internal_domain }}") and
+# caddy_fa_backend (e.g. "127.0.0.1:3001") before including this role.
+
+- name: Install apt prerequisites for the Caddy repository
+  ansible.builtin.apt:
+    name: [debian-keyring, debian-archive-keyring, apt-transport-https]
+    state: present
+
+- name: Add the Caddy apt GPG key
+  ansible.builtin.get_url:
+    url: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
+    dest: /etc/apt/keyrings/caddy-stable.asc
+    mode: "0644"
+
+- name: Add the Caddy apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/caddy-stable.asc] https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main"
+    state: present
+
+- name: Install Caddy
+  ansible.builtin.apt:
+    name: caddy
+    update_cache: true
+    state: present
+
+- name: Create the Caddy PKI directory
+  ansible.builtin.file:
+    path: /etc/caddy/pki
+    state: directory
+    mode: "0755"
+
+- name: Install the step-ca root certificate for Caddy to trust
+  ansible.builtin.copy:
+    src: "/opt/ansible-fetched/step-ca/root_ca.crt"
+    dest: /etc/caddy/pki/root_ca.crt
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart caddy-forward-auth
+
+- name: Install the Caddyfile
+  ansible.builtin.template:
+    src: Caddyfile.j2
+    dest: /etc/caddy/Caddyfile
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart caddy-forward-auth
+
+- name: Enable and start Caddy
+  ansible.builtin.systemd:
+    name: caddy
+    enabled: true
+    state: started

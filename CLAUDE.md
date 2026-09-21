@@ -118,9 +118,14 @@ Synology NAS and Kemp are pre-existing, non-Terraform-managed hardware and stay 
 | Grafana Loki / Observability | `10.10.130.118` | `pve3` (Node 2 - Secondary) |
 | Technitium DNS (wildcard `*.pr.brewhouse.internal`) | `10.10.130.119` | `pve3` (Node 2 - Secondary) |
 | step-ca internal PKI (ACME, port 4443) | `10.10.130.121` | `pve3` (Node 2 - Secondary) |
-| PatchMon (OS patch tracking — LXC reserved, no role yet) | `10.10.130.122` | `pve3` (Node 2 - Secondary) |
+| PatchMon (OS patch tracking, ADR 33/34) | `10.10.130.122` | `pve3` (Node 2 - Secondary) |
 | Homepage (fleet dashboard, port 3000, ADR 38) | `10.10.130.120` | `pve3` (Node 2 - Secondary) |
 | Authentik (SSO, HTTPS 443 via its own Caddy, ADR 59/61/63) | `10.10.130.123` | `pve4` (Node 1 - Primary) |
+
+Tier-2 forward-auth (ADR 66): Uptime Kuma, PatchMon, and Homepage each also run their own Caddy
+instance (`roles/caddy-forward-auth`) fronting them at `https://{kuma,patchmon,homepage}.brewhouse.internal`,
+gated by Authentik. Their bare ports above (`:3001`/`:3000`/`:3000`) still work directly and are
+unauthenticated — the Caddy front is additive, not a replacement listener.
 
 ### VLAN 140 — Non-Prod / Preview (`10.10.140.x`)
 | Host | IP | Node Assignment |

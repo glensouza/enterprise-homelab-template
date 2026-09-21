@@ -19,6 +19,13 @@ dns_service_cnames:
   - { name: pgadmin, target: pr-preview }
   - { name: redisinsight, target: pr-preview }
   - { name: floci, target: pr-preview }
+  # Friendlier alias for the Uptime Kuma LXC's own per-host A record
+  # (inventory hostname "uptime-kuma" - ADR 54) - used by the tier-2
+  # forward-auth Caddy front (docs/01 ADR 66) and the matching Authentik
+  # Proxy Provider's external_host. homepage/patchmon need no entry here:
+  # their inventory hostnames already match the desired {{ internal_domain }}
+  # name exactly.
+  - { name: kuma, target: uptime-kuma }
 
 # Picked up by the homepage role (ADR 38) to auto-populate the dashboard.
 homepage_service:

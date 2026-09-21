@@ -148,3 +148,11 @@
   changed_when: (seed_result.stdout | from_json).added | length > 0
   no_log: true
   when: uptime_kuma_username is defined and uptime_kuma_password is defined
+
+# Tier-2 forward-auth (docs/01 ADR 66).
+- name: Front Uptime Kuma with Caddy + Authentik forward-auth
+  ansible.builtin.include_role:
+    name: caddy-forward-auth
+  vars:
+    caddy_fa_fqdn: "kuma.{{ internal_domain }}"
+    caddy_fa_backend: "127.0.0.1:{{ uptime_kuma_port | default(3001) }}"

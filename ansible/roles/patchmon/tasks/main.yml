@@ -108,3 +108,11 @@
     state: >-
       {{ 'restarted' if (patchmon_config.changed or patchmon_unit.changed or patchmon_binary.changed)
          else 'started' }}
+
+# Tier-2 forward-auth (docs/01 ADR 66).
+- name: Front PatchMon with Caddy + Authentik forward-auth
+  ansible.builtin.include_role:
+    name: caddy-forward-auth
+  vars:
+    caddy_fa_fqdn: "patchmon.{{ internal_domain }}"
+    caddy_fa_backend: "127.0.0.1:{{ patchmon_port }}"
