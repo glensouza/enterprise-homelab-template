@@ -45,7 +45,14 @@
       - gcc
       - cmake
       - clang
-      - libunwind-18-dev
+      # Confirmed live: community-scripts' authentik-install.sh pins
+      # libunwind-18-dev, but that exact versioned package doesn't exist in
+      # Debian 12/bookworm's repos (available: ...-16, -19, jumping over
+      # 17/18 entirely) - their reference install must assume a different
+      # base than plain bookworm + apt's default clang (v14 here, not even
+      # v18/19). The generic, always-available libunwind-dev covers the
+      # same standard stack-unwinding headers.
+      - libunwind-dev
       - git
       - curl
     update_cache: true
