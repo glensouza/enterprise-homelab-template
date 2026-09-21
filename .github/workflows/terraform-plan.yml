@@ -6,14 +6,27 @@ name: Terraform Plan
 # as a PR comment and uploads the exact plan file as an artifact so
 # terraform-apply.yml can apply precisely what was reviewed here, never a
 # freshly regenerated plan.
+#
+# workflow_dispatch (ADR 64) exists for exactly one case: an already-applied
+# saved plan going stale (terraform-apply.yml's own Ansible step failing
+# *after* terraform apply already succeeded, same real incident that
+# prompted this) — getting a fresh plan_run_id shouldn't require opening a
+# throwaway PR every time it happens. It is NOT a way to skip PR review for
+# an actual infrastructure change: a real terraform/** diff should still go
+# through a PR so a human reviews it as a diff, per ADR 22's whole point.
+# Manual runs post their plan to the run's own Step Summary instead of a PR
+# comment (no PR to comment on) — still reviewable, just one click further
+# away; applying still requires a human to deliberately pass that run's
+# plan_run_id to terraform-apply.yml, same gate either way.
 
 on:
   pull_request:
     paths:
       - 'terraform/**'
+  workflow_dispatch: {}
 
 concurrency:
-  group: terraform-${{ github.event.pull_request.number }}
+  group: terraform-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 permissions:
@@ -70,6 +83,7 @@ jobs:
           retention-days: 5
 
       - name: Comment plan on PR
+        if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
@@ -87,3 +101,23 @@ jobs:
               repo: context.repo.repo,
               body: `${header}<details><summary>Show plan</summary>\n\n\`\`\`\n${body}\n\`\`\`\n</details>`
             });
+
+      # ADR 64: workflow_dispatch has no PR to comment on - the run's own
+      # Step Summary is the review surface instead. Still requires someone
+      # to actually open it and read it before choosing to apply.
+      - name: Write plan to the run's Step Summary
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          {
+            echo "### Terraform Plan — run [\`${GITHUB_RUN_ID}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})"
+            echo "To apply this **exact** plan, run **Terraform Apply** with \`plan_run_id: ${GITHUB_RUN_ID}\`."
+            echo
+            echo "Manually dispatched (no PR) - review this plan carefully before applying; a real infrastructure change belongs in a PR instead (ADR 22)."
+            echo
+            echo '<details><summary>Show plan</summary>'
+            echo
+            echo '```'
+            cat plan.txt
+            echo '```'
+            echo '</details>'
+          } >> "$GITHUB_STEP_SUMMARY"
