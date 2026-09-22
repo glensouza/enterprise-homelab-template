@@ -3,3 +3,8 @@
   ansible.builtin.systemd:
     name: caddy
     state: restarted
+
+- name: Restart authentik-radius
+  ansible.builtin.systemd:
+    name: authentik-radius
+    state: restarted
