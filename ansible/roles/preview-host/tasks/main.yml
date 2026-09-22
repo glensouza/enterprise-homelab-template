@@ -87,6 +87,20 @@
     mode: "0644"
   notify: Restart caddy
 
+# Tier-1 native OIDC via Authentik (docs/01 ADR 73). Client ID/secret are
+# Authentik-generated, supplied via /opt/ansible-secrets/all.yml (same
+# externally-generated-credential pattern as technitium_api_token) - skipped
+# gracefully until present, and ops-compose.yml.j2 only mounts this file into
+# the pgadmin container when it's defined.
+- name: Configure pgAdmin's OAuth2 login against Authentik
+  ansible.builtin.template:
+    src: pgadmin_config_local.py.j2
+    dest: /opt/ops/pgadmin_config_local.py
+    owner: root
+    group: root
+    mode: "0644"
+  when: pgadmin_oidc_client_id is defined and pgadmin_oidc_client_secret is defined
+
 - name: Install the ops compose stack
   ansible.builtin.template:
     src: ops-compose.yml.j2

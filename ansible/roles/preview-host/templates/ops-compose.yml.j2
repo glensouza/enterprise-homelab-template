@@ -46,10 +46,21 @@ services:
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+{% if pgadmin_oidc_client_id is defined %}
+      # step-ca is a private root CA - Python's requests library (which
+      # pgAdmin's OAuth2 client uses) doesn't trust it by default, confirmed
+      # live: SSLCertVerificationError fetching Authentik's OIDC discovery
+      # document without this (docs/01 ADR 73).
+      REQUESTS_CA_BUNDLE: /etc/ssl/certs/step-ca-root.crt
+{% endif %}
     ports:
       - "127.0.0.1:8081:80"
     volumes:
       - pgadmin_data:/var/lib/pgadmin
+{% if pgadmin_oidc_client_id is defined %}
+      - ./pgadmin_config_local.py:/pgadmin4/config_local.py:ro
+      - /etc/caddy/pki/root_ca.crt:/etc/ssl/certs/step-ca-root.crt:ro
+{% endif %}
 
   redisinsight:
     image: redis/redisinsight:latest

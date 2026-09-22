@@ -121,3 +121,110 @@
     infisical_secret_name: ConnectionStrings__messaging
     infisical_secret_value: "amqp://brewhouse:{{ rabbitmq_password }}@{{ ansible_host }}:5672/"
   when: infisical_project_id is defined
+
+# Tier-1 native OIDC via Authentik (docs/01 ADR 73). client_id is
+# Authentik-generated, supplied via /opt/ansible-secrets/all.yml (same
+# externally-generated-credential pattern as technitium_api_token) - skipped
+# gracefully until present. client_secret isn't needed here: the OAuth2
+# Provider is a public client (browser-based management-UI login only, per
+# Authentik's own RabbitMQ integration guide), not a confidential one.
+#
+# step-ca is a private root CA - RabbitMQ's own outbound HTTPS calls to
+# Authentik (issuer/JWKS discovery) don't trust it by default, same class of
+# gap hit and fixed for Proxmox/pgAdmin in this same ADR.
+- name: Install the step-ca root certificate into the system trust store
+  ansible.builtin.copy:
+    src: "/opt/ansible-fetched/step-ca/root_ca.crt"
+    dest: /usr/local/share/ca-certificates/step-ca-root.crt
+    mode: "0644"
+  register: rabbitmq_step_ca_cert
+  when: rabbitmq_oidc_client_id is defined
+
+- name: Update the system CA trust store
+  ansible.builtin.command: update-ca-certificates
+  when: rabbitmq_oidc_client_id is defined and rabbitmq_step_ca_cert.changed
+
+- name: Enable the RabbitMQ OAuth2 auth backend plugin
+  ansible.builtin.command: rabbitmq-plugins enable rabbitmq_auth_backend_oauth2
+  register: rabbitmq_oauth2_plugin
+  changed_when: "'already enabled' not in rabbitmq_oauth2_plugin.stdout"
+  when: rabbitmq_oidc_client_id is defined
+
+- name: Configure RabbitMQ's OAuth2 login against Authentik
+  ansible.builtin.template:
+    src: rabbitmq.conf.j2
+    dest: /etc/rabbitmq/rabbitmq.conf
+    owner: rabbitmq
+    group: rabbitmq
+    mode: "0644"
+  register: rabbitmq_oauth2_conf
+  when: rabbitmq_oidc_client_id is defined
+
+- name: Restart RabbitMQ if the OAuth2 config changed
+  ansible.builtin.systemd:
+    name: rabbitmq-server
+    state: restarted
+  when: rabbitmq_oauth2_conf.changed or rabbitmq_oauth2_plugin.changed
+
+# TLS front for the management UI (docs/01 ADR 73) - browsers only expose
+# crypto.subtle (needed for the OIDC client's PKCE code challenge) in a
+# secure context, so OAuth2 login cannot work over the plain-HTTP listener.
+- name: Install apt prerequisites for the Caddy repository
+  ansible.builtin.apt:
+    name: [debian-keyring, debian-archive-keyring, apt-transport-https]
+    state: present
+  when: rabbitmq_oidc_client_id is defined
+
+- name: Add the Caddy apt GPG key
+  ansible.builtin.get_url:
+    url: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
+    dest: /etc/apt/keyrings/caddy-stable.asc
+    mode: "0644"
+  when: rabbitmq_oidc_client_id is defined
+
+- name: Add the Caddy apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/caddy-stable.asc] https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main"
+    state: present
+  when: rabbitmq_oidc_client_id is defined
+
+- name: Install Caddy
+  ansible.builtin.apt:
+    name: caddy
+    update_cache: true
+    state: present
+  when: rabbitmq_oidc_client_id is defined
+
+- name: Create the Caddy PKI directory
+  ansible.builtin.file:
+    path: /etc/caddy/pki
+    state: directory
+    mode: "0755"
+  when: rabbitmq_oidc_client_id is defined
+
+- name: Install the step-ca root certificate for Caddy to trust
+  ansible.builtin.copy:
+    src: "/opt/ansible-fetched/step-ca/root_ca.crt"
+    dest: /etc/caddy/pki/root_ca.crt
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart rabbitmq-caddy
+  when: rabbitmq_oidc_client_id is defined
+
+- name: Install the Caddyfile
+  ansible.builtin.template:
+    src: rabbitmq.caddy.j2
+    dest: /etc/caddy/Caddyfile
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart rabbitmq-caddy
+  when: rabbitmq_oidc_client_id is defined
+
+- name: Enable and start Caddy
+  ansible.builtin.systemd:
+    name: caddy
+    enabled: true
+    state: started
+  when: rabbitmq_oidc_client_id is defined

@@ -1,0 +1,22 @@
+# Managed by Ansible (roles/rabbitmq) — manual edits will be overwritten.
+# Tier-1 native OIDC via Authentik (docs/01 ADR 73, tier-1 #6/6), following
+# Authentik's own official RabbitMQ integration guide
+# (https://integrations.goauthentik.io/infrastructure/rabbitmq/) verbatim.
+# internal auth_backend stays second so the brewhouse user (ADR 07) still
+# works unchanged - this adds OIDC, it doesn't replace existing auth.
+auth_backends.1 = rabbit_auth_backend_oauth2
+auth_backends.2 = rabbit_auth_backend_internal
+
+auth_oauth2.resource_server_id = rabbitmq
+auth_oauth2.issuer = https://authentik.{{ internal_domain }}/application/o/rabbitmq/
+auth_oauth2.preferred_username_claims.1 = preferred_username
+auth_oauth2.preferred_username_claims.2 = email
+auth_oauth2.additional_scopes_key = groups
+auth_oauth2.scope_aliases.1.alias = rabbitmq-administrator
+auth_oauth2.scope_aliases.1.scope = rabbitmq.tag:administrator rabbitmq.read:* rabbitmq.write:* rabbitmq.configure:*
+auth_oauth2.scope_aliases.2.alias = rabbitmq-monitoring
+auth_oauth2.scope_aliases.2.scope = rabbitmq.tag:monitoring rabbitmq.read:*
+
+management.oauth_enabled = true
+management.oauth_client_id = {{ rabbitmq_oidc_client_id }}
+management.oauth_scopes = openid profile email rabbitmq

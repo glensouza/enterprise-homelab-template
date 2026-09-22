@@ -1,0 +1,16 @@
+# Managed by Ansible (roles/rabbitmq) — manual edits will be overwritten.
+# TLS front for the management UI only (docs/01 ADR 73) - not forward-auth,
+# RabbitMQ has its own native OIDC login (rabbitmq.conf's management.oauth_*
+# settings). Added because RabbitMQ's own OIDC client library needs
+# crypto.subtle for its PKCE code challenge, which browsers only expose in a
+# secure (HTTPS) context - confirmed live, the management UI's "Click here
+# to log in" button silently failed with "Crypto.subtle is available only in
+# secure contexts (HTTPS)" over plain HTTP. Same step-ca ACME pattern as
+# roles/authentik's own Caddy front.
+rabbitmq.{{ internal_domain }} {
+	tls {
+		ca {{ step_ca_url }}/acme/acme/directory
+		ca_root /etc/caddy/pki/root_ca.crt
+	}
+	reverse_proxy 127.0.0.1:15672
+}
