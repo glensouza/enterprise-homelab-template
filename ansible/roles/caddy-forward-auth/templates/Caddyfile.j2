@@ -6,24 +6,54 @@
 # explicit `tls { ca ... }` below is required), gated by an Authentik
 # forward-auth check against the embedded outpost before the app itself is
 # reached.
+#
+# route{} + the /outpost.goauthentik.io/* passthrough match Authentik's own
+# official Caddy template exactly (docs/01 ADR 68) - without route{}, Caddy's
+# default (unordered) directive application let requests reach the backend
+# regardless of the forward_auth result; without the passthrough, the OAuth
+# callback that completes login has nowhere to land. header_up Host is
+# required because forward_auth's upstream is a different hostname
+# (authentik.{{ internal_domain }}) - Caddy rewrites the outbound Host to
+# match that dial address by default, so without this override Authentik
+# never learns which app is actually being requested (logs its own hostname
+# instead) and 404s the check for every app.
+#
+# KNOWN OPEN ISSUE (ADR 68): even with all of the above, a fully
+# unauthenticated request currently still reaches the backend instead of
+# being redirected to login - confirmed live via curl and a real browser
+# with a clean cookie jar. Suspected upstream bug in this Authentik version's
+# (2026.8.3) embedded outpost / forward_domain interaction - see ADR 68 for
+# what was ruled out. Do not treat these five apps as actually access-gated
+# until this is resolved.
 {{ caddy_fa_fqdn }} {
 	tls {
 		ca {{ step_ca_url }}/acme/acme/directory
 		ca_root /etc/caddy/pki/root_ca.crt
 	}
 
-	forward_auth https://authentik.{{ internal_domain }} {
-		uri /outpost.goauthentik.io/auth/caddy
-		copy_headers X-Authentik-Username X-Authentik-Groups X-Authentik-Email X-Authentik-Name X-Authentik-Uid X-Authentik-Jwt X-Authentik-Meta-Jwks X-Authentik-Meta-Outpost X-Authentik-Meta-Provider X-Authentik-Meta-App X-Authentik-Meta-Version
-		trusted_proxies private_ranges
-		transport http {
-			tls_trust_pool file /etc/caddy/pki/root_ca.crt
+	route {
+		reverse_proxy /outpost.goauthentik.io/* https://authentik.{{ internal_domain }} {
+			header_up Host {http.request.host}
+			transport http {
+				tls_trust_pool file /etc/caddy/pki/root_ca.crt
+			}
 		}
-	}
-	handle_errors {
-		@redirect expression `{http.error.status_code} in [401, 403]`
-		redir @redirect https://authentik.{{ internal_domain }}/outpost.goauthentik.io/start?rd={scheme}://{host}{uri} 302
-	}
 
-	reverse_proxy {{ caddy_fa_backend }}
+		forward_auth https://authentik.{{ internal_domain }} {
+			uri /outpost.goauthentik.io/auth/caddy
+			header_up Host {http.request.host}
+			copy_headers X-Authentik-Username X-Authentik-Groups X-Authentik-Email X-Authentik-Name X-Authentik-Uid X-Authentik-Jwt X-Authentik-Meta-Jwks X-Authentik-Meta-Outpost X-Authentik-Meta-Provider X-Authentik-Meta-App X-Authentik-Meta-Version
+			trusted_proxies private_ranges
+			transport http {
+				tls_trust_pool file /etc/caddy/pki/root_ca.crt
+			}
+		}
+
+		handle_errors {
+			@redirect expression `{http.error.status_code} in [401, 403]`
+			redir @redirect https://authentik.{{ internal_domain }}/outpost.goauthentik.io/start?rd={scheme}://{host}{uri} 302
+		}
+
+		reverse_proxy {{ caddy_fa_backend }}
+	}
 }

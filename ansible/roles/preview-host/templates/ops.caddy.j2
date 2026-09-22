@@ -13,6 +13,13 @@
 # Dozzle and RedisInsight additionally sit behind Authentik forward-auth
 # (docs/01 ADR 66) — tier-2 SSO per the S3-01 rollout. Portainer/pgAdmin stay
 # open here; they're slated for tier-1 native OIDC, not forward-auth.
+#
+# route{} + the /outpost.goauthentik.io/* passthrough + header_up Host below
+# match roles/caddy-forward-auth's own template and Authentik's official
+# Caddy docs exactly (docs/01 ADR 68) - see that role's Caddyfile.j2 for the
+# full rationale. KNOWN OPEN ISSUE (ADR 68): even with this, an
+# unauthenticated request still reaches the backend instead of being
+# redirected to login - do not treat these two as actually access-gated yet.
 portainer.{{ internal_domain }} {
 	tls {
 		ca {{ step_ca_url }}/acme/acme/directory
@@ -27,20 +34,31 @@ dozzle.{{ internal_domain }} {
 		ca_root /etc/caddy/pki/root_ca.crt
 	}
 
-	forward_auth https://authentik.{{ internal_domain }} {
-		uri /outpost.goauthentik.io/auth/caddy
-		copy_headers X-Authentik-Username X-Authentik-Groups X-Authentik-Email X-Authentik-Name X-Authentik-Uid X-Authentik-Jwt X-Authentik-Meta-Jwks X-Authentik-Meta-Outpost X-Authentik-Meta-Provider X-Authentik-Meta-App X-Authentik-Meta-Version
-		trusted_proxies private_ranges
-		transport http {
-			tls_trust_pool file /etc/caddy/pki/root_ca.crt
+	route {
+		reverse_proxy /outpost.goauthentik.io/* https://authentik.{{ internal_domain }} {
+			header_up Host {http.request.host}
+			transport http {
+				tls_trust_pool file /etc/caddy/pki/root_ca.crt
+			}
 		}
-	}
-	handle_errors {
-		@redirect expression `{http.error.status_code} in [401, 403]`
-		redir @redirect https://authentik.{{ internal_domain }}/outpost.goauthentik.io/start?rd={scheme}://{host}{uri} 302
-	}
 
-	reverse_proxy 127.0.0.1:8080
+		forward_auth https://authentik.{{ internal_domain }} {
+			uri /outpost.goauthentik.io/auth/caddy
+			header_up Host {http.request.host}
+			copy_headers X-Authentik-Username X-Authentik-Groups X-Authentik-Email X-Authentik-Name X-Authentik-Uid X-Authentik-Jwt X-Authentik-Meta-Jwks X-Authentik-Meta-Outpost X-Authentik-Meta-Provider X-Authentik-Meta-App X-Authentik-Meta-Version
+			trusted_proxies private_ranges
+			transport http {
+				tls_trust_pool file /etc/caddy/pki/root_ca.crt
+			}
+		}
+
+		handle_errors {
+			@redirect expression `{http.error.status_code} in [401, 403]`
+			redir @redirect https://authentik.{{ internal_domain }}/outpost.goauthentik.io/start?rd={scheme}://{host}{uri} 302
+		}
+
+		reverse_proxy 127.0.0.1:8080
+	}
 }
 
 pgadmin.{{ internal_domain }} {
@@ -57,18 +75,29 @@ redisinsight.{{ internal_domain }} {
 		ca_root /etc/caddy/pki/root_ca.crt
 	}
 
-	forward_auth https://authentik.{{ internal_domain }} {
-		uri /outpost.goauthentik.io/auth/caddy
-		copy_headers X-Authentik-Username X-Authentik-Groups X-Authentik-Email X-Authentik-Name X-Authentik-Uid X-Authentik-Jwt X-Authentik-Meta-Jwks X-Authentik-Meta-Outpost X-Authentik-Meta-Provider X-Authentik-Meta-App X-Authentik-Meta-Version
-		trusted_proxies private_ranges
-		transport http {
-			tls_trust_pool file /etc/caddy/pki/root_ca.crt
+	route {
+		reverse_proxy /outpost.goauthentik.io/* https://authentik.{{ internal_domain }} {
+			header_up Host {http.request.host}
+			transport http {
+				tls_trust_pool file /etc/caddy/pki/root_ca.crt
+			}
 		}
-	}
-	handle_errors {
-		@redirect expression `{http.error.status_code} in [401, 403]`
-		redir @redirect https://authentik.{{ internal_domain }}/outpost.goauthentik.io/start?rd={scheme}://{host}{uri} 302
-	}
 
-	reverse_proxy 127.0.0.1:5540
+		forward_auth https://authentik.{{ internal_domain }} {
+			uri /outpost.goauthentik.io/auth/caddy
+			header_up Host {http.request.host}
+			copy_headers X-Authentik-Username X-Authentik-Groups X-Authentik-Email X-Authentik-Name X-Authentik-Uid X-Authentik-Jwt X-Authentik-Meta-Jwks X-Authentik-Meta-Outpost X-Authentik-Meta-Provider X-Authentik-Meta-App X-Authentik-Meta-Version
+			trusted_proxies private_ranges
+			transport http {
+				tls_trust_pool file /etc/caddy/pki/root_ca.crt
+			}
+		}
+
+		handle_errors {
+			@redirect expression `{http.error.status_code} in [401, 403]`
+			redir @redirect https://authentik.{{ internal_domain }}/outpost.goauthentik.io/start?rd={scheme}://{host}{uri} 302
+		}
+
+		reverse_proxy 127.0.0.1:5540
+	}
 }
