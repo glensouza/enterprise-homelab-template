@@ -4,11 +4,14 @@ nodejs_major_version: "20"
 uptime_kuma_version: "2.5.3"
 
 # Picked up by the homepage role (ADR 38) to auto-populate the dashboard.
+# href is the Caddy-fronted, Authentik-gated hostname (roles/caddy-forward-
+# auth, docs/01 ADR 66/71), not the raw :3001 port - matching the same
+# convention preview.yml's Dozzle/RedisInsight tiles already used.
 homepage_service:
   - group: Observability
     name: Uptime Kuma
     icon: uptime-kuma.png
-    href: "http://{{ ansible_host }}:3001"
+    href: "https://kuma.{{ internal_domain }}"
     description: Fleet status page & uptime history
     ping: "{{ ansible_host }}"
 

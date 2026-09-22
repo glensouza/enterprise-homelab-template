@@ -9,10 +9,12 @@ patchmon_ai_encryption_key: "{{ lookup('ansible.builtin.password', '/opt/ansible
 
 # Picked up by the homepage role (ADR 38) to auto-populate the dashboard -
 # nothing to edit there when this host's service moves or its port changes.
+# href is the Caddy-fronted, Authentik-gated hostname (roles/caddy-forward-
+# auth, docs/01 ADR 66/71), not the raw :3000 port.
 homepage_service:
   - group: Management
     name: PatchMon
     icon: patchmon.png
-    href: "http://{{ ansible_host }}:3000"
+    href: "https://patchmon.{{ internal_domain }}"
     description: Patch compliance across the fleet
     ping: "{{ ansible_host }}"
