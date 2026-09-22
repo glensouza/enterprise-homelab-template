@@ -11,20 +11,21 @@
 # official Caddy template exactly (docs/01 ADR 68) - without route{}, Caddy's
 # default (unordered) directive application let requests reach the backend
 # regardless of the forward_auth result; without the passthrough, the OAuth
-# callback that completes login has nowhere to land. header_up Host is
-# required because forward_auth's upstream is a different hostname
-# (authentik.{{ internal_domain }}) - Caddy rewrites the outbound Host to
-# match that dial address by default, so without this override Authentik
-# never learns which app is actually being requested (logs its own hostname
-# instead) and 404s the check for every app.
+# callback that completes login has nowhere to land.
 #
-# KNOWN OPEN ISSUE (ADR 68): even with all of the above, a fully
-# unauthenticated request currently still reaches the backend instead of
-# being redirected to login - confirmed live via curl and a real browser
-# with a clean cookie jar. Suspected upstream bug in this Authentik version's
-# (2026.8.3) embedded outpost / forward_domain interaction - see ADR 68 for
-# what was ruled out. Do not treat these five apps as actually access-gated
-# until this is resolved.
+# `header_up Host` MUST be the bare hostname, no port (docs/01 ADR 71) -
+# without an override, Caddy's dial-address-based default is
+# "authentik.{{ internal_domain }}:443" (port included), and Authentik's
+# outpost selects which of its providers should handle a forward_domain
+# request by checking literal_host.ends_with(cookie_domain) - a ":443"
+# suffix makes that check fail for every provider, silently routing the
+# request to Authentik's own core backend instead of the outpost's
+# forward-auth logic at all. That's the actual cause of ADR 68's "anonymous
+# bypass" - not a real Authentik bug, a Caddy default this repo didn't
+# override correctly. Confirmed live: with the port included, the check
+# always returns a bare 200 with no session cookie (silently falls through
+# to core, which just 404s/200s incidentally depending on path); with the
+# bare hostname, it returns a real 302 to the login flow with a Set-Cookie.
 {{ caddy_fa_fqdn }} {
 	tls {
 		ca {{ step_ca_url }}/acme/acme/directory
@@ -33,7 +34,7 @@
 
 	route {
 		reverse_proxy /outpost.goauthentik.io/* https://authentik.{{ internal_domain }} {
-			header_up Host {http.request.host}
+			header_up Host authentik.{{ internal_domain }}
 			transport http {
 				tls_trust_pool file /etc/caddy/pki/root_ca.crt
 			}
@@ -41,7 +42,7 @@
 
 		forward_auth https://authentik.{{ internal_domain }} {
 			uri /outpost.goauthentik.io/auth/caddy
-			header_up Host {http.request.host}
+			header_up Host authentik.{{ internal_domain }}
 			copy_headers X-Authentik-Username X-Authentik-Groups X-Authentik-Email X-Authentik-Name X-Authentik-Uid X-Authentik-Jwt X-Authentik-Meta-Jwks X-Authentik-Meta-Outpost X-Authentik-Meta-Provider X-Authentik-Meta-App X-Authentik-Meta-Version
 			trusted_proxies private_ranges
 			transport http {

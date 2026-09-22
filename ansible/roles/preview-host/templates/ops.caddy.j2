@@ -16,10 +16,11 @@
 #
 # route{} + the /outpost.goauthentik.io/* passthrough + header_up Host below
 # match roles/caddy-forward-auth's own template and Authentik's official
-# Caddy docs exactly (docs/01 ADR 68) - see that role's Caddyfile.j2 for the
-# full rationale. KNOWN OPEN ISSUE (ADR 68): even with this, an
-# unauthenticated request still reaches the backend instead of being
-# redirected to login - do not treat these two as actually access-gated yet.
+# Caddy docs exactly - see that role's Caddyfile.j2 for the full rationale.
+# header_up Host MUST be the bare hostname, no port (docs/01 ADR 71) - with
+# the port included, Authentik's outpost never matches this request to any
+# provider and silently routes it to its own core backend instead of the
+# forward-auth check, which is what made this look like a bypass.
 portainer.{{ internal_domain }} {
 	tls {
 		ca {{ step_ca_url }}/acme/acme/directory
@@ -36,7 +37,7 @@ dozzle.{{ internal_domain }} {
 
 	route {
 		reverse_proxy /outpost.goauthentik.io/* https://authentik.{{ internal_domain }} {
-			header_up Host {http.request.host}
+			header_up Host authentik.{{ internal_domain }}
 			transport http {
 				tls_trust_pool file /etc/caddy/pki/root_ca.crt
 			}
@@ -44,7 +45,7 @@ dozzle.{{ internal_domain }} {
 
 		forward_auth https://authentik.{{ internal_domain }} {
 			uri /outpost.goauthentik.io/auth/caddy
-			header_up Host {http.request.host}
+			header_up Host authentik.{{ internal_domain }}
 			copy_headers X-Authentik-Username X-Authentik-Groups X-Authentik-Email X-Authentik-Name X-Authentik-Uid X-Authentik-Jwt X-Authentik-Meta-Jwks X-Authentik-Meta-Outpost X-Authentik-Meta-Provider X-Authentik-Meta-App X-Authentik-Meta-Version
 			trusted_proxies private_ranges
 			transport http {
@@ -79,7 +80,7 @@ redisinsight.{{ internal_domain }} {
 
 	route {
 		reverse_proxy /outpost.goauthentik.io/* https://authentik.{{ internal_domain }} {
-			header_up Host {http.request.host}
+			header_up Host authentik.{{ internal_domain }}
 			transport http {
 				tls_trust_pool file /etc/caddy/pki/root_ca.crt
 			}
@@ -87,7 +88,7 @@ redisinsight.{{ internal_domain }} {
 
 		forward_auth https://authentik.{{ internal_domain }} {
 			uri /outpost.goauthentik.io/auth/caddy
-			header_up Host {http.request.host}
+			header_up Host authentik.{{ internal_domain }}
 			copy_headers X-Authentik-Username X-Authentik-Groups X-Authentik-Email X-Authentik-Name X-Authentik-Uid X-Authentik-Jwt X-Authentik-Meta-Jwks X-Authentik-Meta-Outpost X-Authentik-Meta-Provider X-Authentik-Meta-App X-Authentik-Meta-Version
 			trusted_proxies private_ranges
 			transport http {
