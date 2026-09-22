@@ -49,11 +49,15 @@
 			}
 		}
 
-		handle_errors {
-			@redirect expression `{http.error.status_code} in [401, 403]`
-			redir @redirect https://authentik.{{ internal_domain }}/outpost.goauthentik.io/start?rd={scheme}://{host}{uri} 302
-		}
-
 		reverse_proxy {{ caddy_fa_backend }}
+	}
+
+	# Sibling of route{}, not nested inside it - confirmed live (docs/01 ADR
+	# 68) that Caddy rejects handle_errors inside a route{} block ("only
+	# handler directives can be used in routes"). Applies to errors from
+	# anything in the site block, including route{}'s contents.
+	handle_errors {
+		@redirect expression `{http.error.status_code} in [401, 403]`
+		redir @redirect https://authentik.{{ internal_domain }}/outpost.goauthentik.io/start?rd={scheme}://{host}{uri} 302
 	}
 }
