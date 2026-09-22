@@ -7,33 +7,37 @@
 @inject IMessageBus MessageBus
 @inject IBidsClient BidsClient
 
-<h2>Live Bids</h2>
+<h2>☕ Live Bids</h2>
 
 @if (_coffeeLots is null)
 {
-    <p>Loading coffee lots...</p>
+    <p class="loading-state">Loading coffee lots...</p>
 }
 else if (_coffeeLots.Count == 0)
 {
-    <p>No coffee lots listed.</p>
+    <p class="empty-state">No coffee lots listed.</p>
 }
 else
 {
-    <table>
+    <table class="bids-table">
         <thead>
             <tr>
                 <th>Origin</th>
-                <th>Current Bid</th>
+                <th class="bid-col">Current Bid</th>
                 <th></th>
             </tr>
         </thead>
         <tbody>
             @foreach (var item in _coffeeLots)
             {
-                <tr>
-                    <td>@item.Origin</td>
-                    <td data-testid="bid-@item.Id">@item.CurrentBid.ToString("C")</td>
-                    <td><button @onclick="() => PlaceBidAsync(item.Id, item.CurrentBid + 500m)">Place Bid</button></td>
+                <tr class="@(_recentlyUpdated.Contains(item.Id) ? "just-bid" : "")">
+                    <td class="lot-origin">@item.Origin</td>
+                    <td class="lot-bid bid-col" data-testid="bid-@item.Id">@item.CurrentBid.ToString("C")</td>
+                    <td class="bid-col">
+                        <button @onclick="() => PlaceBidAsync(item.Id, item.CurrentBid + 500m)">
+                            Bid @((item.CurrentBid + 500m).ToString("C"))
+                        </button>
+                    </td>
                 </tr>
             }
         </tbody>
@@ -42,11 +46,12 @@ else
 
 @code {
     private List<CoffeeLot>? _coffeeLots;
+    private readonly HashSet<int> _recentlyUpdated = [];
 
     protected override async Task OnInitializedAsync()
     {
         await using var db = await DbContextFactory.CreateDbContextAsync();
-        _coffeeLots = await db.CoffeeLots.ToListAsync();
+        _coffeeLots = await db.CoffeeLots.OrderBy(l => l.Origin).ToListAsync();
 
         BidsClient.BidPlaced += OnBidPlaced;
         await BidsClient.StartAsync();
@@ -59,7 +64,16 @@ else
             return;
 
         item.CurrentBid = currentBid;
+        _recentlyUpdated.Add(coffeeLotId);
         InvokeAsync(StateHasChanged);
+        _ = ClearHighlightAfterDelayAsync(coffeeLotId);
+    }
+
+    private async Task ClearHighlightAfterDelayAsync(int coffeeLotId)
+    {
+        await Task.Delay(TimeSpan.FromSeconds(2));
+        _recentlyUpdated.Remove(coffeeLotId);
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task PlaceBidAsync(int coffeeLotId, decimal amount)

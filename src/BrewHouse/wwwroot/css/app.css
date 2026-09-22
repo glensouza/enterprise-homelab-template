@@ -1,0 +1,284 @@
+:root {
+    --coffee-950: #2a1a12;
+    --coffee-900: #3b2418;
+    --coffee-700: #6b4226;
+    --coffee-500: #9c6644;
+    --coffee-200: #e8d5c4;
+    --coffee-100: #f4ebe1;
+    --cream: #fbf6ef;
+    --amber: #c17817;
+    --amber-dark: #9c5f0f;
+    --green: #2f7a4d;
+    --red: #b3261e;
+    --text: #2a1a12;
+    --text-muted: #6b5a4d;
+    --border: #e0cfbc;
+    --shadow: 0 1px 2px rgba(42, 26, 18, 0.06), 0 4px 12px rgba(42, 26, 18, 0.08);
+    --radius: 10px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    background: var(--cream);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.5;
+}
+
+.page {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+main {
+    flex: 1;
+    max-width: 880px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 2rem 1.25rem 3rem;
+}
+
+/* Header / brand */
+.app-header {
+    background: linear-gradient(135deg, var(--coffee-900), var(--coffee-700));
+    color: var(--coffee-100);
+    padding: 2rem 1.25rem 1.75rem;
+}
+
+.app-header-inner {
+    max-width: 880px;
+    margin: 0 auto;
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.brand {
+    font-size: 1.85rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0;
+    color: #fff;
+}
+
+.brand-tagline {
+    color: var(--coffee-200);
+    font-size: 0.95rem;
+}
+
+h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 0 0.25rem;
+    color: var(--text);
+}
+
+h2 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin: 0 0 0.9rem;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.subtitle {
+    color: var(--text-muted);
+    margin: 0 0 1.5rem;
+    font-size: 0.95rem;
+}
+
+/* Card */
+.card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 1.25rem 1.4rem;
+    margin-bottom: 1.5rem;
+}
+
+/* Buttons */
+button, .btn {
+    font: inherit;
+    cursor: pointer;
+    border: none;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    font-weight: 600;
+    background: var(--amber);
+    color: #fff;
+    transition: background-color 0.12s ease, transform 0.04s ease;
+}
+
+button:hover, .btn:hover {
+    background: var(--amber-dark);
+}
+
+button:active, .btn:active {
+    transform: translateY(1px);
+}
+
+button:disabled {
+    background: var(--coffee-200);
+    color: var(--text-muted);
+    cursor: not-allowed;
+}
+
+button.btn-secondary {
+    background: var(--coffee-100);
+    color: var(--coffee-900);
+    border: 1px solid var(--border);
+}
+
+button.btn-secondary:hover {
+    background: var(--coffee-200);
+}
+
+.status-line {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin: 0.6rem 0 0;
+}
+
+/* Live bids table */
+.bids-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+}
+
+.bids-table th {
+    text-align: left;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    padding: 0 0.6rem 0.6rem;
+    border-bottom: 2px solid var(--border);
+}
+
+.bids-table td {
+    padding: 0.75rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+
+.bids-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.bids-table tbody tr {
+    transition: background-color 0.6s ease;
+}
+
+.bids-table tbody tr.just-bid {
+    background-color: #fff3d6;
+}
+
+.lot-origin {
+    font-weight: 600;
+}
+
+.lot-bid {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    color: var(--green);
+}
+
+.bid-col {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.empty-state, .loading-state {
+    color: var(--text-muted);
+    padding: 1rem 0;
+    font-style: italic;
+}
+
+/* Footer */
+.version-footer {
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    padding: 0.75rem;
+    border-top: 1px solid var(--border);
+    background: var(--coffee-100);
+}
+
+/* Blazor Server built-in reconnect / error UI */
+#blazor-error-ui {
+    background: #fef2f2;
+    border-top: 3px solid var(--red);
+    color: var(--text);
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
+    bottom: 0;
+    display: none;
+    left: 0;
+    padding: 0.9rem 3rem 0.9rem 1.1rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+    font-size: 0.9rem;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 1rem;
+    top: 0.85rem;
+    font-weight: 700;
+    color: var(--text-muted);
+}
+
+.components-reconnect-hide {
+    display: none;
+}
+
+.components-reconnect-show,
+.components-reconnect-failed,
+.components-reconnect-rejected {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    position: fixed;
+    inset: 0;
+    background: rgba(42, 26, 18, 0.55);
+    color: #fff;
+    font-weight: 600;
+    z-index: 1001;
+}
+
+.components-reconnect-failed::after,
+.components-reconnect-rejected::after {
+    content: "Reconnect failed — reload the page.";
+}
+
+.components-reconnect-show::after {
+    content: "Reconnecting…";
+}
+
+@media (max-width: 560px) {
+    main {
+        padding: 1.25rem 1rem 2.5rem;
+    }
+
+    .bids-table {
+        font-size: 0.85rem;
+    }
+
+    .bids-table th, .bids-table td {
+        padding: 0.6rem 0.35rem;
+    }
+}

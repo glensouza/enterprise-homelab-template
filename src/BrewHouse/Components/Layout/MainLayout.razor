@@ -2,11 +2,18 @@
 @inject BrewHouse.Services.VersionService VersionService
 
 <div class="page">
+    <header class="app-header">
+        <div class="app-header-inner">
+            <p class="brand">☕ BrewHouse</p>
+            <span class="brand-tagline">Live coffee lot auctions</span>
+        </div>
+    </header>
+
     <main>
         @Body
     </main>
-</div>
 
-<footer class="version-footer">
-    @VersionService.GetVersion()
-</footer>
+    <footer class="version-footer">
+        BrewHouse @VersionService.GetVersion()
+    </footer>
+</div>

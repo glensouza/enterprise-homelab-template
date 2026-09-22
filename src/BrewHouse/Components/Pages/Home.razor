@@ -7,19 +7,25 @@
 @inject IBlobStore BlobStore
 @inject IMessageBus MessageBus
 
-<h1>BrewHouse Coffee Auction</h1>
+<h1>Coffee Lot Auction</h1>
+<p class="subtitle">Bid on green coffee lots straight from the lab's live inventory.</p>
 
-<button @onclick="UploadMockPhoto">Simulate Photo Upload</button>
-<p><i>@UploadStatus</i></p>
+<div class="card">
+    <h2>📷 Lot Photos</h2>
+    <button class="btn-secondary" @onclick="UploadMockPhoto">Simulate Photo Upload</button>
+    <p class="status-line"><i>@UploadStatus</i></p>
+</div>
 
-<LiveBids />
+<div class="card">
+    <LiveBids />
+</div>
 
 @code {
     private string UploadStatus = "Ready.";
 
     private async Task UploadMockPhoto()
     {
-        await BlobStore.WriteTextAsync("auctions/coffee/Ethiopia-Yirgacheffe-Front.txt", "mock-image-data");
+        await BlobStore.WriteTextAsync("auctions/coffee/Segfault-Yirgacheffe-Front.txt", "mock-image-data");
         UploadStatus = "Mock photo written to storage backend successfully.";
     }
 }
