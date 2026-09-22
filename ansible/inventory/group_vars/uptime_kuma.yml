@@ -18,7 +18,13 @@ homepage_service:
 uptime_kuma_monitors:
   - name: "Blazor App (via Kemp VIP)"
     type: HTTP
-    url: "https://10.10.10.199/health"
+    # 10.10.10.199 is Kemp's WUI (management console, eth0/LAN, docs/03
+    # section 0) - a real but wrong address to monitor: it answers HTTPS
+    # with its own "Document is not accessible" 404 for any path the WUI
+    # itself doesn't serve, which reads as "up" to a human glancing at the
+    # dashboard but is not the load-balanced app at all. The actual VIP
+    # (eth1/VLAN 110, docs/03 section 1) is 10.10.110.199.
+    url: "https://10.10.110.199/health"
     ignoreTls: true
   - name: "PostgreSQL"
     type: PORT
@@ -54,7 +60,13 @@ uptime_kuma_monitors:
     port: 3000
   - name: "Authentik"
     type: HTTP
-    url: "https://authentik.{{ internal_domain }}"
+    # Root "/" legitimately 302s (redirect to login) whenever the monitor
+    # itself isn't authenticated, which every check run always is - Kuma's
+    # default accepted status codes are 200-299 only, so that 302 always
+    # reads as "down" even though the service is healthy. The dedicated
+    # readiness endpoint (confirmed live, docs/01 ADR 65) returns a plain
+    # 200 instead.
+    url: "https://authentik.{{ internal_domain }}/-/health/ready/"
     ignoreTls: true
   - name: "Grafana / Observability"
     type: PORT

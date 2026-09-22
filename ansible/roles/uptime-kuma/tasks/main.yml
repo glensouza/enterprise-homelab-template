@@ -138,14 +138,16 @@
     mode: "0644"
   when: uptime_kuma_username is defined and uptime_kuma_password is defined
 
-- name: Seed any missing monitors
+- name: Seed any missing monitors and reconcile url/hostname/port drift
   ansible.builtin.command: /opt/uptime-kuma-seed/bin/python /opt/uptime-kuma-seed/seed_monitors.py /opt/uptime-kuma-seed/monitors.json
   environment:
     UPTIME_KUMA_URL: "http://localhost:{{ uptime_kuma_port | default(3001) }}"
     UPTIME_KUMA_USERNAME: "{{ uptime_kuma_username }}"
     UPTIME_KUMA_PASSWORD: "{{ uptime_kuma_password }}"
   register: seed_result
-  changed_when: (seed_result.stdout | from_json).added | length > 0
+  changed_when: >-
+    (seed_result.stdout | from_json).added | length > 0
+    or (seed_result.stdout | from_json).updated | length > 0
   no_log: true
   when: uptime_kuma_username is defined and uptime_kuma_password is defined
 
