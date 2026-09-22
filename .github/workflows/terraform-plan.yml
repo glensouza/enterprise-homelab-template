@@ -23,7 +23,17 @@ on:
   pull_request:
     paths:
       - 'terraform/**'
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      replace_target:
+        description: >-
+          Optional resource address to force-replace (terraform plan
+          -replace=<address>), e.g. for the drop_preview_to_mgmt-style
+          index-ordering recovery documented in LAB-RUNBOOK.md - leave blank
+          for a normal plan. No terraform/** diff backs this, so it still
+          goes out as a manually-dispatched plan (Step Summary, not a PR).
+        required: false
+        type: string
 
 concurrency:
   group: terraform-${{ github.event.pull_request.number || github.run_id }}
@@ -71,8 +81,14 @@ jobs:
 
       - name: Terraform Plan
         id: plan
+        env:
+          REPLACE_TARGET: ${{ inputs.replace_target }}
         run: |
-          terraform plan -input=false -out=tfplan
+          if [ -n "$REPLACE_TARGET" ]; then
+            terraform plan -input=false -replace="$REPLACE_TARGET" -out=tfplan
+          else
+            terraform plan -input=false -out=tfplan
+          fi
           terraform show -no-color tfplan > plan.txt
 
       - name: Upload plan artifact (applied verbatim by terraform-apply.yml)
@@ -107,12 +123,18 @@ jobs:
       # to actually open it and read it before choosing to apply.
       - name: Write plan to the run's Step Summary
         if: github.event_name == 'workflow_dispatch'
+        env:
+          REPLACE_TARGET: ${{ inputs.replace_target }}
         run: |
           {
             echo "### Terraform Plan — run [\`${GITHUB_RUN_ID}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})"
             echo "To apply this **exact** plan, run **Terraform Apply** with \`plan_run_id: ${GITHUB_RUN_ID}\`."
             echo
             echo "Manually dispatched (no PR) - review this plan carefully before applying; a real infrastructure change belongs in a PR instead (ADR 22)."
+            if [ -n "$REPLACE_TARGET" ]; then
+              echo
+              echo "**-replace target:** \`${REPLACE_TARGET}\` - forces this resource to be destroyed and recreated (no config diff backs this)."
+            fi
             echo
             echo '<details><summary>Show plan</summary>'
             echo
