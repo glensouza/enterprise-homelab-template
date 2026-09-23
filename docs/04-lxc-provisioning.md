@@ -22,7 +22,7 @@ not a Terraform-managed VLAN — same as Kemp and the NAS. Note that Proxmox sha
 just the two below, so the NAS's NFS export must allow all four node IPs.
 
 - **`pve4` (Node 1 - Primary)**: 8 vCPU / 16 GB RAM (`10.10.10.104`) — High-capacity node hosting primary database engines (PostgreSQL, Garnet, RabbitMQ), primary web apps (Blazor Web 01), back-office admin portals (Infisical), ingress connectors (Cloudflared), and the single non-prod Docker preview host.
-- **`pve3` (Node 2 - Secondary)**: 4 vCPU / 8 GB RAM (`10.10.10.103`) — Secondary utility & load-balancing node hosting secondary web app instances (Blazor Web 02), DNS (Technitium), PKI (step-ca), monitoring (Uptime Kuma), and telemetry (Observability/Loki/Grafana). CI/CD runner tasks moved off this node entirely — the GitHub Actions self-hosted runner now lives on the pve1 devops LXC (ADR 22), never bare on a hypervisor host.
+- **`pve3` (Node 2 - Secondary)**: 4 vCPU / 8 GB RAM (`10.10.10.103`) — Secondary utility & load-balancing node hosting secondary web app instances (Blazor Web 02), DNS (Technitium), PKI (step-ca), fleet admin tools (Homepage, PatchMon), monitoring (Uptime Kuma, CritterWatch), and telemetry (Observability/Loki/Grafana). CI/CD runner tasks moved off this node entirely — the GitHub Actions self-hosted runner now lives on the pve1 devops LXC (ADR 22), never bare on a hypervisor host.
 
 ### Master Allocation Table:
 
@@ -42,6 +42,7 @@ just the two below, so the NAS's NFS export must allow all four node IPs.
 | **PatchMon** | VLAN 130 (`10.10.130.122`) | **`pve3`** (Node 2) | 1 | 1024 MB | *None* | Fleet-wide OS package/patch tracking — server + auto-enrolled agent on every LXC (ADR 33/34) |
 | **Homepage** | VLAN 130 (`10.10.130.120`) | **`pve3`** (Node 2) | 2 | 2048 MB | *None* | Fleet dashboard — auto-populated from every other host's `homepage_service` var (ADR 38) |
 | **Authentik** | VLAN 130 (`10.10.130.123`) | **`pve4`** (Node 1) | 4 | 3072 MB (+3072 MB swap) | *None* | SSO — bare-metal from-source build (Rust/Go/Node/Python). Moved from pve3 and trimmed from community-scripts' 8192 MB default (ADR 63) — pve3's 8GB physical RAM couldn't actually fit an 8GB single-LXC limit; pve4 has more real headroom and this reuses the shared postgresql/garnet LXCs, so steady-state need is lighter than the self-contained-stack default assumed |
+| **CritterWatch** | VLAN 130 (`10.10.130.124`) | **`pve3`** (Node 2) | 1 | 1024 MB | *None* | Wolverine/Marten monitoring console for BrewHouse (ADR 91/92) — self-published .NET app (this repo's own `src/CritterWatch`, not a third-party binary), sized like PatchMon; own database on the shared PostgreSQL LXC, reports over the existing RabbitMQ transport |
 | **PR Preview (non-prod)** | VLAN 140 (`10.10.140.120`) | **`pve4`** (Node 1) | 2 | 4096 MB | *None* | Single non-prod Docker host (per-PR compose stacks + ops UIs) |
 
 *Note: The Observability LXC hosts Grafana Alloy (OTLP receiver) + Loki + Grafana (see `docs/07-observability.md`). The Technitium DNS, step-ca, and PR Preview LXCs implement ephemeral PR environments — see `docs/11-pr-preview-environments.md` (ADR 19/20). The PR Preview LXC runs Docker (non-prod exception to ADR 02) and is firewalled off from all homelab tiers (VLAN 140, `docs/05`).*

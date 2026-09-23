@@ -10,6 +10,7 @@ This repository utilizes a consolidated AI-Native approach via a single `CLAUDE.
 [![Bump Minor Version on PR](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/bump-minor.yml/badge.svg)](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/bump-minor.yml)
 [![Bump Pinned Versions](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/bump-pinned-versions.yml/badge.svg)](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/bump-pinned-versions.yml)
 [![Deploy .NET 10 Blazor App to LXC](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/deploy-blazor.yml/badge.svg)](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/deploy-blazor.yml)
+[![Deploy CritterWatch Console](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/deploy-critterwatch.yml/badge.svg)](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/deploy-critterwatch.yml)
 [![Patch Fleet](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/patch-fleet.yml/badge.svg)](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/patch-fleet.yml)
 [![PR Build & Test](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/pr-build-test.yml/badge.svg)](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/pr-build-test.yml)
 [![PR Preview Cleanup](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/pr-preview-cleanup.yml/badge.svg)](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/pr-preview-cleanup.yml)
@@ -53,8 +54,10 @@ enterprise-homelab-template/
 │   │   ├── appsettings.Development.json 
 │   │   └── ... (Blazor Application Code)
 │   ├── BrewHouse.AppHost/     # .NET Aspire 13 local orchestration
+│   ├── CritterWatch/          # JasperFx CritterWatch console - Wolverine/Marten monitoring (ADR 91)
 │   └── systemd/
 │       ├── blazor-app.service        # Blazor app unit (web LXCs)
+│       ├── critterwatch.service      # CritterWatch console unit (critterwatch LXC)
 │       ├── pg-dump-prune.sh          # Deletes pg_dump backups older than RETENTION_DAYS
 │       ├── pg-dump-prune.service     # Oneshot prune unit (Postgres LXC)
 │       └── pg-dump-prune.timer       # Daily schedule for the prune service
@@ -74,6 +77,7 @@ enterprise-homelab-template/
         ├── pr-preview-cleanup.yml     # Tear down the preview env on PR merge/close
         ├── bump-minor.yml             # Auto-bump MINOR version on PR open against main
         ├── deploy-blazor.yml          # Test -> backup DB -> migrate -> symlinked release deploy
+        ├── deploy-critterwatch.yml    # Test -> publish -> symlinked release deploy (single instance)
         └── rollback.yml               # Manual rollback to any of the last 5 releases
 ```
 

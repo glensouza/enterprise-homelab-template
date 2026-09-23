@@ -42,7 +42,8 @@ This is a production-grade template for hosting **.NET 10 Blazor Server** apps o
 |------|------|
 | `src/BrewHouse` | The Blazor Server app — Wolverine messaging, EF Core + pgvector, SignalR scale-out via Garnet backplane, `/health` deep checks |
 | `src/BrewHouse.AppHost` | .NET Aspire orchestration host — entry point for local dev; provisions all backing containers |
-| `src/systemd` | **Canonical** systemd units (`blazor-app.service`, `pg-dump-prune.*`) — Ansible copies them verbatim; never edit units on an LXC |
+| `src/CritterWatch` | JasperFx CritterWatch console (ADR 91) — Wolverine/Marten monitoring for BrewHouse, its own small self-published app, own LXC/DB, deployed via `deploy-critterwatch.yml` |
+| `src/systemd` | **Canonical** systemd units (`blazor-app.service`, `critterwatch.service`, `pg-dump-prune.*`) — Ansible copies them verbatim; never edit units on an LXC |
 | `terraform/` | bpg/proxmox LXCs + resnickio/unifi VLANs & firewall — code mirror of `docs/04` / `docs/05` |
 | `ansible/` | LXC configuration: .NET runtime, systemd units, pgBackRest, Technitium DNS, step-ca, preview host |
 | `deploy/preview/` | Per-PR preview compose stack template (ADR 19) — rendered by `pr-preview.yml` |
@@ -50,7 +51,7 @@ This is a production-grade template for hosting **.NET 10 Blazor Server** apps o
 
 ### Deployment model
 
-Apps are deployed to native Debian LXCs and managed strictly via `systemd`. Deploys publish into immutable release directories `/var/www/brewhouse/releases/<sha>` and atomically flip a `current` symlink (last 5 kept per node) — app rollback is a symlink move plus restart, health-gated per node so one web node always keeps serving (ADR 16). The app exposes `/health` with deep checks (Postgres, Garnet, RabbitMQ) for Kemp L7 routing — always maintain it. TLS terminates at the Kemp LoadMaster (Let's Encrypt wildcard, DNS-01); app LXCs run plain HTTP on port 5000.
+Apps are deployed to native Debian LXCs and managed strictly via `systemd`. Deploys publish into immutable release directories `/var/www/brewhouse/releases/<sha>` and atomically flip a `current` symlink (last 5 kept per node) — app rollback is a symlink move plus restart, health-gated per node so one web node always keeps serving (ADR 16). The app exposes `/health` with deep checks (Postgres, Garnet, RabbitMQ) for Kemp L7 routing — always maintain it. TLS terminates at the Kemp LoadMaster (Let's Encrypt wildcard, DNS-01); app LXCs run plain HTTP on port 5000. CritterWatch follows the same publish+symlink+systemd shape (`deploy-critterwatch.yml`, `/var/www/critterwatch/releases/<sha>`) but stripped down for its single-instance deployment — no maintenance-page bracket, no EF migration step (ADR 91).
 
 ### PR preview environments (non-prod)
 
@@ -62,7 +63,7 @@ Every LXC runs **Cockpit** (`https://<host>.brewhouse.internal:9090`) with a ste
 
 ### Messaging
 
-Wolverine (ADR 07) backs all async messaging over RabbitMQ; handlers are plain static classes discovered automatically — test them by direct method invocation. The transport can be swapped to Azure Service Bus / SQS purely via configuration.
+Wolverine (ADR 07) backs all async messaging over RabbitMQ; handlers are plain static classes discovered automatically — test them by direct method invocation. The transport can be swapped to Azure Service Bus / SQS purely via configuration. CritterWatch (ADR 91) monitors BrewHouse's Wolverine runtime over that same RabbitMQ transport (`Wolverine.CritterWatch` client, `rabbitmq://queue/critterwatch` + `.../brewhouse-control`) — free tier is read-only, a commercial `JasperFx:LicenseKey` unlocks admin actions (pause/restart).
 
 ### Data & scale-out
 
@@ -121,11 +122,15 @@ Synology NAS and Kemp are pre-existing, non-Terraform-managed hardware and stay 
 | PatchMon (OS patch tracking, ADR 33/34) | `10.10.130.122` | `pve3` (Node 2 - Secondary) |
 | Homepage (fleet dashboard, port 3000, ADR 38) | `10.10.130.120` | `pve3` (Node 2 - Secondary) |
 | Authentik (SSO, HTTPS 443 via its own Caddy, ADR 59/61/63) | `10.10.130.123` | `pve4` (Node 1 - Primary) |
+| CritterWatch (Wolverine/Marten monitoring console, ADR 91/92) | `10.10.130.124` | `pve3` (Node 2 - Secondary) |
 
-Tier-2 forward-auth (ADR 66): Uptime Kuma, PatchMon, and Homepage each also run their own Caddy
-instance (`roles/caddy-forward-auth`) fronting them at `https://{kuma,patchmon,homepage}.brewhouse.internal`,
-gated by Authentik. Their bare ports above (`:3001`/`:3000`/`:3000`) still work directly and are
-unauthenticated — the Caddy front is additive, not a replacement listener.
+Tier-2 forward-auth (ADR 66): Uptime Kuma, PatchMon, Homepage, and CritterWatch each also run
+their own Caddy instance (`roles/caddy-forward-auth`) fronting them at
+`https://{kuma,patchmon,homepage,critterwatch}.brewhouse.internal`, gated by Authentik. Their bare
+ports above (`:3001`/`:3000`/`:3000`/`:5000`) still work directly and are unauthenticated — the
+Caddy front is additive, not a replacement listener. Uptime Kuma's own `/status/*` (its public
+status page) is a deliberate exception, carved out of that gate (ADR 90) — reachable unauthenticated,
+same as a real status page is meant to be.
 
 ### VLAN 140 — Non-Prod / Preview (`10.10.140.x`)
 | Host | IP | Node Assignment |
@@ -136,7 +141,7 @@ unauthenticated — the Caddy front is additive, not a replacement listener.
 
 The whole lab is `terraform apply && ansible-playbook site.yml` — see `docs/08-infrastructure-as-code.md`:
 
-- **Terraform** (`terraform/`): `bpg/proxmox` for the 15 LXCs, `resnickio/unifi` for the VLAN 110/120/130/140 networks and the zone-based firewall policy matrix (not `paultyng/unifi` — its legacy `LAN_IN`/`rule_index` model is rejected by UniFi Network 8.x+, ADR 17). `lxc.tf` / `unifi.tf` are code mirrors of `docs/04` / `docs/05` — change all three together. Apply renders the Ansible inventory.
+- **Terraform** (`terraform/`): `bpg/proxmox` for the 16 LXCs, `resnickio/unifi` for the VLAN 110/120/130/140 networks and the zone-based firewall policy matrix (not `paultyng/unifi` — its legacy `LAN_IN`/`rule_index` model is rejected by UniFi Network 8.x+, ADR 17). `lxc.tf` / `unifi.tf` are code mirrors of `docs/04` / `docs/05` — change all three together. Apply renders the Ansible inventory.
 - **Ansible** (`ansible/`): converges the web nodes (dotnet-runtime, blazor-app), the Postgres node (pgBackRest + pg-dump-prune), the preview infrastructure (technitium DNS, step-ca PKI, resolver, docker + preview-host incl. the ops stack on VLAN 140), and fleet-wide Cockpit (`hosts: all`, runs last — needs the certs the step-ca play fetches). Units are copied verbatim from `src/systemd/` — edit them there and re-run the playbook.
 - **Kemp LoadMaster** remains GUI-managed (no supported Terraform provider).
 
