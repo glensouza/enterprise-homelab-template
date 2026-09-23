@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 WorkingDirectory=/var/www/critterwatch/current
-ExecStart=/usr/bin/dotnet /var/www/critterwatch/current/CritterWatch.dll
+ExecStart=/usr/bin/dotnet /var/www/critterwatch/current/CritterWatchHost.dll
 Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=ASPNETCORE_URLS=http://0.0.0.0:5000
 # Secrets (ConnectionStrings__critterwatch, ConnectionStrings__messaging) are

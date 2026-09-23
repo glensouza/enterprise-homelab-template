@@ -136,11 +136,18 @@
   changed_when: create_authentik_db.rc == 0
 
 # --- critterwatch role/database (docs/01 ADR 91) -------------------------------
-# Same pattern as brewhouse/authentik above. Plain encoding-inheriting CREATE
-# DATABASE (no explicit UTF8 override, unlike authentik) - CritterWatch's
-# console uses Marten over Npgsql, the same driver brewhouse_db already
-# proves doesn't hit the SQL_ASCII/psycopg3 pitfall the authentik block's own
-# comment documents.
+# Same pattern as brewhouse/authentik above. Explicit UTF8 override, same as
+# authentik - confirmed live this was wrong the first time (plain
+# encoding-inheriting CREATE DATABASE, reasoning that brewhouse_db's own
+# Npgsql usage doesn't hit the SQL_ASCII pitfall authentik's psycopg3 does):
+# CritterWatch's console crash-looped on startup with Marten's own
+# "0A000: conversion between UTF8 and SQL_ASCII is not supported" writing a
+# ServiceUpdates batch - Marten's document/event JSON storage apparently
+# exercises Unicode paths plain Npgsql CRUD (brewhouse_db's own workload)
+# never does. Narrower lesson than ADR 65's: not "Npgsql is fine, only
+# psycopg3 isn't" - it's driver-and-workload-dependent, so default to UTF8
+# explicitly for any new database going forward rather than assuming inherit
+# is safe.
 - name: Create the critterwatch database role
   ansible.builtin.command: >
     su postgres -c "psql -c \"CREATE ROLE critterwatch WITH LOGIN PASSWORD '{{ hostvars['critterwatch'].critterwatch_db_password }}';\""
@@ -157,7 +164,7 @@
 
 - name: Create the critterwatch database
   ansible.builtin.command: >
-    su postgres -c "psql -c \"CREATE DATABASE critterwatch OWNER critterwatch;\""
+    su postgres -c "psql -c \"CREATE DATABASE critterwatch OWNER critterwatch ENCODING UTF8 LC_COLLATE \\\"C\\\" LC_CTYPE \\\"C\\\" TEMPLATE template0;\""
   register: create_critterwatch_db
   failed_when: create_critterwatch_db.rc != 0 and 'already exists' not in create_critterwatch_db.stderr
   changed_when: create_critterwatch_db.rc == 0
