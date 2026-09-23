@@ -283,6 +283,41 @@ resource "unifi_firewall_policy" "web_to_observability_otlp" {
   enabled = true
 }
 
+resource "unifi_firewall_policy" "web_to_technitium_dns" {
+  # docs/01 ADR 101: confirmed live - ansible/roles/resolver (ADR 67) and
+  # the Terraform-level dns block (ADR 95) both point every LXC's resolver
+  # at Technitium (10.10.130.119), but nobody had ever added the matching
+  # firewall exception for VLAN 110 specifically - preview (VLAN 140) got
+  # one (preview_to_dns) when it needed to resolve *.pr.brewhouse.internal
+  # for ACME validation, web never did until this. Same drop_web_to_mgmt
+  # gap as web_to_observability_otlp/web_to_infisical/web_to_patchmon/
+  # web_to_homepage above, just for DNS instead of an app port - confirmed
+  # live via nslookup from blazor-web-04: three repeated "communications
+  # error to 10.10.130.119#53: timed out" against the primary (Technitium)
+  # nameserver, silently falling through to the secondary (the VLAN
+  # gateway, resolv.conf's own second line) which correctly NXDOMAINs an
+  # internal-only hostname it has no idea about - so this had been broken
+  # since ADR 67 first pointed web at Technitium, just never noticed
+  # because nothing running on the web tier happens to resolve
+  # *.brewhouse.internal hostnames for its own operation (Postgres/Garnet/
+  # RabbitMQ/OTLP are all reached by raw IP, not hostname).
+  name     = "Allow Web -> Technitium DNS (53)"
+  action   = "ALLOW"
+  protocol = "tcp_udp"
+  source = {
+    zone_id         = local.internal_zone_id
+    ips             = [local.vlan110_cidr]
+    matching_target = "IP"
+  }
+  destination = {
+    zone_id         = local.internal_zone_id
+    ips             = ["10.10.130.119"]
+    port            = "53"
+    matching_target = "IP"
+  }
+  enabled = true
+}
+
 # ADR 40: pve1-4_to_nas (all four) were removed entirely, not just pve1/2.
 # Tested live: applied with pve3_to_nas/pve4_to_nas also absent, and
 # postgresql's data volume and blazor-web-01/02's (now -04/-03, ADR 50)
@@ -342,6 +377,7 @@ resource "unifi_firewall_policy" "drop_web_to_mgmt" {
     unifi_firewall_policy.web_to_patchmon,
     unifi_firewall_policy.web_to_homepage,
     unifi_firewall_policy.web_to_observability_otlp,
+    unifi_firewall_policy.web_to_technitium_dns,
   ]
 }
 
