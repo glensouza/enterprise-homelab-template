@@ -221,10 +221,31 @@
   no_log: true
   when: uptime_kuma_username is defined and uptime_kuma_password is defined
 
-# Tier-2 forward-auth (docs/01 ADR 66).
+# Tier-2 forward-auth (docs/01 ADR 66). caddy_fa_public_paths (ADR 90)
+# carves out the one thing on this host that's supposed to be reachable by
+# a logged-out visitor: the BrewHouse status page (ADR 89) itself, its
+# REST/heartbeat data, its Socket.IO transport (live updates - still gated
+# by Kuma's own app-level login() check for anything actually privileged,
+# this only bypasses the Caddy layer), and the static asset bundle the
+# page needs to render at all (the JS/CSS chunks, icons, manifest - one
+# shared SPA bundle for both the public page and the admin dashboard, and
+# these files carry no per-user data regardless of who's asking). Every
+# other path on this host (the admin dashboard, its own APIs) is
+# untouched, still behind forward_auth exactly as before.
 - name: Front Uptime Kuma with Caddy + Authentik forward-auth
   ansible.builtin.include_role:
     name: caddy-forward-auth
   vars:
     caddy_fa_fqdn: "kuma.{{ internal_domain }}"
     caddy_fa_backend: "127.0.0.1:{{ uptime_kuma_port | default(3001) }}"
+    caddy_fa_public_paths:
+      - /status/*
+      - /api/status-page/*
+      - /socket.io/*
+      - /assets/*
+      - /icon.svg
+      - /favicon.ico
+      - /manifest.json
+      - /brewhouse-icon.jpg
+      - /apple-touch-icon*.png
+      - /icon*.png

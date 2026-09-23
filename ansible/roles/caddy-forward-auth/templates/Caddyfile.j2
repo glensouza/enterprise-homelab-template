@@ -33,6 +33,21 @@
 	}
 
 	route {
+{% if caddy_fa_public_paths is defined and caddy_fa_public_paths %}
+		# Unauthenticated bypass for specific public paths (docs/01 ADR 90),
+		# e.g. Uptime Kuma's own public status page. Two sibling `handle`
+		# blocks, not a matcher next to a bare directive - consecutive
+		# handle/handle_path blocks are Caddy's documented
+		# mutually-exclusive, first-match-wins group, avoiding the same
+		# ordering ambiguity ADR 67/68 already got bitten by twice.
+		@public_paths path {{ caddy_fa_public_paths | join(" ") }}
+
+		handle @public_paths {
+			reverse_proxy {{ caddy_fa_backend }}
+		}
+
+		handle {
+{% endif %}
 		reverse_proxy /outpost.goauthentik.io/* https://authentik.{{ internal_domain }} {
 			header_up Host authentik.{{ internal_domain }}
 			transport http {
@@ -51,6 +66,9 @@
 		}
 
 		reverse_proxy {{ caddy_fa_backend }}
+{% if caddy_fa_public_paths is defined and caddy_fa_public_paths %}
+		}
+{% endif %}
 	}
 
 	# Sibling of route{}, not nested inside it - confirmed live (docs/01 ADR
