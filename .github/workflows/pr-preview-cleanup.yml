@@ -1,9 +1,12 @@
 name: PR Preview Cleanup
 
 # ADR 19 / docs/11: when a PR is merged or closed, its compose stack
-# (containers + volumes, including the PR database), its Caddy site, and its
-# directory on the preview host are removed. DNS needs no cleanup — the
-# Technitium wildcard record covers every PR statically.
+# (containers + volumes, including the PR database), its Caddy site, its
+# directory on the preview host, and every brewhouse-pr-<n>:<sha> image it
+# ever built (docs/01 ADR 104 - plain `docker image prune -f` only removes
+# dangling/untagged images, never these, so they'd silently outlive the PR
+# forever otherwise) are removed. DNS needs no cleanup — the Technitium
+# wildcard record covers every PR statically.
 
 on:
   pull_request:
@@ -34,6 +37,7 @@ jobs:
           rm -rf /opt/previews/pr-${PR_NUMBER}
           rm -f /etc/caddy/pr-sites/pr-${PR_NUMBER}.caddy
           systemctl reload caddy
+          docker images 'brewhouse-pr-${PR_NUMBER}' -q | xargs -r docker rmi -f
           docker image prune -f
         "
 

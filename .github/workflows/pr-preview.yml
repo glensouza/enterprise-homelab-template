@@ -186,6 +186,21 @@ jobs:
         echo "Preview failed the /health smoke test"
         exit 1
 
+    # docs/01 ADR 104: every push (opened/reopened/synchronize) builds and
+    # loads a fresh brewhouse-pr-<n>:<sha> image, but nothing ever removed
+    # the previous one - confirmed live, 19 stray tagged images (427MB
+    # each) had accumulated across 9 PRs, none of them dangling so
+    # pr-preview-cleanup.yml's existing `docker image prune -f` never
+    # touched them either. This app rebuilds from source on every push
+    # anyway (no layer-cache reuse being preserved by keeping old tags
+    # around on the preview host), so there's no reason to keep a
+    # superseded one - runs only after the smoke test above confirms the
+    # NEW image is actually healthy, so a bad build never deletes the last
+    # known-good one out from under a still-running preview.
+    - name: Remove this PR's superseded preview images
+      run: |
+        ssh root@${PREVIEW_HOST} "docker images 'brewhouse-pr-${PR_NUMBER}' --format '{{.Repository}}:{{.Tag}}' | grep -v -F '${APP_IMAGE}' | xargs -r docker rmi -f" || true
+
     - name: Comment the preview URL on the PR
       uses: actions/github-script@v7
       with:
