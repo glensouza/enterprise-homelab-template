@@ -8,9 +8,17 @@ output "lxc_ips" {
 resource "local_file" "ansible_inventory" {
   filename = "${path.module}/../ansible/inventory/terraform-hosts.yml"
   content = templatefile("${path.module}/templates/inventory.tftpl", {
+    # docs/01 ADR 98: iterates sort(keys(...)) rather than local.lxcs
+    # directly - a `for` producing a LIST (not an object/map, via `=>`)
+    # over a map's own iteration doesn't have a stable order guarantee, so
+    # this file's rendered host ordering (and therefore its content hash,
+    # what local_file's `id` is keyed on) could shuffle between separate
+    # plan/apply runs with zero real config changes, showing up as a
+    # phantom diff every time. Sorting the keys first makes the list order
+    # - and this file's content - fully deterministic.
     web_hosts = [
-      for name, cfg in local.lxcs : { name = name, ip = split("/", cfg.ip)[0] }
-      if contains(cfg.tags, "web")
+      for name in sort(keys(local.lxcs)) : { name = name, ip = split("/", local.lxcs[name].ip)[0] }
+      if contains(local.lxcs[name].tags, "web")
     ]
     postgres_host = {
       name = "postgresql"
