@@ -53,7 +53,7 @@ on:
 # whole pipeline instead of only the apply half.
 concurrency:
   group: terraform-state
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 defaults:
   run:
