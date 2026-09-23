@@ -201,7 +201,7 @@
 - name: Configure Grafana's generic OAuth login against Authentik
   ansible.builtin.blockinfile:
     path: /etc/default/grafana-server
-    marker: "# {mark} ANSIBLE MANAGED BLOCK - Authentik OIDC (docs/01 ADR 72)"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - Authentik OIDC (docs/01 ADR 72/102)"
     block: |
       GF_SERVER_ROOT_URL=http://{{ ansible_host }}:3000/
       GF_AUTH_GENERIC_OAUTH_ENABLED=true
@@ -214,5 +214,14 @@
       GF_AUTH_GENERIC_OAUTH_API_URL=https://authentik.{{ internal_domain }}/application/o/userinfo/
       GF_AUTH_GENERIC_OAUTH_SIGNOUT_REDIRECT_URL=https://authentik.{{ internal_domain }}/application/o/grafana/end-session/
       GF_AUTH_GENERIC_OAUTH_ALLOW_SIGN_UP=true
+      # docs/01 ADR 102: with no role_attribute_path configured (no group
+      # claim mapping set up in Authentik for this), Grafana re-syncs every
+      # OAuth login's org role from this default - not just on first
+      # sign-up - so the Authentik-provisioned user was stuck on Viewer
+      # (Grafana's own hardcoded fallback) forever, Explore included
+      # (requires Editor+). Editor, not Admin: enough for Explore/dashboards
+      # without also granting server-wide user/org administration to
+      # whichever Authentik account happens to sign in.
+      GF_USERS_AUTO_ASSIGN_ORG_ROLE=Editor
   notify: restart grafana-server
   when: grafana_oidc_client_id is defined and grafana_oidc_client_secret is defined
