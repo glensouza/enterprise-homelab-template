@@ -1,0 +1,41 @@
+---
+# Fleet-wide root login banner (ADR 83). Three files, numbered so bash
+# sources them in this order (/etc/profile.d is read alphabetically):
+#   00 - identity (hostname, VLAN role, OS, IP) - same shape on every host
+#   01 - live disk/memory health - same shape on every host, no templating
+#   02 - this host's own services - reuses homepage_service (ADR 38), so a
+#        host's login banner and its Homepage tile come from the same
+#        source and never drift from each other
+- name: Template the identity banner
+  ansible.builtin.template:
+    src: 00-identity.sh.j2
+    dest: /etc/profile.d/00-identity.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install the system health banner
+  ansible.builtin.copy:
+    src: 01-sysinfo.sh
+    dest: /etc/profile.d/01-sysinfo.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Template the services banner
+  ansible.builtin.template:
+    src: 02-services.sh.j2
+    dest: /etc/profile.d/02-services.sh
+    owner: root
+    group: root
+    mode: "0755"
+  when: hostvars[inventory_hostname].homepage_service is defined
+
+# Hosts with no homepage_service (postgres, garnet, rabbitmq, pki, devops -
+# it has no UI of its own) shouldn't show a stale/empty services box if the
+# var is ever removed from a host that used to have one.
+- name: Remove the services banner where this host has no services
+  ansible.builtin.file:
+    path: /etc/profile.d/02-services.sh
+    state: absent
+  when: hostvars[inventory_hostname].homepage_service is not defined

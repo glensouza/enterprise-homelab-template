@@ -1,0 +1,15 @@
+{# No fixed-width box borders here on purpose - homepage_service entries
+   vary in name/description length per host, and double-wide emoji icons
+   throw off column alignment against a right-hand border (visible in the
+   original ClinicalFlow banner this role is modeled on). A plain
+   top/bottom rule with no right border sidesteps that entirely. #}
+echo -e ""
+echo -e "════════════════════════════════════════════════════════"
+echo -e "  {{ inventory_hostname }} services"
+echo -e "════════════════════════════════════════════════════════"
+{% for svc in hostvars[inventory_hostname].homepage_service %}
+echo -e "    🔗  {{ svc.name }} — {{ svc.description }}"
+echo -e "         {{ svc.href }}"
+{% endfor %}
+echo -e "════════════════════════════════════════════════════════"
+echo -e ""

@@ -110,10 +110,26 @@ locals {
 resource "proxmox_virtual_environment_container" "lxc" {
   for_each = local.lxcs
 
-  node_name   = each.value.node
-  vm_id       = each.value.vm_id
-  description = "Managed by Terraform (terraform/lxc.tf) — do not edit in the GUI."
-  tags        = each.value.tags
+  node_name = each.value.node
+  vm_id     = each.value.vm_id
+  # Same identity facts as the motd login banner's 00-identity.sh (ADR 83) -
+  # this one shows in the Proxmox UI's Summary tab before anyone logs in,
+  # the other after. Deliberately not piped through one another: Terraform
+  # already owns hostname/VLAN/IP/node/tags via local.lxcs above, and the
+  # login banner's identity section reads the equivalent facts from
+  # Ansible's own inventory (hosts.yml/terraform-hosts.yml) - two renders of
+  # facts each half already owns, not a new coupling between them. Excludes
+  # homepage_service (Ansible/host_vars-only) - the login banner is still
+  # the place to look for a host's own app URLs.
+  description = <<-EOT
+    Managed by Terraform (terraform/lxc.tf) — do not edit in the GUI.
+
+    ${each.key}
+    Role: ${join(", ", [for t in each.value.tags : t if t != "terraform" && !startswith(t, "vlan")])}
+    Node: ${each.value.node}
+    IP: ${split("/", each.value.ip)[0]}  (VLAN ${each.value.vlan})
+  EOT
+  tags = each.value.tags
   # Unprivileged by default (least privilege). A handful of LXCs opt into
   # privileged = true above - see the notes on blazor-web-03/04/postgresql.
   unprivileged  = !try(each.value.privileged, false)

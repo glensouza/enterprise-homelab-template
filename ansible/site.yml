@@ -98,6 +98,17 @@
   roles:
     - homepage
 
+# Fleet-wide (ADR 83). No ordering dependency, same reasoning as the
+# Homepage play above - homepage_service is inventory-parse-time, not a
+# runtime fact - but kept after it anyway so the wording is settled before
+# it lands in every host's own login banner. devops excluded, same reason
+# as the Cockpit/PatchMon play below (ADR 49) - Ansible has no key to reach
+# it directly.
+- name: Configure per-host root login banner (VLAN all, ADR 83)
+  hosts: all:!devops
+  roles:
+    - motd
+
 # Runs LAST: the step-ca play above generates and fetches the per-host
 # certificates the cockpit role installs, and the patchmon play above
 # already has the PatchMon server (ADR 33) up before this enrolls every

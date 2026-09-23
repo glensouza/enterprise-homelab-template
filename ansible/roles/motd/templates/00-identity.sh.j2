@@ -1,0 +1,6 @@
+echo -e ""
+echo -e "BrewHouse Homelab LXC"
+echo -e "    🖥️   OS: $(grep ^PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '\"')"
+echo -e "    🏷️   Role: {{ group_names | reject('equalto', 'ungrouped') | join(', ') }}"
+echo -e "    🌐   FQDN: {{ inventory_hostname }}.{{ internal_domain }}"
+echo -e "    💡   IP Address: $(hostname -I | awk '{print $1}')"

@@ -23,15 +23,15 @@ all:
       hosts:
         ${pki_host.name}:
           ansible_host: ${pki_host.ip}
-    observability:
+    observability_hosts:
       hosts:
         ${observability_host.name}:
           ansible_host: ${observability_host.ip}
-    uptime-kuma:
+    uptime_kuma:
       hosts:
         ${uptime_kuma_host.name}:
           ansible_host: ${uptime_kuma_host.ip}
-    homepage:
+    homepage_hosts:
       hosts:
         ${homepage_host.name}:
           ansible_host: ${homepage_host.ip}
