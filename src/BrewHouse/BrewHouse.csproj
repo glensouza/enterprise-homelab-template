@@ -13,6 +13,9 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" />
+    <PackageReference Include="Microsoft.AspNetCore.DataProtection.StackExchangeRedis" />
+    <!-- Direct override: see Directory.Packages.props for why. -->
+    <PackageReference Include="System.Security.Cryptography.Xml" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" />
     <PackageReference Include="StackExchange.Redis" />
     <PackageReference Include="MessagePack" />

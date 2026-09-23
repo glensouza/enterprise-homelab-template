@@ -1,7 +1,9 @@
+using System.Globalization;
 using Amazon.Runtime;
 using Amazon.S3;
 using JasperFx;
 using JasperFx.Resources;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using OpenTelemetry;
@@ -13,6 +15,15 @@ using BrewHouse.Services;
 using BrewHouse.Storage;
 using StackExchange.Redis;
 using Wolverine;
+
+// Pin the default culture process-wide, before anything formats currency. This app is
+// USD-only (see LiveBids.razor, ProcessBidHandler's log lines) but CurrentCulture on
+// these Linux LXCs isn't guaranteed to resolve to en-US - confirmed live, ToString("C")
+// was silently rendering the generic international currency sign (¤) instead of $ both
+// in the UI and in journalctl. Fixing it here, once, beats hunting down every ":C" call
+// site individually and catches any that get added later too.
+CultureInfo.DefaultThreadCurrentCulture = CultureInfo.GetCultureInfo("en-US");
+CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.GetCultureInfo("en-US");
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -81,6 +92,23 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
     ConnectionMultiplexer.Connect(cacheConnectionString));
 builder.Services.AddSignalR().AddStackExchangeRedis(cacheConnectionString);
 builder.Services.AddScoped<IBidsClient, SignalRBidsClient>();
+
+// Data Protection keys, on the same Garnet instance as the cache/backplane
+// above but its own lazy connection (matches AddStackExchangeRedis just
+// above, which also dials its own connection rather than reusing the
+// IConnectionMultiplexer singleton) - connects on first use, not at process
+// startup, so CLI-only invocations (codegen test, db-apply) still don't
+// require Garnet to be reachable. ASP.NET Core otherwise defaults to a
+// machine-local key ring, so anything protected on one node - antiforgery
+// tokens, and the persisted-component-state payload a Blazor Web App uses
+// when a static-rendered page upgrades to an interactive circuit - can't be
+// decrypted if the next request lands on the other node. Confirmed live:
+// this was exactly what killed fresh circuits with "Circuit host not
+// initialized" / "No Connection with that ID" whenever the initial page load
+// and the SignalR negotiate landed on different nodes.
+builder.Services.AddDataProtection()
+    .PersistKeysToStackExchangeRedis(() => ConnectionMultiplexer.Connect(cacheConnectionString).GetDatabase(), "BrewHouse-DataProtection-Keys")
+    .SetApplicationName("BrewHouse");
 
 // 5. STORAGE: app-owned IBlobStore abstraction (ADR 03). BlobStorage:Provider
 //    selects the implementation - "local" (default, Synology NAS mount) or
