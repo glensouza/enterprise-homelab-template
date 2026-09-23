@@ -6,9 +6,14 @@ on:
     branches:
       - main
 
+# Self-hosted (ADR 84), same as every other workflow in this repo. Only
+# does its own fixed shell arithmetic on version.txt's contents, never
+# executes anything from the PR itself - and a fork PR's GITHUB_TOKEN is
+# always read-only regardless of the `permissions:` block below, so the
+# `git push` at the bottom only ever succeeds for same-repo branches anyway.
 jobs:
   bump-minor:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     if: github.event.pull_request.head.ref != 'main'
     permissions:
       contents: write

@@ -6,8 +6,18 @@ on:
       - main
 
 jobs:
+  # Self-hosted (ADR 84), same devops LXC every other fleet-touching
+  # workflow already runs on (ADR 22) - Docker's already there for the
+  # Aspire.Hosting.Testing integration test below, same as it was free on
+  # ubuntu-latest. This repo is PUBLIC and this job runs `dotnet restore`/
+  # `build`/`test` directly on PR-supplied code (MSBuild targets, NuGet
+  # packages) - real code execution, not just data. The mitigation is the
+  # repo's own Settings -> Actions -> General -> "Require approval for all
+  # external contributors" (set alongside this ADR), not anything in this
+  # file: every non-member's PR, first one or fiftieth, needs a manual
+  # "Approve and run" click before this job (or any other) executes here.
   build-and-test:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
     - name: Checkout Code
       uses: actions/checkout@v7
@@ -24,6 +34,9 @@ jobs:
       run: dotnet build --no-restore -c Release
 
     # Includes the Aspire.Hosting.Testing integration test against a real
-    # PostgreSQL (pgvector) container - Docker is available on ubuntu-latest.
+    # PostgreSQL (pgvector) container - Docker is already installed on the
+    # devops LXC runner (confirmed live, docker 29.8.1), since pr-preview.yml
+    # (ADR 19, same runner) already does `docker build`/`docker save | ssh |
+    # docker load` to ship the preview image - nothing new to install here.
     - name: Test
       run: dotnet test --no-build -c Release

@@ -21,9 +21,12 @@ permissions:
   contents: write
   pull-requests: write
 
+# Self-hosted (ADR 84), same as every other workflow in this repo.
+# schedule/workflow_dispatch only - never runs against PR-supplied code, so
+# none of pr-build-test.yml's fork-PR risk applies here.
 jobs:
   bump:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     strategy:
       fail-fast: false
       matrix:
