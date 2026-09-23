@@ -1,3 +1,4 @@
+@using System.Globalization
 @using Microsoft.EntityFrameworkCore
 @using BrewHouse.Data
 @using BrewHouse.Services
@@ -32,10 +33,10 @@ else
             {
                 <tr class="@(_recentlyUpdated.Contains(item.Id) ? "just-bid" : "")">
                     <td class="lot-origin">@item.Origin</td>
-                    <td class="lot-bid bid-col" data-testid="bid-@item.Id">@item.CurrentBid.ToString("C")</td>
+                    <td class="lot-bid bid-col" data-testid="bid-@item.Id">@FormatUsd(item.CurrentBid)</td>
                     <td class="bid-col">
                         <button @onclick="() => PlaceBidAsync(item.Id, item.CurrentBid + 500m)">
-                            Bid @((item.CurrentBid + 500m).ToString("C"))
+                            Bid @FormatUsd(item.CurrentBid + 500m)
                         </button>
                     </td>
                 </tr>
@@ -45,6 +46,12 @@ else
 }
 
 @code {
+    // Format explicitly as en-US: ToString("C") alone follows CurrentCulture, which on this
+    // app's Linux LXCs isn't guaranteed to resolve to en-US, and Invariant renders "$" as the
+    // generic international currency sign (¤) instead.
+    private static readonly CultureInfo UsCurrency = CultureInfo.GetCultureInfo("en-US");
+    private static string FormatUsd(decimal amount) => amount.ToString("C", UsCurrency);
+
     private List<CoffeeLot>? _coffeeLots;
     private readonly HashSet<int> _recentlyUpdated = [];
 
