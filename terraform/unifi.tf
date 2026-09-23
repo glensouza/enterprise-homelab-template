@@ -252,6 +252,37 @@ resource "unifi_firewall_policy" "web_to_patchmon" {
   enabled = true
 }
 
+resource "unifi_firewall_policy" "web_to_observability_otlp" {
+  # docs/01 ADR 96: confirmed live - a manual curl from blazor-web-04 to
+  # 10.10.130.118:4318 (Alloy's OTLP/HTTP receiver, ansible/roles/observability)
+  # timed out completely (no TCP handshake at all) rather than failing at the
+  # application layer - drop_web_to_mgmt below blocks all of VLAN 110 ->
+  # VLAN 130 by default, and no exception for observability/Alloy existed
+  # yet, same class of gap as web_to_infisical/web_to_patchmon/
+  # web_to_homepage above (ADR 29/37/47). This means every span BrewHouse's
+  # own OpenTelemetry instrumentation (Program.cs's UseOtlpExporter, pointed
+  # at OTEL_EXPORTER_OTLP_ENDPOINT=http://10.10.130.118:4318) has ever tried
+  # to export was silently dropped at the network layer - the app itself
+  # never surfaces an exporter error for this (OTLP export failures are
+  # fire-and-forget by design), which is why this went unnoticed until
+  # someone actually looked for a trace in Grafana and found none.
+  name     = "Allow Web -> Observability OTLP (4318)"
+  action   = "ALLOW"
+  protocol = "tcp"
+  source = {
+    zone_id         = local.internal_zone_id
+    ips             = [local.vlan110_cidr]
+    matching_target = "IP"
+  }
+  destination = {
+    zone_id         = local.internal_zone_id
+    ips             = ["10.10.130.118"]
+    port            = "4318"
+    matching_target = "IP"
+  }
+  enabled = true
+}
+
 # ADR 40: pve1-4_to_nas (all four) were removed entirely, not just pve1/2.
 # Tested live: applied with pve3_to_nas/pve4_to_nas also absent, and
 # postgresql's data volume and blazor-web-01/02's (now -04/-03, ADR 50)
@@ -310,6 +341,7 @@ resource "unifi_firewall_policy" "drop_web_to_mgmt" {
     unifi_firewall_policy.web_to_infisical,
     unifi_firewall_policy.web_to_patchmon,
     unifi_firewall_policy.web_to_homepage,
+    unifi_firewall_policy.web_to_observability_otlp,
   ]
 }
 
