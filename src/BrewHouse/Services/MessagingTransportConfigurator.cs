@@ -36,6 +36,15 @@ public static class MessagingTransportConfigurator
         options.PersistMessagesWithPostgresql(dbConnectionString, "wolverine");
         options.Policies.UseDurableOutboxOnAllSendingEndpoints();
         options.Policies.UseDurableInboxOnAllListeners();
+
+        // ProcessBidHandler.Handle takes AuctionDbContext directly. AddDbContext registers
+        // DbContextOptions<AuctionDbContext> via an opaque lambda factory that Wolverine's
+        // codegen can't compose inline, so it needs service location for this one type -
+        // disallowed by default since Wolverine 6.0 (InvalidServiceLocationException,
+        // confirmed live via `dotnet run -- codegen test`, which is what actually caught
+        // this - every previous "it works" signal was bUnit tests calling Handle() as a
+        // plain static method, bypassing Wolverine's generated dispatch pipeline entirely).
+        options.CodeGeneration.AlwaysUseServiceLocationFor<AuctionDbContext>();
     }
 
     public static void Configure(WolverineOptions options, MessagingTransportSettings settings)
