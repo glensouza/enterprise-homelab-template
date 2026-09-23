@@ -11,5 +11,18 @@ authentik.{{ internal_domain }} {
 		ca {{ step_ca_url }}/acme/acme/directory
 		ca_root /etc/caddy/pki/root_ca.crt
 	}
-	reverse_proxy 127.0.0.1:{{ authentik_http_port }}
+	# BrewHouse brand assets (docs/01 ADR 88) - served straight from this
+	# same Caddy instance, not another LXC, so the login page's own logo
+	# never depends on Homepage (or anything else) being up. Explicit
+	# route{} block, same lesson as ADR 67/68's forward-auth Caddyfiles -
+	# don't rely on Caddy's implicit directive-sort ordering when a
+	# narrower matcher (handle_path) needs to win over the catch-all
+	# reverse_proxy below it.
+	route {
+		handle_path /brand/* {
+			root * /opt/authentik-brand
+			file_server
+		}
+		reverse_proxy 127.0.0.1:{{ authentik_http_port }}
+	}
 }
