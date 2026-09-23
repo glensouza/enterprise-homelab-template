@@ -20,10 +20,28 @@
 #
 # Skips gracefully (same idiom as every other optional secret in this repo)
 # until lxc_root_password is supplied in /opt/ansible-secrets/all.yml.
+# Confirmed live: the devops LXC (this role's `delegate_to: localhost`
+# target - it IS the Ansible controller) has no pip3 at all out of the box -
+# `ansible.builtin.pip` below failed fleet-wide with "Unable to find any of
+# pip3 to use. pip needs to be installed." the first time this role actually
+# ran in CI, breaking the whole converge (NO MORE HOSTS LEFT). Same class of
+# gap as ADR 60's "plain python3-venv isn't sufficient" fix in
+# roles/uptime-kuma - the generic package name a doc/example assumes exists
+# isn't actually preinstalled on this fleet's minimal Debian images.
+- name: Ensure pip3 is available on the controller (needed for the passlib install below)
+  ansible.builtin.apt:
+    name: python3-pip
+    state: present
+    update_cache: true
+  delegate_to: localhost
+  run_once: true
+  when: lxc_root_password is defined
+
 - name: Ensure passlib is available on the controller (needed for password_hash())
   ansible.builtin.pip:
     name: passlib
     state: present
+    extra_args: --break-system-packages
   delegate_to: localhost
   run_once: true
   when: lxc_root_password is defined
