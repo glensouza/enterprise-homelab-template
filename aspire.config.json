@@ -1,0 +1,5 @@
+{
+    "appHost": {
+        "path": "src\\BrewHouse.AppHost\\BrewHouse.AppHost.csproj"
+    }
+}
