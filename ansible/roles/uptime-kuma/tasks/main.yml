@@ -1,6 +1,6 @@
 ---
 # STUB (DEMO-AUDIT.md R7 sibling gap — "Add observability and uptime-kuma
-# Ansible roles"). Native install (ADR 02 — no Docker in production):
+# Ansible roles"). Native install (ADR 02 — no Docker in the homelab):
 # Node.js LTS from NodeSource, Uptime Kuma from its upstream git repo, run
 # under a systemd unit — no pm2, to match every other role's pattern in this
 # repo. Configuring actual monitors is on-camera content for whichever

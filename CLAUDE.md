@@ -36,7 +36,7 @@ Whenever you touch code, refactor logic, modify infrastructure configs, or add f
 
 ## Architecture
 
-This is a production-grade template for hosting **.NET 10 Blazor Server** apps on **Proxmox VE** as decentralized native LXCs (no Docker in production — ADR 01/02). The solution:
+This is a production-grade template for hosting **.NET 10 Blazor Server** apps on **Proxmox VE** as decentralized native LXCs (no Docker in the homelab — ADR 01/02). The solution:
 
 | Path | Role |
 |------|------|
@@ -54,11 +54,11 @@ Apps are deployed to native Debian LXCs and managed strictly via `systemd`. Depl
 
 ### PR preview environments (non-prod)
 
-Every open PR gets an isolated ephemeral environment on the single non-prod preview host (VLAN 140, ADR 19) — a Docker compose stack (app + pgvector + Garnet + RabbitMQ + the four Floci multi-cloud emulators) per PR, torn down automatically on merge/close. The preview app runs `BlobStorage:Provider=s3` against the Floci AWS emulator, so every PR exercises `S3BlobStore` for real. The preview host also runs a **standing** Floci stack deployed by Ansible, independent of any PR. Local-only access via Technitium wildcard DNS (`*.pr.brewhouse.internal`) and trusted HTTPS from the internal step-ca ACME CA (ADR 20) — no public exposure, no per-PR DNS/cert bookkeeping. Full guide: `docs/11-pr-preview-environments.md`. **Docker is allowed ONLY on the preview LXC** — production stays Docker-free (ADR 02).
+Every open PR gets an isolated ephemeral environment on the single non-prod preview host (VLAN 140, ADR 19) — a Docker compose stack (app + pgvector + Garnet + RabbitMQ + the four Floci multi-cloud emulators) per PR, torn down automatically on merge/close. The preview app runs `BlobStorage:Provider=s3` against the Floci AWS emulator, so every PR exercises `S3BlobStore` for real. The preview host also runs a **standing** Floci stack deployed by Ansible, independent of any PR. Local-only access via Technitium wildcard DNS (`*.pr.brewhouse.internal`) and trusted HTTPS from the internal step-ca ACME CA (ADR 20) — no public exposure, no per-PR DNS/cert bookkeeping. Full guide: `docs/11-pr-preview-environments.md`. **Docker is allowed ONLY on the preview LXC** — the homelab stays Docker-free (ADR 02).
 
 ### Admin plane (ADR 21)
 
-Every LXC runs **Cockpit** (`https://<host>.brewhouse.internal:9090`) with a step-ca-signed cert distributed by Ansible (renewal = re-run the playbook). The preview host also runs an always-on ops stack — **Portainer, Dozzle, Watchtower (ops containers only), pgAdmin, RedisInsight** — behind Caddy at `<service>.brewhouse.internal`. Technitium serves the `brewhouse.internal` zone: one A record per LXC + service CNAMEs. pgAdmin/RedisInsight reach prod Postgres/Garnet through two targeted firewall exceptions (`terraform/unifi.tf`); nothing here is publicly exposed.
+Every LXC runs **Cockpit** (`https://<host>.brewhouse.internal:9090`) with a step-ca-signed cert distributed by Ansible (renewal = re-run the playbook). The preview host also runs an always-on ops stack — **Portainer, Dozzle, Watchtower (ops containers only), pgAdmin, RedisInsight** — behind Caddy at `<service>.brewhouse.internal`. Technitium serves the `brewhouse.internal` zone: one A record per LXC + service CNAMEs. pgAdmin/RedisInsight reach the homelab's Postgres/Garnet through two targeted firewall exceptions (`terraform/unifi.tf`); nothing here is publicly exposed.
 
 ### Messaging
 
@@ -70,7 +70,7 @@ PostgreSQL (pgvector) is the store; Garnet is both cache and the Blazor Server S
 
 ### Secrets & observability
 
-No secrets in `appsettings.json` and no SDK in the app (ADR 12): the Infisical Agent renders `/etc/brewhouse/brewhouse.env`, loaded by systemd via `EnvironmentFile=`; the app fails fast if connection strings are missing. Telemetry is OpenTelemetry over OTLP (`UseOtlpExporter` driven by `OTEL_EXPORTER_OTLP_ENDPOINT`) — Grafana Alloy on VLAN 130 in production, the Aspire Dashboard locally (ADR 09).
+No secrets in `appsettings.json` and no SDK in the app (ADR 12): the Infisical Agent renders `/etc/brewhouse/brewhouse.env`, loaded by systemd via `EnvironmentFile=`; the app fails fast if connection strings are missing. Telemetry is OpenTelemetry over OTLP (`UseOtlpExporter` driven by `OTEL_EXPORTER_OTLP_ENDPOINT`) — Grafana Alloy on VLAN 130 in the homelab, the Aspire Dashboard locally (ADR 09).
 
 ## Network topology
 
@@ -149,7 +149,7 @@ The whole lab is `terraform apply && ansible-playbook site.yml` — see `docs/08
   mkdir -p ~/.brewhouse
   printf 'MAJOR_MINOR=1.0\nPATCH=0\n' > ~/.brewhouse/deploy-build-state
   ```
-- **Rollback:** `rollback.yml` (manual, `production` approval + typed `RESTORE` confirmation) flips symlinks per node and can restore the pre-migration `pg_dump` into a fresh database with a non-destructive RENAME-swap — nothing is ever DROPed. pgBackRest continuous WAL archiving to the NAS provides PITR (~60s max loss) — procedure in `docs/10-rollback.md` section 4.
+- **Rollback:** `rollback.yml` (manual, `homelab` approval + typed `RESTORE` confirmation) flips symlinks per node and can restore the pre-migration `pg_dump` into a fresh database with a non-destructive RENAME-swap — nothing is ever DROPed. pgBackRest continuous WAL archiving to the NAS provides PITR (~60s max loss) — procedure in `docs/10-rollback.md` section 4.
 
 ## C# Coding Conventions
 
@@ -165,7 +165,7 @@ Follow these patterns consistently:
 
 ## Configuration
 
-Local development needs no manual config — the AppHost injects all connection strings. In production the required environment keys (rendered by the Infisical Agent) are: `ConnectionStrings__brewhousedb`, `ConnectionStrings__cache`, `ConnectionStrings__messaging`, `OTEL_EXPORTER_OTLP_ENDPOINT`. Optional, all defaulted in `appsettings.json`: `BlobStorage:Provider` (`local` | `s3`), `Messaging:Transport` (`rabbitmq` | `sqs` | `servicebus`), `Realtime:HubBaseUrl`. GitHub Actions needs the `EFBUNDLE_CONNECTION` secret (real Postgres connection string for the migration bundle) and a `production` environment with a required reviewer. Never put credentials in workflow files.
+Local development needs no manual config — the AppHost injects all connection strings. In production the required environment keys (rendered by the Infisical Agent) are: `ConnectionStrings__brewhousedb`, `ConnectionStrings__cache`, `ConnectionStrings__messaging`, `OTEL_EXPORTER_OTLP_ENDPOINT`. Optional, all defaulted in `appsettings.json`: `BlobStorage:Provider` (`local` | `s3`), `Messaging:Transport` (`rabbitmq` | `sqs` | `servicebus`), `Realtime:HubBaseUrl`. GitHub Actions needs the `EFBUNDLE_CONNECTION` secret (real Postgres connection string for the migration bundle) and a `homelab` environment with a required reviewer. Never put credentials in workflow files.
 
 ## Safety guardrails (RED RULES)
 

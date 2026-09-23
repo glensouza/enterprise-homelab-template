@@ -2,7 +2,7 @@ name: Terraform Apply
 
 # ADR 22: applies the EXACT plan artifact a human already reviewed on a PR
 # via terraform-plan.yml's comment — never a plan regenerated at apply time.
-# Manual trigger + `production` environment approval is the human gate,
+# Manual trigger + `homelab` environment approval is the human gate,
 # same pattern as rollback.yml. Runs on the devops LXC's self-hosted
 # runner (pve1), then converges the result with ansible-playbook site.yml —
 # "terraform apply && ansible-playbook site.yml" as one gated pipeline.
@@ -41,7 +41,7 @@ env:
 jobs:
   apply:
     runs-on: self-hosted
-    environment: production
+    environment: homelab
     steps:
       - name: Checkout
         uses: actions/checkout@v7

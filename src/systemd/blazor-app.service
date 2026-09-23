@@ -9,7 +9,7 @@ Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=ASPNETCORE_URLS=http://0.0.0.0:5000
 # Keeps each circuit's own /hubs/bids connection on this node instead of
 # routing back out through the Kemp VIP (see SignalRBidsClient) - matches
-# the port ASPNETCORE_URLS binds above. Left unset in production, every
+# the port ASPNETCORE_URLS binds above. Left unset in the homelab, every
 # server-rendered page 500'd (Connection refused hitting the VIP's own :80,
 # which has no listener - confirmed live, ADR 45).
 Environment=Realtime__HubBaseUrl=http://localhost:5000

@@ -4,7 +4,7 @@ name: Rollback Blazor App
 # optional database restore from the pre-migration pg_dump taken at deploy time.
 #
 # SAFETY MODEL (see docs/10-rollback.md and ADR 16):
-#  - Manual trigger + `production` environment approval = the human gate.
+#  - Manual trigger + `homelab` environment approval = the human gate.
 #  - DB restore additionally requires typing RESTORE in the confirm field.
 #  - Restore is non-destructive: dump is loaded into a FRESH database, sanity
 #    checked, then databases are RENAME-swapped. The previous database is kept
@@ -40,7 +40,7 @@ env:
 jobs:
   rollback:
     runs-on: self-hosted
-    environment: production
+    environment: homelab
     steps:
     - name: Validate inputs
       run: |

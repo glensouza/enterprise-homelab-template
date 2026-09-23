@@ -46,7 +46,7 @@ jobs:
         docker pull ghcr.io/microsoft/garnet:2.1.7
         docker tag ghcr.io/microsoft/garnet:2.1.7 microsoft/garnet:2.1.7
 
-    # Tests gate the preview deploy, same as production (deploy-blazor.yml).
+    # Tests gate the preview deploy, same as homelab (deploy-blazor.yml).
     - name: Restore & Test
       run: dotnet test -c Release
 
@@ -117,7 +117,7 @@ jobs:
         ssh root@${PREVIEW_HOST} "cd /opt/previews/pr-${PR_NUMBER} && docker compose --env-file .env down -v" || true
         ssh root@${PREVIEW_HOST} "cd /opt/previews/pr-${PR_NUMBER} && docker compose --env-file .env up -d --wait"
 
-    # Migrations run before the app is announced, mirroring the production
+    # Migrations run before the app is announced, mirroring the homelab
     # pipeline (ADR 11). The bundle executes on the preview host against the
     # loopback-published Postgres port.
     - name: Execute Migration Bundle against the PR database

@@ -128,7 +128,7 @@
   # LC_COLLATE/LC_CTYPE stay "C" (not changing collation behavior, only the
   # encoding). Deliberately scoped to just this one database - fixing the
   # cluster-wide SQL_ASCII default would mean touching brewhouse_db's real
-  # production data, a separate, much bigger decision (docs/01 ADR 65).
+  # homelab data, a separate, much bigger decision (docs/01 ADR 65).
   ansible.builtin.command: >
     su postgres -c "psql -c \"CREATE DATABASE authentik OWNER authentik ENCODING UTF8 LC_COLLATE \\\"C\\\" LC_CTYPE \\\"C\\\" TEMPLATE template0;\""
   register: create_authentik_db

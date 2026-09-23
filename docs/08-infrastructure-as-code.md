@@ -2,7 +2,7 @@
 
 The entire lab is provisioned declaratively: **Terraform** creates the UniFi VLANs/firewall rules and the Proxmox LXCs, then **Ansible** configures the LXCs over SSH. Recreating the lab from scratch is `terraform apply` followed by `ansible-playbook site.yml`. See ADR 17 for the rationale.
 
-**Neither command runs from a workstation anymore (ADR 22).** A manually-provisioned "devops" LXC on `pve1` hosts the GitHub Actions self-hosted runner, Terraform, and Ansible. `terraform-plan.yml` runs on every PR touching `terraform/**` and posts the plan as a PR comment; `terraform-apply.yml` is a manual, `production`-environment-gated workflow that applies that *exact* reviewed plan artifact, then runs `ansible-playbook site.yml`. The CLI commands below still describe what actually happens — they're just invoked by CI now instead of by hand. See `LAB-RUNBOOK.md`'s "DevOps LXC (pve1)" section for how that box is built.
+**Neither command runs from a workstation anymore (ADR 22).** A manually-provisioned "devops" LXC on `pve1` hosts the GitHub Actions self-hosted runner, Terraform, and Ansible. `terraform-plan.yml` runs on every PR touching `terraform/**` and posts the plan as a PR comment; `terraform-apply.yml` is a manual, `homelab`-environment-gated workflow that applies that *exact* reviewed plan artifact, then runs `ansible-playbook site.yml`. The CLI commands below still describe what actually happens — they're just invoked by CI now instead of by hand. See `LAB-RUNBOOK.md`'s "DevOps LXC (pve1)" section for how that box is built.
 
 ```text
 terraform/                        # bpg/proxmox + resnickio/unifi
@@ -46,7 +46,7 @@ ansible/
 2. **UniFi local admin:** create a dedicated local (non-SSO) admin account on the UDM-Pro for Terraform.
 3. **Debian template:** on each node, `pveam download local debian-12-standard_<ver>_amd64.tar.zst` and set `debian_template_id` accordingly.
 4. **Fill in variables:** on the devops LXC, either `cp terraform.tfvars.example terraform.tfvars` for ad-hoc manual runs (never committed — git-ignored), or set the equivalent GitHub repository variables/secrets so `terraform-plan.yml`/`terraform-apply.yml` can run without a local tfvars file at all (ADR 22).
-5. **Apply — via CI (normal path):** open a PR touching `terraform/**` → `terraform-plan.yml` comments the plan → merge → run **Terraform Apply** (`workflow_dispatch`, `plan_run_id` = the plan run you reviewed) → `production` environment approval → it applies that exact plan and runs `ansible-playbook site.yml`.
+5. **Apply — via CI (normal path):** open a PR touching `terraform/**` → `terraform-plan.yml` comments the plan → merge → run **Terraform Apply** (`workflow_dispatch`, `plan_run_id` = the plan run you reviewed) → `homelab` environment approval → it applies that exact plan and runs `ansible-playbook site.yml`.
 6. **Apply — manual fallback (if the devops LXC or Actions are unavailable):**
    ```bash
    cd terraform
@@ -75,7 +75,7 @@ ansible-playbook site.yml --limit postgres
 *   **`blazor-app`** — creates `/var/www/brewhouse/releases`, `/etc/brewhouse/`, and installs `blazor-app.service`. The unit is copied verbatim from `src/systemd/` so the repo keeps **one canonical copy** — edit it there and re-run the playbook.
 *   **`postgres`** — installs and configures **pgBackRest** (WAL archiving + full/diff backup timers → PITR per `docs/10` section 4) and installs the `pg-dump-prune` timer, also copied verbatim from `src/systemd/`.
 *   **`technitium`**, **`step-ca`**, **`resolver`** — local DNS and internal PKI for the PR preview environments and fleet admin plane (ADR 20/21, `docs/11`). The `step-ca` `.deb` package ships only the binary, no systemd unit — `step-ca.service` is copied verbatim from `src/systemd/` like the units above.
-*   **`docker`**, **`preview-host`** — the non-prod preview host: Docker Engine plus Caddy wired to the step-ca ACME directory, plus the always-on ops stack (Portainer, Dozzle, Watchtower, pgAdmin, RedisInsight — ADR 21). Docker is installed **only** on the preview LXC — production remains Docker-free (ADR 02).
+*   **`docker`**, **`preview-host`** — the non-prod preview host: Docker Engine plus Caddy wired to the step-ca ACME directory, plus the always-on ops stack (Portainer, Dozzle, Watchtower, pgAdmin, RedisInsight — ADR 21). Docker is installed **only** on the preview LXC — the homelab remains Docker-free (ADR 02).
 *   **`cockpit`** — installs Cockpit on **every** LXC (`hosts: all`, runs last) with a per-host certificate signed by the internal CA. Re-running the playbook renews the certificates (1-year validity).
 
 Infisical Agent installation is intentionally out of scope — the agent bootstrap requires a machine identity token from your Infisical project (README onboarding step 3) and is a one-line official install script run per LXC.

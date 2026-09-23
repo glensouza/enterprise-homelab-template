@@ -5,7 +5,7 @@ on:
     branches:
       - main
     # Confirmed live: with no paths filter at all, this used to queue a
-    # full deploy (and wait on a production approval) for ANY push to main
+    # full deploy (and wait on a homelab approval) for ANY push to main
     # - docs, terraform, anything. Scoped to exactly what dotnet publish
     # actually builds from: the app project itself, its two version/package
     # inputs, and version.txt (drives the resolved semantic version). Not
@@ -37,7 +37,7 @@ concurrency:
 jobs:
   build-test-and-deploy:
     runs-on: self-hosted
-    environment: production
+    environment: homelab
     steps:
     - name: Checkout Code
       uses: actions/checkout@v7
@@ -60,7 +60,7 @@ jobs:
         docker pull ghcr.io/microsoft/garnet:2.1.7
         docker tag ghcr.io/microsoft/garnet:2.1.7 microsoft/garnet:2.1.7
 
-    # Tests must pass before anything touches production.
+    # Tests must pass before anything touches the homelab.
     - name: Restore & Test
       run: dotnet test -c Release
 
@@ -190,7 +190,7 @@ jobs:
     # itself included - one scp succeeded, the next failed on a changed SSH
     # host key from a just-recreated node) stops the job by default, and
     # without this, the maintenance page stays up with nothing left to ever
-    # take it back down - a real production outage, not a hypothetical one.
+    # take it back down - a real homelab outage, not a hypothetical one.
     # web-online's rm -f/health-check are safe to run even if offline never
     # happened (idempotent either way).
     - name: Bring both web nodes back online

@@ -60,7 +60,7 @@ var rabbitConnectionString = messagingTransport == MessagingTransportConfigurato
 
 // 2. OBSERVABILITY: OpenTelemetry logs, metrics, and traces.
 //    OTLP endpoint comes from OTEL_EXPORTER_OTLP_ENDPOINT (Aspire Dashboard locally,
-//    Grafana Alloy in production). No-op exporter when the endpoint is unset.
+//    Grafana Alloy in the homelab). No-op exporter when the endpoint is unset.
 builder.Logging.AddOpenTelemetry(options =>
 {
     options.IncludeFormattedMessage = true;
@@ -255,6 +255,6 @@ app.MapRazorComponents<BrewHouse.Components.App>().AddInteractiveServerRenderMod
 // RunJasperFxCommands, not Run(): with no arguments this starts the web host exactly
 // like app.Run(), but it also exposes JasperFx/Wolverine's CLI - notably
 // `dotnet BrewHouse.dll db-apply`, which provisions Wolverine's envelope
-// storage schema once per deploy (ADR 07). Without this the documented production
+// storage schema once per deploy (ADR 07). Without this the documented homelab
 // step silently just booted the web app and the wolverine.* tables never existed.
 return await app.RunJasperFxCommands(args);

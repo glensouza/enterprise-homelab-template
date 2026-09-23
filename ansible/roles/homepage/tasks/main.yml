@@ -1,6 +1,6 @@
 ---
 # Homepage dashboard (ADR 38, https://gethomepage.dev/). Native install (ADR
-# 02 - no Docker in production): built from source with pnpm/Next.js,
+# 02 - no Docker in the homelab): built from source with pnpm/Next.js,
 # structured on the community-scripts ProxmoxVE installer
 # (ct/homepage.sh / install/homepage-install.sh, commit
 # 787dbf2420ec8217c967eb4c152cb3003446d327) for shape only - config content

@@ -31,7 +31,7 @@ In the **UniFi Network Application**, navigate to **Settings > Networks** and cr
 4.  **Non-Prod / Preview Tier (VLAN 140)**
     *   **Router:** UDM-Pro
     *   **Host Address:** `10.10.140.1/24`
-    *   **Purpose:** Houses the single PR preview host (ADR 19, `docs/11`). May only reach Technitium DNS and the step-ca ACME endpoint on VLAN 130 — fully isolated from every production tier.
+    *   **Purpose:** Houses the single PR preview host (ADR 19, `docs/11`). May only reach Technitium DNS and the step-ca ACME endpoint on VLAN 130 — fully isolated from every homelab tier.
 
 ---
 
@@ -63,12 +63,12 @@ UniFi Network 8.x+ replaced the old ruleset/LAN-IN model with **zone-based firew
 | **Allow** | VLAN 140 (Preview) | `10.10.130.121` (step-ca) | `4443` | Allow Caddy to reach the ACME directory. |
 | **Allow** | `10.10.130.121` (step-ca) | VLAN 140 (Preview) | `80` | Allow the CA to complete ACME HTTP-01 validation (own policy — the API rejects a comma port list). |
 | **Allow** | `10.10.130.121` (step-ca) | VLAN 140 (Preview) | `443` | Allow the CA to complete ACME TLS-ALPN-01 validation. |
-| **Allow** | `10.10.140.120` (Preview host) | `10.10.120.110` (Postgres) | `5432` | pgAdmin (admin tooling, ADR 21) -> production database. |
-| **Allow** | `10.10.140.120` (Preview host) | `10.10.120.111` (Garnet) | `6379` | RedisInsight (admin tooling, ADR 21) -> production cache. |
+| **Allow** | `10.10.140.120` (Preview host) | `10.10.120.110` (Postgres) | `5432` | pgAdmin (admin tooling, ADR 21) -> homelab database. |
+| **Allow** | `10.10.140.120` (Preview host) | `10.10.120.111` (Garnet) | `6379` | RedisInsight (admin tooling, ADR 21) -> homelab cache. |
 | **Allow** | VLAN 140 (Preview) | `10.10.130.122` (PatchMon) | `3000` | Allow the preview host to enroll with and report to PatchMon (ADR 34/40) — confirmed live this was missing and hung the fleet-wide enrollment play until added. |
 | **Allow** | VLAN 140 (Preview) | `10.10.130.123` (Authentik) | `443` | Allow Caddy on the preview host to reach Authentik's forward-auth check for Dozzle/RedisInsight (ADR 59/61 — port 443, not the 9443 ADR 59 originally assumed, since Authentik ended up loopback-only behind its own Caddy instance). Same `index`/`-replace` caveat as the Infisical/PatchMon rows above — tried codifying it via the drop rule's `lifecycle.replace_triggered_by` instead, confirmed live (actual `terraform plan` output) that it doesn't fire for a merely-newly-created referenced resource, so this one still needs the same manual `terraform apply -replace=unifi_firewall_policy.drop_preview_to_mgmt` step after applying. |
 | **Block** | VLAN 140 (Preview) | VLAN 110 (Web) | `Any` | Isolate non-prod from the web tier. |
-| **Block** | VLAN 140 (Preview) | VLAN 120 (Data Tier) | `Any` | Isolate non-prod from production data (after the two specific allows above). |
+| **Block** | VLAN 140 (Preview) | VLAN 120 (Data Tier) | `Any` | Isolate non-prod from homelab data (after the two specific allows above). |
 | **Block** | VLAN 140 (Preview) | VLAN 130 (Management) | `Any` | Block all other Preview -> Management traffic (after the four specific allows above). |
 
 *Note: access from the admin LAN to the preview host (HTTPS 443, and SSH from the self-hosted runner) is allowed by the UDM-Pro's default inter-VLAN permit; only VLAN-to-VLAN isolation is locked down above.*

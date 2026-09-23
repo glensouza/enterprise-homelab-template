@@ -14,7 +14,7 @@ The .NET app configures OpenTelemetry in `Program.cs`:
 ## 2. Local Development (Aspire Dashboard)
 When running via the AppHost (`dotnet run --project src/BrewHouse.AppHost`), Aspire injects `OTEL_EXPORTER_OTLP_ENDPOINT` pointing at the built-in Aspire Dashboard, which renders logs, metrics, and traces for the app and its orchestrated containers in one view.
 
-## 3. Production (Grafana Alloy on VLAN 130)
+## 3. Homelab (Grafana Alloy on VLAN 130)
 Provision a Debian LXC on Node 2 (VLAN 130 - `10.10.130.118`) hosting:
 * **Grafana Alloy:** Receives OTLP from both Blazor nodes and fans out to the backends below.
 * **Loki:** Log aggregation.

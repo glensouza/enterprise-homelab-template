@@ -24,7 +24,7 @@ The systemd unit runs from `/var/www/brewhouse/current`, so rollback never modif
 Use the **Rollback Blazor App** workflow (`rollback.yml`, `workflow_dispatch`) in GitHub Actions:
 
 1. Find the target SHA: `git log --oneline` (must be one of the last 5 deployed releases).
-2. Run the workflow with the full SHA. It requires `production` environment approval.
+2. Run the workflow with the full SHA. It requires `homelab` environment approval.
 3. The workflow rolls back LXC 01 first, verifies `/health`, and only then touches LXC 02 — one node always stays serving.
 
 ### Manual equivalent (if CI is unavailable)
@@ -53,7 +53,7 @@ Run the **Rollback Blazor App** workflow with:
 3. `backup_file` — the exact `*.sql.gz` dump filename.
 4. `confirm` — type `RESTORE`.
 
-The workflow requires `production` environment approval, then: stops both app services → verifies the dump exists → restores into a **fresh** database (`brewhouse_db_restore_<ts>`) → sanity-checks it has tables → **RENAME-swaps** the databases (nothing is ever `DROP`ed; the old database is preserved as `brewhouse_db_failed_<ts>`) → flips the release symlinks and restarts, health-gated per node.
+The workflow requires `homelab` environment approval, then: stops both app services → verifies the dump exists → restores into a **fresh** database (`brewhouse_db_restore_<ts>`) → sanity-checks it has tables → **RENAME-swaps** the databases (nothing is ever `DROP`ed; the old database is preserved as `brewhouse_db_failed_<ts>`) → flips the release symlinks and restarts, health-gated per node.
 
 After verifying the system, drop `brewhouse_db_failed_<ts>` manually — that final destructive step is intentionally left to a human.
 

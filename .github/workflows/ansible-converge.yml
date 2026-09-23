@@ -6,7 +6,7 @@ name: Ansible Converge
 # separate from terraform-apply.yml (ADR 22): that one stays plan-then-apply
 # with an explicit reviewed diff, since creating/destroying LXCs/VLANs
 # deserves more ceremony than reapplying config to hosts that already exist.
-# Same production-environment approval gate as deploy-blazor.yml - nothing
+# Same homelab-environment approval gate as deploy-blazor.yml - nothing
 # here runs unattended, this just replaces the manual SSH step with an
 # approval click.
 
@@ -28,7 +28,7 @@ concurrency:
 jobs:
   converge:
     runs-on: self-hosted
-    environment: production
+    environment: homelab
     steps:
       - name: Checkout
         uses: actions/checkout@v7

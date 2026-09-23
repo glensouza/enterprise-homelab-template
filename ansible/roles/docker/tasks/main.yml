@@ -1,6 +1,6 @@
 ---
 # Installs Docker Engine + the compose plugin from the official Docker apt
-# repo. Used ONLY on the non-prod PR preview host (ADR 19) — production
+# repo. Used ONLY on the non-prod PR preview host (ADR 19) — the homelab
 # remains Docker-free per ADR 02.
 - name: Install apt prerequisites
   ansible.builtin.apt:

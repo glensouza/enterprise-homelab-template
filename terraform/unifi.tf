@@ -113,7 +113,7 @@ resource "unifi_network" "vlan140" {
 #    based on provider docs, not yet confirmed against this controller —
 #    after applying, verify actual order in the UniFi GUI (Settings ->
 #    Firewall & Security -> the Internal zone's policy list) before trusting
-#    it in production.
+#    it in the homelab.
 # -----------------------------------------------------------------------------
 locals {
   synology_nas      = "10.10.10.90"
@@ -331,7 +331,7 @@ resource "unifi_firewall_policy" "mgmt_to_any" {
 
 # --- VLAN 140 (Non-Prod / Preview) isolation (ADR 19) -------------------------
 # The preview tier may only resolve DNS against Technitium and reach the
-# step-ca ACME endpoint — it is fully isolated from the production tiers.
+# step-ca ACME endpoint — it is fully isolated from the homelab tiers.
 
 resource "unifi_firewall_policy" "preview_to_dns" {
   name     = "Allow Preview -> Technitium DNS (53)"
@@ -409,8 +409,8 @@ resource "unifi_firewall_policy" "step_ca_to_preview" {
 }
 
 # Targeted admin-tool access (ADR 21): pgAdmin and RedisInsight run on the
-# preview host and must reach the production database/cache. Everything else
-# from VLAN 140 to the production tiers remains dropped below.
+# preview host and must reach the homelab database/cache. Everything else
+# from VLAN 140 to the homelab tiers remains dropped below.
 resource "unifi_firewall_policy" "preview_to_postgres" {
   name     = "Allow Preview -> PostgreSQL (5432, pgAdmin)"
   action   = "ALLOW"

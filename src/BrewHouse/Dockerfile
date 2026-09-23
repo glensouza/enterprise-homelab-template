@@ -1,5 +1,5 @@
 # PR preview image (ADR 19) — used ONLY by the non-prod preview host.
-# Production stays Docker-free on systemd LXCs (ADR 02); this Dockerfile
+# The homelab stays Docker-free on systemd LXCs (ADR 02); this Dockerfile
 # exists so each open PR gets an isolated compose stack (docs/11).
 # Build context is the repo root:
 #   docker build -f src/BrewHouse/Dockerfile -t brewhouse:pr .

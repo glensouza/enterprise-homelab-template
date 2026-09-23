@@ -39,7 +39,7 @@ Developer LAN                    VLAN 130 (Management)                 VLAN 140 
 
 Why a wildcard record instead of per-PR DNS entries: there is nothing to create on PR open and nothing to forget on merge — the entire DNS lifecycle for previews is one static record. The `.internal` TLD is ICANN-reserved for private use, so the zone can never collide with a public name.
 
-> **Docker only here.** ADR 02 (bare-metal systemd, no Docker) still governs production. Docker is used on the preview host because compose gives perfect per-PR isolation and atomic cleanup (`down -v` removes containers, networks, and the PR database volume).
+> **Docker only here.** ADR 02 (bare-metal systemd, no Docker) still governs the homelab. Docker is used on the preview host because compose gives perfect per-PR isolation and atomic cleanup (`down -v` removes containers, networks, and the PR database volume).
 
 ## 2. Prerequisites (one-time)
 
@@ -56,7 +56,7 @@ Why a wildcard record instead of per-PR DNS entries: there is nothing to create 
 
 **Open / push (`pr-preview.yml`, runs on the self-hosted runner, `preview` environment):**
 
-1. `dotnet test -c Release` — tests gate the preview, same as production.
+1. `dotnet test -c Release` — tests gate the preview, same as homelab.
 2. Builds `brewhouse-pr-<n>:<sha>` from `src/BrewHouse/Dockerfile`, `docker save | ssh … docker load`.
 3. Generates the EF Core migration bundle (ADR 11) and stages `/opt/previews/pr-<n>/` with `docker-compose.yml` (from `deploy/preview/docker-compose.pr.yml`) and a `.env` containing an ephemeral per-PR database password and the four Floci emulator ports — no GitHub secrets required.
 4. `docker compose up -d --wait`, then executes the migration bundle against the PR database (`brewhouse_pr<n>` on the loopback-published port `15432 + <n>`). The one-shot `floci-init` service creates the bucket `brewhouse-coffee-pr<n>` in the AWS emulator first — the app waits on it (`service_completed_successfully`), because `S3BlobStore` never creates buckets (real S3 rarely grants `CreateBucket` to an app identity).
@@ -95,9 +95,9 @@ scp root@10.10.130.121:/root/.step/certs/root_ca.crt .
 * **Caddy can't obtain a certificate** — check VLAN 140 → `10.10.130.121:4443` and step-ca → preview `80,443` firewall rules (`terraform/unifi.tf`, ADR 19), and that the step-ca LXC resolves `*.pr.brewhouse.internal` via Technitium (the `resolver` role). If the site instead silently serves a **self-signed "Caddy Local Authority" certificate with no error at all**, this isn't a connectivity problem — Caddy's automatic HTTPS defaults to its own internal CA for any `.internal` name unless that specific site has its own `tls { ca ...; ca_root ... }` block (ADR 25); confirm with `caddy adapt --config /etc/caddy/Caddyfile | jq .apps.tls.automation.policies` and look for a `subjects`-scoped policy naming the site.
 * **Port collisions** — app/DB ports are `6000 + <PR#>` / `15432 + <PR#>`; the four Floci emulator ports are `24566/24577/24588/24599 + <PR#>` (mirroring their real ports 4566/4577/4588/4599). GitHub PR numbers are unique, so collisions are impossible in practice.
 
-## 6. Deliberate simplifications vs. production
+## 6. Deliberate simplifications vs. homelab
 
-| Production (VLANs 110/120/130) | Preview (VLAN 140) |
+| Homelab (VLANs 110/120/130) | Preview (VLAN 140) |
 | :--- | :--- |
 | Bare-metal systemd (ADR 02) | Docker compose stacks (ADR 19) |
 | HA: 2 web nodes + Kemp VIP + sticky sessions | Single Caddy instance |

@@ -2,7 +2,7 @@
 # Authentik SSO (VLAN 130, ADR 04/59/61). No supported non-Docker install
 # path exists upstream - this mirrors community-scripts' authentik-install.sh
 # (a from-source Rust/Go/Node/Python build) to stay consistent with ADR 02's
-# "no Docker in production" pattern every other role here follows, a
+# "no Docker in the homelab" pattern every other role here follows, a
 # deliberate choice accepting the added build complexity. Diverges from that
 # reference script in two structural ways: reuses the existing shared
 # postgresql/garnet LXCs instead of a local Postgres + implicit-localhost

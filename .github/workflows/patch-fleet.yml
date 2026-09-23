@@ -35,7 +35,7 @@ concurrency:
 jobs:
   patch:
     runs-on: self-hosted
-    environment: production
+    environment: homelab
     steps:
       - name: Checkout
         uses: actions/checkout@v7

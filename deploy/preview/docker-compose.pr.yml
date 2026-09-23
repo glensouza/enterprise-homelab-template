@@ -24,7 +24,7 @@ services:
       ConnectionStrings__messaging: amqp://guest:guest@messaging:5672
       # Preview runs the S3 path (ADR 03) against the Floci AWS emulator below, so every
       # PR exercises S3BlobStore for real instead of the local-disk implementation that
-      # production uses. Credentials are the emulator's fixed test pair, not secrets.
+      # homelab uses. Credentials are the emulator's fixed test pair, not secrets.
       BlobStorage__Provider: s3
       BlobStorage__S3__ServiceUrl: http://floci:4566
       BlobStorage__S3__ForcePathStyle: "true"

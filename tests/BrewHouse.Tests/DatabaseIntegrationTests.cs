@@ -36,7 +36,7 @@ public class DatabaseIntegrationTests
         // MigrateAsync, not EnsureCreatedAsync: EnsureCreated is a no-op when the database
         // already contains ANY table, so once Wolverine's envelope schema exists in
         // brewhousedb it silently skips the app's tables and every query fails with 42P01.
-        // Applying the real migrations also matches how production is provisioned (ADR 11).
+        // Applying the real migrations also matches how the homelab is provisioned (ADR 11).
         await db.Database.MigrateAsync();
 
         // Unique per run - the AppHost keeps a persistent data volume, so a fixed literal

@@ -6,7 +6,7 @@ name: Bump Pinned Versions
 # PR is automatic; merging it is the deliberate bump (garnet/defaults/
 # main.yml's own comment: "Bump deliberately, not automatically"). Merging
 # into ansible/** then triggers ansible-converge.yml, which still needs its
-# own production-environment approval before anything reaches the fleet.
+# own homelab-environment approval before anything reaches the fleet.
 #
 # The Debian LXC template (also listed in LAB-RUNBOOK §5) is deliberately
 # NOT here - it's a Proxmox-level `pveam download` concern, and ADR 22
@@ -83,7 +83,7 @@ jobs:
           git commit -m "chore: bump ${COMPONENT} to ${latest_version}"
           git push origin "${branch}"
 
-          pr_body=$(printf 'Upstream release: %s\n\nPinned-version bump only (`%s`) - this repo bumps these deliberately, not automatically. Merging into `main` triggers `ansible-converge.yml`, which still needs its own production-environment approval before this reaches the fleet.' \
+          pr_body=$(printf 'Upstream release: %s\n\nPinned-version bump only (`%s`) - this repo bumps these deliberately, not automatically. Merging into `main` triggers `ansible-converge.yml`, which still needs its own homelab-environment approval before this reaches the fleet.' \
             "https://github.com/${REPO}/releases/tag/${latest_tag}" "${FILE}")
 
           gh pr create \
