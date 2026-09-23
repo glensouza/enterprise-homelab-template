@@ -125,7 +125,7 @@ jobs:
 
       - name: Upload plan artifact (applied verbatim by the apply job below)
         if: steps.plan.outputs.has_changes == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tfplan
           path: terraform/tfplan
@@ -213,7 +213,7 @@ jobs:
         run: ./unifi-backup.sh
 
       - name: Download the reviewed plan (same run - no plan_run_id to pass by hand anymore)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: tfplan
           path: terraform
