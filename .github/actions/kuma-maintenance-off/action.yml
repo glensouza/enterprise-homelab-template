@@ -1,0 +1,22 @@
+name: End Uptime Kuma maintenance window
+description: >
+  Pauses the fleet-wide Uptime Kuma maintenance window started by
+  kuma-maintenance-on (docs/01 ADR 86), putting the status page back to
+  reporting real state. Idempotent if the window was never started (e.g.
+  kuma-maintenance-on itself failed) - toggle_maintenance.py no-ops rather
+  than erroring when there's nothing to pause. Called with if: always(),
+  same as web-online, so a mid-run failure never leaves the status page
+  permanently muted.
+
+inputs:
+  kuma_ip:
+    description: uptime-kuma LXC's IP
+    default: "10.10.130.117"
+
+runs:
+  using: composite
+  steps:
+    - name: Run toggle_maintenance.py stop
+      shell: bash
+      run: |
+        ssh root@${{ inputs.kuma_ip }} "set -a; . /opt/uptime-kuma-seed/.env; set +a; /opt/uptime-kuma-seed/bin/python /opt/uptime-kuma-seed/toggle_maintenance.py stop"

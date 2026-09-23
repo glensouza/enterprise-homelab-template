@@ -151,6 +151,38 @@
   no_log: true
   when: uptime_kuma_username is defined and uptime_kuma_password is defined
 
+# --- Fleet-wide maintenance-mode toggle (docs/01 ADR 86) ----------------------
+# Lets patch-fleet.yml/deploy-blazor.yml (via the kuma-maintenance-on/-off
+# composite actions) mute the status page for the duration of a run, the
+# same idea as app_offline.htm for the web tier itself - see
+# toggle_maintenance.py's own header for why. Reuses the venv/library
+# already installed above for monitor seeding; same gate.
+- name: Copy the maintenance-toggle script
+  ansible.builtin.copy:
+    src: toggle_maintenance.py
+    dest: /opt/uptime-kuma-seed/toggle_maintenance.py
+    mode: "0644"
+  when: uptime_kuma_username is defined and uptime_kuma_password is defined
+
+# root-only (0600): the one place this repo puts a plaintext credential down
+# as a file on disk rather than passing it only through Ansible's own
+# `environment:` block (seed_monitors.py above) - needed because the
+# kuma-maintenance-on/-off composite actions invoke this script as a plain
+# SSH command from the self-hosted runner, not through ansible-playbook, so
+# there's no `-e @/opt/ansible-secrets/all.yml` available at that call site.
+- name: Render the maintenance-toggle script's credentials file
+  ansible.builtin.copy:
+    content: |
+      UPTIME_KUMA_URL=http://localhost:{{ uptime_kuma_port | default(3001) }}
+      UPTIME_KUMA_USERNAME={{ uptime_kuma_username }}
+      UPTIME_KUMA_PASSWORD={{ uptime_kuma_password }}
+    dest: /opt/uptime-kuma-seed/.env
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  when: uptime_kuma_username is defined and uptime_kuma_password is defined
+
 # Tier-2 forward-auth (docs/01 ADR 66).
 - name: Front Uptime Kuma with Caddy + Authentik forward-auth
   ansible.builtin.include_role:

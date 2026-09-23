@@ -1,0 +1,37 @@
+---
+# Fleet-wide root password (docs/01 ADR 87). Every Terraform-managed LXC is
+# otherwise SSH-key-only - terraform/lxc.tf's `user_account` block installs
+# only `keys`, never a password, and that same block sits under
+# `lifecycle.ignore_changes` (rotated out-of-band, same as the keys
+# themselves), so a password added there wouldn't even reach an
+# already-existing LXC. Setting it here instead - fleet-wide, on every
+# converge, the same way every other guest-OS-level secret in this repo
+# flows (technitium_api_token, uptime_kuma_username/password, ...) -
+# sidesteps that entirely and covers hosts that already exist today, not
+# just ones created after this role landed.
+#
+# Gives every LXC an interactive-console fallback (Proxmox noVNC, a getty
+# prompt) that doesn't depend on the brewhouse_ansible key or SSH itself
+# ever being reachable - the same reason devops's own root password exists
+# (LAB-RUNBOOK.md DevOps LXC section, ADR 82), just extended fleet-wide
+# with its own distinct secret rather than reusing devops's - devops keeps
+# its own bootstrap-only credential untouched (this role is never applied
+# to it, see site.yml), so the two blast radii stay separate.
+#
+# Skips gracefully (same idiom as every other optional secret in this repo)
+# until lxc_root_password is supplied in /opt/ansible-secrets/all.yml.
+- name: Ensure passlib is available on the controller (needed for password_hash())
+  ansible.builtin.pip:
+    name: passlib
+    state: present
+  delegate_to: localhost
+  run_once: true
+  when: lxc_root_password is defined
+
+- name: Set the fleet root password
+  ansible.builtin.user:
+    name: root
+    password: "{{ lxc_root_password | password_hash('sha512') }}"
+    update_password: always
+  no_log: true
+  when: lxc_root_password is defined

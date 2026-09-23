@@ -132,6 +132,12 @@ jobs:
     # visitors at Kemp's own generic error instead of this page. Same
     # composite action patch-fleet.yml uses for OS patching - one place this
     # logic lives, not two copies that can drift.
+    # Same span, muted one layer up (docs/01 ADR 86) so the "Blazor App (via
+    # Kemp VIP)" Uptime Kuma monitor shows "Under Maintenance" instead of
+    # flapping red for this deploy's own restart, not a real outage.
+    - name: Start Uptime Kuma maintenance window
+      uses: ./.github/actions/kuma-maintenance-on
+
     - name: Take both web nodes offline (maintenance page)
       uses: ./.github/actions/web-offline
 
@@ -196,3 +202,8 @@ jobs:
     - name: Bring both web nodes back online
       if: always()
       uses: ./.github/actions/web-online
+
+    # if: always() for the same reason as web-online above.
+    - name: End Uptime Kuma maintenance window
+      if: always()
+      uses: ./.github/actions/kuma-maintenance-off

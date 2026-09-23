@@ -1,0 +1,23 @@
+name: Start Uptime Kuma maintenance window
+description: >
+  Activates the fleet-wide Uptime Kuma maintenance window (docs/01 ADR 86)
+  so the status page shows "Under Maintenance" instead of a real outage
+  while patch-fleet.yml/deploy-blazor.yml reboot or briefly interrupt
+  monitored hosts. Runs toggle_maintenance.py (ansible/roles/uptime-kuma),
+  already placed on the Uptime Kuma LXC by Ansible converge, over SSH from
+  the self-hosted runner - same shape as web-offline, just muting the
+  monitoring layer instead of the app itself. Used by both workflows so
+  this logic lives in one place, not two copies that can drift.
+
+inputs:
+  kuma_ip:
+    description: uptime-kuma LXC's IP
+    default: "10.10.130.117"
+
+runs:
+  using: composite
+  steps:
+    - name: Run toggle_maintenance.py start
+      shell: bash
+      run: |
+        ssh root@${{ inputs.kuma_ip }} "set -a; . /opt/uptime-kuma-seed/.env; set +a; /opt/uptime-kuma-seed/bin/python /opt/uptime-kuma-seed/toggle_maintenance.py start"

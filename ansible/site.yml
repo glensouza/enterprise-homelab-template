@@ -42,6 +42,15 @@
   roles:
     - resolver
 
+# Fleet-wide root password fallback (docs/01 ADR 87). devops excluded
+# deliberately - it already has its own distinct, manually-set password
+# (ADR 82), and this role would otherwise overwrite it with the shared
+# fleet value on every converge.
+- name: Set the fleet-wide root password
+  hosts: all:!devops
+  roles:
+    - root-password
+
 - name: Configure step-ca internal PKI (VLAN 130, ADR 20)
   hosts: pki
   roles:

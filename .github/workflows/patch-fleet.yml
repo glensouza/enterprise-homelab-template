@@ -9,6 +9,12 @@ name: Patch Fleet
 # actions deploy-blazor.yml uses for app version deploys - one place that
 # logic lives, not a second copy reimplemented in Ansible.
 #
+# The whole run is also bracketed by kuma-maintenance-on/-off (docs/01 ADR
+# 86): nearly every monitored host in uptime_kuma_monitors (Postgres,
+# Garnet, RabbitMQ, Authentik, the web tier itself, ...) gets rebooted
+# somewhere in here, not just web - so the maintenance window has to cover
+# the whole job, not just the web-offline/web-online span.
+#
 # Order, confirmed live and corrected (docs/01 ADR 53): web goes offline
 # FIRST, then everything web actually depends on (Postgres, Garnet,
 # RabbitMQ, ADR 10's deep health checks) gets patched+rebooted WHILE web is
@@ -45,6 +51,9 @@ jobs:
           # ansible-converge.yml/terraform-apply.yml already guard against.
           clean: false
 
+      - name: Start Uptime Kuma maintenance window
+        uses: ./.github/actions/kuma-maintenance-on
+
       - name: Take both web nodes offline (maintenance page)
         uses: ./.github/actions/web-offline
 
@@ -80,6 +89,13 @@ jobs:
       - name: Bring both web nodes back online
         if: always()
         uses: ./.github/actions/web-online
+
+      # if: always() for the same reason as web-online above: a failure
+      # anywhere in this job must never leave the status page stuck showing
+      # "Under Maintenance" days after the run that started it finished.
+      - name: End Uptime Kuma maintenance window
+        if: always()
+        uses: ./.github/actions/kuma-maintenance-off
 
       - name: Patch the devops LXC (self) - delayed self-reboot, see role
         working-directory: ansible
