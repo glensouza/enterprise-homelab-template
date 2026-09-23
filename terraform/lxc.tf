@@ -44,7 +44,13 @@ locals {
     # other node throughout, same as any other rolling change to this pair.
     blazor-web-04 = { vm_id = 401, node = var.proxmox_node_1, ip = "10.10.110.101/24", gateway = "10.10.110.1", vlan = 110, cores = 2, memory = 2048, swap = 1024, disk = 8, tags = ["terraform", "vlan110", "web"], privileged = true, mount_point = { volume = "/mnt/homelab-media", path = "/mnt/synology/media" } }
     blazor-web-03 = { vm_id = 301, node = var.proxmox_node_2, ip = "10.10.110.102/24", gateway = "10.10.110.1", vlan = 110, cores = 2, memory = 2048, swap = 1024, disk = 8, tags = ["terraform", "vlan110", "web"], privileged = true, mount_point = { volume = "/mnt/homelab-media", path = "/mnt/synology/media" } }
-    cloudflared   = { vm_id = 405, node = var.proxmox_node_1, ip = "10.10.110.5/24", gateway = "10.10.110.1", vlan = 110, cores = 1, memory = 512, disk = 4, tags = ["terraform", "vlan110", "ingress"] }
+    # cores bumped 1 -> 2 (docs/01 ADR 100): the systemd TimeoutStartSec
+    # override alone stops the crash-loop, but a single vCPU still made the
+    # startup handshake (several redundant QUIC connections to Cloudflare's
+    # edge) genuinely slow, not just occasionally timing out - this is the
+    # public entry point for the whole site, so faster reconnects matter
+    # beyond just "doesn't crash."
+    cloudflared   = { vm_id = 405, node = var.proxmox_node_1, ip = "10.10.110.5/24", gateway = "10.10.110.1", vlan = 110, cores = 2, memory = 512, disk = 4, tags = ["terraform", "vlan110", "ingress"] }
 
     # VLAN 120 — Backend / Data tier (pve4 Primary)
     # postgresql: privileged, same reasons as blazor-web-03/04 above. pve4

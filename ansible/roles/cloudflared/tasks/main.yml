@@ -1,0 +1,39 @@
+---
+# docs/01 ADR 100: cloudflared itself has no role of its own elsewhere in
+# this repo - it's installed manually via the community-scripts installer
+# during LXC provisioning (LAB-RUNBOOK.md, docs/04 §2), token entered by
+# hand. That installer's own systemd unit ships with TimeoutStartSec=15,
+# which is too tight for this LXC's single vCPU (cloudflared opens
+# several redundant QUIC connections to Cloudflare's edge before it
+# signals ready to systemd, Type=notify) - confirmed live: the service
+# crash-looped (restart counter in the dozens, journalctl showing
+# "Failed with result 'timeout'" on a ~5s cadence) until this override
+# was applied, at which point it started cleanly and the public tunnel
+# (homelab.smartsoftwarecoffee.com) came back to a real 200. A systemd
+# drop-in, not editing the vendored unit file directly, so a future
+# reinstall via the same community script doesn't silently re-clobber it.
+- name: Ensure the cloudflared.service systemd drop-in directory exists
+  ansible.builtin.file:
+    path: /etc/systemd/system/cloudflared.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Raise cloudflared.service's start timeout (single-vCPU LXC is too slow for the installer's default 15s)
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/cloudflared.service.d/override.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Service]
+      TimeoutStartSec=90
+  register: cloudflared_timeout_override
+
+- name: Reload systemd and restart cloudflared if the override changed
+  ansible.builtin.systemd:
+    name: cloudflared
+    daemon_reload: true
+    state: restarted
+  when: cloudflared_timeout_override.changed

@@ -29,6 +29,15 @@
   roles:
     - technitium
 
+# docs/01 ADR 100: cloudflared itself is still installed manually (LAB-
+# RUNBOOK.md, docs/04 §2) - this role only manages the one thing that
+# needed fixing after the fact (the installer's default systemd
+# TimeoutStartSec), not a full reinstall of the app.
+- name: Configure cloudflared's systemd start timeout (VLAN 110, ADR 100)
+  hosts: cloudflared
+  roles:
+    - cloudflared
+
 # Fleet-wide (docs/01 ADR 67): previously only pki/preview got this role,
 # via their own roles: list below (now removed - this play covers them
 # too). Every other host still pointed at the generic UniFi gateway, which
