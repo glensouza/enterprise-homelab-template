@@ -44,7 +44,7 @@ jobs:
     environment: production
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # Default `git clean` would also wipe ansible/credentials/ (the
           # generated step_ca/pgAdmin passwords, LAB-RUNBOOK's "generate

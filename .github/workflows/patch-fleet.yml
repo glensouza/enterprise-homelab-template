@@ -38,7 +38,7 @@ jobs:
     environment: production
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # Persistent self-hosted runner, not ephemeral - default `git
           # clean` would wipe generated state the same way

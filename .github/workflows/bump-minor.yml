@@ -14,7 +14,7 @@ jobs:
       contents: write
     steps:
     - name: Checkout PR branch
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         # Explicit ref, not the default pull_request merge-ref checkout - that
         # lands in detached HEAD, and this job needs to `git push` back onto
