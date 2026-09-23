@@ -74,7 +74,21 @@ builder.Services.AddOpenTelemetry()
     .WithTracing(tracing => tracing
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
-        .AddSource("Npgsql"))
+        .AddSource("Npgsql")
+        // docs/01 ADR 105: Wolverine has its own built-in ActivitySource
+        // (literally named "Wolverine", confirmed by decompiling the
+        // installed package - WolverineTracing.ActivitySource) and already
+        // propagates W3C trace context through message envelopes
+        // (envelope.ParentId) across the RabbitMQ transport boundary. With
+        // no listener registered for this source, every
+        // ActivitySource.StartActivity("Wolverine", ...) call was
+        // returning null - Wolverine was never actually creating spans,
+        // let alone exporting them. This is why every bid showed up in
+        // Tempo as an isolated single-span trace (the Blazor "Event
+        // onclick" span for the publish) with no visible link to
+        // ProcessBidHandler or the Postgres write it makes - not a
+        // context-propagation gap, just this one missing .AddSource call.
+        .AddSource("Wolverine"))
     .UseOtlpExporter();
 
 // 3. DATABASE
