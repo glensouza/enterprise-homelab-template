@@ -153,6 +153,22 @@ resource "proxmox_virtual_environment_container" "lxc" {
       }
     }
 
+    # docs/01 ADR 95: Proxmox regenerates /etc/resolv.conf from exactly this
+    # config on every container boot, unconditionally - confirmed live this
+    # was previously unset fleet-wide, which meant every reboot (a Terraform
+    # replace, or patch-fleet.yml's own OS-patching reboot) silently reverted
+    # ansible/roles/resolver's fix back to Proxmox's own gateway-only
+    # default the instant the container came back up, with nothing
+    # re-asserting it until the next ansible-converge.yml run happened to
+    # follow. Setting it here means Proxmox itself hands out the correct
+    # resolver at boot, the same nameserver/search ansible/roles/resolver
+    # already writes post-boot - the two no longer race, and either one
+    # alone is now sufficient.
+    dns {
+      domain  = "brewhouse.internal"
+      servers = [split("/", local.lxcs["technitium-dns"].ip)[0], each.value.gateway]
+    }
+
     user_account {
       keys = [trimspace(var.ssh_public_key)]
     }
