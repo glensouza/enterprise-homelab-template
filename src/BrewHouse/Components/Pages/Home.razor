@@ -6,14 +6,22 @@
 @inject IDbContextFactory<AuctionDbContext> DbContextFactory
 @inject IBlobStore BlobStore
 @inject IMessageBus MessageBus
+@inject IWebHostEnvironment Environment
 
 <h1>Coffee Lot Auction</h1>
 <p class="subtitle">Bid on green coffee lots straight from the lab's live inventory.</p>
 
 <div class="card">
     <h2>📷 Lot Photos</h2>
-    <button class="btn-secondary" @onclick="UploadMockPhoto">Simulate Photo Upload</button>
+    <button class="btn-secondary" @onclick="UploadMockPhoto" disabled="@IsUploading">Simulate Photo Upload</button>
     <p class="status-line"><i>@UploadStatus</i></p>
+    @if (PhotoUrl is not null)
+    {
+        <figure class="lot-photo">
+            <img src="@PhotoUrl" alt="Segfault Yirgacheffe lot photo" />
+            <figcaption>Segfault Yirgacheffe &mdash; @PhotoBlobPath</figcaption>
+        </figure>
+    }
 </div>
 
 <div class="card">
@@ -21,11 +29,38 @@
 </div>
 
 @code {
+    private const string PhotoBlobPath = "auctions/coffee/Segfault-Yirgacheffe-Front.png";
     private string UploadStatus = "Ready.";
+    private string? PhotoUrl;
+    private bool IsUploading;
 
     private async Task UploadMockPhoto()
     {
-        await BlobStore.WriteTextAsync("auctions/coffee/Segfault-Yirgacheffe-Front.txt", "mock-image-data");
-        UploadStatus = "Mock photo written to storage backend successfully.";
+        IsUploading = true;
+        UploadStatus = "Uploading...";
+        try
+        {
+            // Stands in for a real camera/phone upload: reads the same bytes a
+            // multipart form upload would hand this handler, then round-trips
+            // them through the actual configured IBlobStore backend (local
+            // NAS mount or S3) - not a mocked write, a real one.
+            var samplePhotoPath = Path.Combine(Environment.WebRootPath, "images", "sample-lot-photo.png");
+            var photoBytes = await File.ReadAllBytesAsync(samplePhotoPath);
+            await BlobStore.WriteBytesAsync(PhotoBlobPath, photoBytes, "image/png");
+
+            // Cache-bust so the <img> always reflects a fresh read-back from the
+            // storage backend rather than the browser's own cached copy from a
+            // previous click.
+            PhotoUrl = $"/api/photos/{PhotoBlobPath}?v={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+            UploadStatus = "Photo written to storage backend and read back successfully.";
+        }
+        catch (Exception ex)
+        {
+            UploadStatus = $"Upload failed: {ex.Message}";
+        }
+        finally
+        {
+            IsUploading = false;
+        }
     }
 }

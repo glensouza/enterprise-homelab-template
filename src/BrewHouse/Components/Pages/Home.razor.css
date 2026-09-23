@@ -1,0 +1,30 @@
+.lot-photo {
+    margin: 1rem 0 0;
+    animation: lot-photo-fade-in 0.45s ease-out;
+}
+
+.lot-photo img {
+    display: block;
+    width: 100%;
+    max-width: 420px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+}
+
+.lot-photo figcaption {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+@keyframes lot-photo-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

@@ -250,6 +250,25 @@ app.UseStaticFiles();
 app.UseAntiforgery();
 app.MapHealthChecks("/health"); // Kemp probes this endpoint
 app.MapHub<BrewHouse.Hubs.BidsHub>("/hubs/bids");
+
+// Serves a photo back out of whichever IBlobStore backend is configured (local
+// NAS mount or S3) - the read half of the round-trip Home.razor's "Simulate
+// Photo Upload" button writes through. GET-only and read-only, so no
+// antiforgery/auth needed; LocalDiskBlobStore.Resolve() already guards against
+// the {**path} route parameter escaping the configured storage root.
+app.MapGet("/api/photos/{**path}", async (string path, IBlobStore blobStore) =>
+{
+    try
+    {
+        var (content, contentType) = await blobStore.ReadBytesAsync(path);
+        return Results.File(content, contentType);
+    }
+    catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException or AmazonS3Exception)
+    {
+        return Results.NotFound();
+    }
+});
+
 app.MapRazorComponents<BrewHouse.Components.App>().AddInteractiveServerRenderMode();
 
 // RunJasperFxCommands, not Run(): with no arguments this starts the web host exactly

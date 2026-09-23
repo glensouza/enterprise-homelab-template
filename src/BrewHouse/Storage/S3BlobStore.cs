@@ -29,6 +29,23 @@ public class S3BlobStore(IAmazonS3 client, string bucketName) : IBlobStore
         return await reader.ReadToEndAsync(cancellationToken);
     }
 
+    public Task WriteBytesAsync(string path, byte[] content, string contentType, CancellationToken cancellationToken = default)
+        => _client.PutObjectAsync(new PutObjectRequest
+        {
+            BucketName = _bucketName,
+            Key = path,
+            InputStream = new MemoryStream(content),
+            ContentType = contentType,
+        }, cancellationToken);
+
+    public async Task<(byte[] Content, string ContentType)> ReadBytesAsync(string path, CancellationToken cancellationToken = default)
+    {
+        using var response = await _client.GetObjectAsync(_bucketName, path, cancellationToken);
+        using var buffer = new MemoryStream();
+        await response.ResponseStream.CopyToAsync(buffer, cancellationToken);
+        return (buffer.ToArray(), response.Headers.ContentType ?? "application/octet-stream");
+    }
+
     public Task DeleteAsync(string path, CancellationToken cancellationToken = default)
         => _client.DeleteObjectAsync(_bucketName, path, cancellationToken);
 }
