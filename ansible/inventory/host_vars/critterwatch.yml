@@ -1,0 +1,23 @@
+---
+# CritterWatch (docs/01 ADR 91) - JasperFx's Wolverine/Marten monitoring
+# console. Generated once on the Ansible controller and reused on every
+# run - cached under /opt/ansible-credentials (ADR 35), outside any git
+# checkout. Same "Ansible-provisioned from first boot" reasoning as
+# authentik_db_password (host_vars/authentik.yml).
+critterwatch_db_password: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/critterwatch/db_password length=32 chars=ascii_letters,digits') }}"
+
+# Picked up by the homepage role (ADR 38) to auto-populate the dashboard.
+# href is the Caddy-fronted, Authentik-gated hostname (roles/caddy-forward-
+# auth, docs/01 ADR 66/71), not the raw :5000 port. icon: dotnet.png -
+# CritterWatch has no dedicated dashboard-icons entry (confirmed live,
+# cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/critterwatch.png 404s) -
+# reusing the same icon already proven working for BrewHouse's own web
+# nodes (host_vars/blazor-web-03/04.yml) rather than guessing at a name
+# that might also 404.
+homepage_service:
+  - group: Observability
+    name: CritterWatch
+    icon: dotnet.png
+    href: "https://critterwatch.{{ internal_domain }}"
+    description: Wolverine/Marten monitoring for BrewHouse
+    ping: "{{ ansible_host }}"

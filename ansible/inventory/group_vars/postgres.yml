@@ -30,6 +30,7 @@ postgres_allowed_networks:
   - { cidr: "10.10.140.0/24", comment: "preview host (pgAdmin)" }
   - { cidr: "10.10.10.111/32", comment: "devops LXC (CI runner, EF migration bundle)" }
   - { cidr: "10.10.130.123/32", comment: "authentik LXC (docs/01 ADR 59) - management VLAN's own mgmt_to_any UniFi policy already permits the traffic; this is the pg_hba/application-level gate" }
+  - { cidr: "10.10.130.124/32", comment: "critterwatch LXC (docs/01 ADR 91) - same pg_hba/application-level gate as authentik above" }
 
 # ADR 30: generated once on the Ansible controller and reused on every run -
 # cached under /opt/ansible-credentials (ADR 35), outside any git checkout.

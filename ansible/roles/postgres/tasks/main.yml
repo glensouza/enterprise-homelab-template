@@ -135,6 +135,41 @@
   failed_when: create_authentik_db.rc != 0 and 'already exists' not in create_authentik_db.stderr
   changed_when: create_authentik_db.rc == 0
 
+# --- critterwatch role/database (docs/01 ADR 91) -------------------------------
+# Same pattern as brewhouse/authentik above. Plain encoding-inheriting CREATE
+# DATABASE (no explicit UTF8 override, unlike authentik) - CritterWatch's
+# console uses Marten over Npgsql, the same driver brewhouse_db already
+# proves doesn't hit the SQL_ASCII/psycopg3 pitfall the authentik block's own
+# comment documents.
+- name: Create the critterwatch database role
+  ansible.builtin.command: >
+    su postgres -c "psql -c \"CREATE ROLE critterwatch WITH LOGIN PASSWORD '{{ hostvars['critterwatch'].critterwatch_db_password }}';\""
+  register: create_critterwatch_role
+  failed_when: create_critterwatch_role.rc != 0 and 'already exists' not in create_critterwatch_role.stderr
+  changed_when: create_critterwatch_role.rc == 0
+  no_log: true
+
+- name: Reconcile the critterwatch role's password to the cached value
+  ansible.builtin.command: >
+    su postgres -c "psql -c \"ALTER ROLE critterwatch WITH PASSWORD '{{ hostvars['critterwatch'].critterwatch_db_password }}';\""
+  changed_when: true
+  no_log: true
+
+- name: Create the critterwatch database
+  ansible.builtin.command: >
+    su postgres -c "psql -c \"CREATE DATABASE critterwatch OWNER critterwatch;\""
+  register: create_critterwatch_db
+  failed_when: create_critterwatch_db.rc != 0 and 'already exists' not in create_critterwatch_db.stderr
+  changed_when: create_critterwatch_db.rc == 0
+
+- name: Push ConnectionStrings__critterwatch to Infisical (consumed by the running console)
+  ansible.builtin.include_role:
+    name: infisical-secret
+  vars:
+    infisical_secret_name: ConnectionStrings__critterwatch
+    infisical_secret_value: "Host={{ ansible_host }};Port=5432;Database=critterwatch;Username=critterwatch;Password={{ hostvars['critterwatch'].critterwatch_db_password }}"
+  when: infisical_project_id is defined
+
 # --- pgBackRest ---------------------------------------------------------------
 - name: Install pgBackRest
   ansible.builtin.apt:

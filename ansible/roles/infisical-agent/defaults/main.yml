@@ -1,0 +1,6 @@
+---
+# Defaults preserve the original single-consumer behavior (BrewHouse's web
+# tier, ADR 12) unchanged - a new consumer (e.g. roles/critterwatch)
+# overrides both when it includes this role (docs/01 ADR 91).
+infisical_agent_env_path: /etc/brewhouse/brewhouse.env
+infisical_agent_min_keys: 4

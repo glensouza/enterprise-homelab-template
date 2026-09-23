@@ -2,6 +2,7 @@ using BrewHouse.Data;
 using Wolverine;
 using Wolverine.AmazonSqs;
 using Wolverine.AzureServiceBus;
+using Wolverine.CritterWatch;
 using Wolverine.Postgresql;
 using Wolverine.RabbitMQ;
 
@@ -45,6 +46,14 @@ public static class MessagingTransportConfigurator
         // this - every previous "it works" signal was bUnit tests calling Handle() as a
         // plain static method, bypassing Wolverine's generated dispatch pipeline entirely).
         options.CodeGeneration.AlwaysUseServiceLocationFor<AuctionDbContext>();
+
+        // docs/01 ADR 91 - required for CritterWatch's Pause/Restart admin
+        // actions (leader-owned agent assignment changes); already Wolverine's
+        // own framework default (confirmed live via ilspycmd against the
+        // pinned 6.21.0 package - DurabilitySettings.Mode defaults to
+        // Balanced), set explicitly so the requirement is visible in code
+        // rather than relying on an implicit default that could change.
+        options.Durability.Mode = DurabilityMode.Balanced;
     }
 
     public static void Configure(WolverineOptions options, MessagingTransportSettings settings)
@@ -80,6 +89,17 @@ public static class MessagingTransportConfigurator
                 options.UseRabbitMq(new Uri(settings.RabbitMqConnectionString)).AutoProvision();
                 options.PublishMessage<ProcessBidMessage>().ToRabbitQueue("bids");
                 options.ListenToRabbitQueue("bids");
+
+                // docs/01 ADR 91 - CritterWatch (JasperFx's Wolverine/Marten
+                // monitoring console). Reports over the same RabbitMQ
+                // transport just configured above, not a second connection -
+                // "critterwatch"/"brewhouse-control" are the queue names the
+                // console's own Program.cs (src/CritterWatch) listens on.
+                // Free tier (no JasperFx:LicenseKey configured) is read-only
+                // monitoring; this wiring works either way.
+                options.AddCritterWatchMonitoring(
+                    critterWatchUri: new Uri("rabbitmq://queue/critterwatch"),
+                    systemControlUri: new Uri("rabbitmq://queue/brewhouse-control"));
                 break;
         }
     }

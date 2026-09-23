@@ -1,0 +1,69 @@
+name: Deploy CritterWatch Console
+
+# docs/01 ADR 91. Single-instance internal ops tool (no Kemp VIP, no HA
+# pair), so this is deliberately a stripped-down deploy-blazor.yml: no
+# web-offline/web-online maintenance-page bracket (nothing to drain), no EF
+# migration bundle/db-apply step (CritterWatch's own Marten schema
+# auto-provisions on first run, confirmed against the real package's
+# AddCritterWatch() - no separate migration step exists to run). One
+# rsync target, one systemd unit, one health check.
+
+on:
+  push:
+    branches:
+      - main
+    # Scoped to exactly what dotnet publish builds from for this project -
+    # same discipline as deploy-blazor.yml's own paths filter, not "any push
+    # to main".
+    paths:
+      - 'src/CritterWatch/**'
+      - 'Directory.Packages.props'
+      - 'global.json'
+  # Manual re-run with no code change - same reasoning as deploy-blazor.yml's
+  # own workflow_dispatch (e.g. the LXC's container gets recreated and has
+  # nothing listening on :5000 until a real deploy lands).
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-critterwatch
+  cancel-in-progress: true
+
+jobs:
+  build-test-and-deploy:
+    runs-on: self-hosted
+    environment: homelab
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore & Test
+        run: dotnet test -c Release
+
+      - name: Publish CritterWatch
+        run: dotnet publish ./src/CritterWatch/CritterWatch.csproj -c Release -o ./publish-critterwatch /p:UseAppHost=false
+
+      - name: Deploy to critterwatch LXC
+        run: |
+          RELEASE=/var/www/critterwatch/releases/${GITHUB_SHA}
+          ssh root@10.10.130.124 "mkdir -p $RELEASE"
+          rsync -avz --delete ./publish-critterwatch/ root@10.10.130.124:$RELEASE/
+          ssh root@10.10.130.124 "ln -sfn $RELEASE /var/www/critterwatch/current && systemctl restart critterwatch.service && sleep 5 && systemctl is-active --quiet critterwatch.service"
+          ssh root@10.10.130.124 "cd /var/www/critterwatch/releases && ls -1t | tail -n +6 | xargs -r rm -rf"
+
+      - name: Confirm the console is actually listening
+        run: |
+          for attempt in $(seq 1 10); do
+            if ssh root@10.10.130.124 "curl -fsS http://localhost:5000/"; then
+              break
+            fi
+            if [ "$attempt" -eq 10 ]; then
+              echo "::error::CritterWatch never responded on :5000 after 10 attempts (30s)"
+              exit 1
+            fi
+            sleep 3
+          done

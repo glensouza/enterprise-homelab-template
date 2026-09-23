@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/BrewHouse.AppHost/BrewHouse.AppHost.csproj" />
     <Project Path="src/BrewHouse/BrewHouse.csproj" />
+    <Project Path="src/CritterWatch/CritterWatch.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/BrewHouse.Tests/BrewHouse.Tests.csproj" />

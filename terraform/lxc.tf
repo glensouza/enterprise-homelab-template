@@ -102,6 +102,13 @@ locals {
     # covers.
     authentik      = { vm_id = 417, node = var.proxmox_node_1, ip = "10.10.130.123/24", gateway = "10.10.130.1", vlan = 130, cores = 4, memory = 3072, swap = 3072, disk = 16, tags = ["terraform", "vlan130", "mgmt", "sso"] }
 
+    # docs/01 ADR 91 — CritterWatch (JasperFx Wolverine/Marten monitoring
+    # console for BrewHouse). VMID/sizing matches patchmon (the closest
+    # existing lightweight, no-build-spike VLAN130 app) - a small
+    # self-published .NET console, not a build-from-source or Docker
+    # workload.
+    critterwatch   = { vm_id = 324, node = var.proxmox_node_2, ip = "10.10.130.124/24", gateway = "10.10.130.1", vlan = 130, cores = 1, memory = 1024, disk = 8, tags = ["terraform", "vlan130", "mgmt"] }
+
     # VLAN 140 — Non-Prod Single Docker Host tier (pve4 Primary)
     pr-preview = { vm_id = 420, node = var.proxmox_node_1, ip = "10.10.140.120/24", gateway = "10.10.140.1", vlan = 140, cores = 2, memory = 4096, disk = 60, tags = ["terraform", "vlan140", "preview"] }
   }

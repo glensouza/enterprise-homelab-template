@@ -1,10 +1,12 @@
 ---
-# Infisical Agent (VLAN 110, ADR 12) - renders /etc/brewhouse/brewhouse.env
-# from the 4 keys in Infisical (ADR 26/27/28 populate them). This was a
-# manual per-LXC block in LAB-RUNBOOK.md step 8 - moved into Ansible so
-# `ansible-playbook site.yml` finishes with the app actually able to start
-# (ADR 12: it fails fast without this file), not "mostly done, SSH in twice
-# more by hand."
+# Infisical Agent (VLAN 110, ADR 12) - renders every secret at the project
+# root into infisical_agent_env_path (default /etc/brewhouse/brewhouse.env,
+# BrewHouse's own 4 keys from ADR 26/27/28 - a second consumer,
+# roles/critterwatch, overrides both that path and infisical_agent_min_keys,
+# ADR 91). This was a manual per-LXC block in LAB-RUNBOOK.md step 8 - moved
+# into Ansible so `ansible-playbook site.yml` finishes with the app actually
+# able to start (ADR 12: it fails fast without this file), not "mostly
+# done, SSH in twice more by hand."
 # Confirmed live: these minimal Debian images have no curl (same gotcha as
 # the devops LXC bootstrap in LAB-RUNBOOK.md section 0) - `curl ... | bash`
 # silently "succeeds" when curl is missing, because bash receives an empty,
@@ -53,9 +55,9 @@
     mode: "0600"
   no_log: true
 
-- name: Create /etc/brewhouse (Agent's rendered-secrets destination)
+- name: Create the Agent's rendered-secrets destination directory
   ansible.builtin.file:
-    path: /etc/brewhouse
+    path: "{{ infisical_agent_env_path | dirname }}"
     state: directory
     owner: root
     group: root
@@ -90,13 +92,13 @@
     enabled: true
     state: "{{ 'restarted' if (infisical_agent_config.changed or infisical_agent_unit.changed) else 'started' }}"
 
-- name: Wait for the Agent to render brewhouse.env
+- name: Wait for the Agent to render its env file
   ansible.builtin.wait_for:
-    path: /etc/brewhouse/brewhouse.env
+    path: "{{ infisical_agent_env_path }}"
     timeout: 30
 
-- name: Confirm all 4 keys rendered
-  ansible.builtin.command: grep -c '=' /etc/brewhouse/brewhouse.env
+- name: Confirm the expected number of keys rendered
+  ansible.builtin.command: grep -c '=' {{ infisical_agent_env_path }}
   register: infisical_env_keys
   changed_when: false
-  failed_when: infisical_env_keys.stdout | int < 4
+  failed_when: infisical_env_keys.stdout | int < infisical_agent_min_keys

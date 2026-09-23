@@ -14,6 +14,6 @@ templates:
       {{- end }}
       {{- end }}
 {% endraw %}
-    destination-path: "/etc/brewhouse/brewhouse.env"
+    destination-path: "{{ infisical_agent_env_path }}"
     config:
       polling-interval: 5m

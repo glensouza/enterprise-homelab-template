@@ -1,0 +1,54 @@
+---
+# CritterWatch (docs/01 ADR 91) - JasperFx's Wolverine/Marten monitoring
+# console for BrewHouse. Deploy shape mirrors roles/blazor-app (a small
+# self-published .NET binary CI builds and rsyncs), not roles/authentik or
+# roles/uptime-kuma (upstream source compiled/installed on-box) - CritterWatch
+# is a project in THIS repo's own solution (src/CritterWatch), same as
+# BrewHouse itself, not a third-party binary with no non-Docker release.
+
+- name: Install rsync (required by deploy-critterwatch.yml's rsync-based deploy)
+  ansible.builtin.apt:
+    name: rsync
+    state: present
+
+- name: Create release and config directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "0755"
+  loop:
+    - { path: /var/www/critterwatch, owner: www-data, group: www-data }
+    - { path: /var/www/critterwatch/releases, owner: www-data, group: www-data }
+    # Infisical Agent renders critterwatch.env here
+    - { path: /etc/critterwatch, owner: root, group: root }
+
+- name: Install critterwatch.service (canonical copy lives in src/systemd/)
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../src/systemd/critterwatch.service"
+    dest: /etc/systemd/system/critterwatch.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: systemd daemon-reload
+
+- name: Enable critterwatch.service
+  # Enabled at boot but not started here - CI (deploy-critterwatch.yml)
+  # creates releases/<sha> + the current symlink and owns service
+  # start/health-gating, same convention as blazor-app.service.
+  ansible.builtin.systemd:
+    name: critterwatch.service
+    enabled: true
+    daemon_reload: true
+
+# Tier-2 forward-auth (docs/01 ADR 66) - an ops console with real
+# administrative power (once licensed - pause/restart, docs/01 ADR 91)
+# belongs behind SSO like every other admin tool on this VLAN
+# (patchmon/homepage/uptime-kuma).
+- name: Front CritterWatch with Caddy + Authentik forward-auth
+  ansible.builtin.include_role:
+    name: caddy-forward-auth
+  vars:
+    caddy_fa_fqdn: "critterwatch.{{ internal_domain }}"
+    caddy_fa_backend: "127.0.0.1:5000"

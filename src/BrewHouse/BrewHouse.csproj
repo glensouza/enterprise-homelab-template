@@ -25,6 +25,7 @@
     <PackageReference Include="WolverineFx.AzureServiceBus" />
     <PackageReference Include="WolverineFx.Postgresql" />
     <PackageReference Include="WolverineFx.RuntimeCompilation" />
+    <PackageReference Include="Wolverine.CritterWatch" />
     <PackageReference Include="AspNetCore.HealthChecks.Npgsql" />
     <PackageReference Include="AspNetCore.HealthChecks.Redis" />
     <PackageReference Include="AspNetCore.HealthChecks.Rabbitmq" />

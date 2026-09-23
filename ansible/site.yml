@@ -77,6 +77,20 @@
   roles:
     - authentik
 
+# docs/01 ADR 91 - CritterWatch (JasperFx Wolverine/Marten monitoring
+# console). infisical-agent's defaults render BrewHouse's own
+# /etc/brewhouse/brewhouse.env (the web play above) - overridden here to
+# this host's own path/key-count, same role, second consumer.
+- name: Configure CritterWatch (VLAN 130, ADR 91)
+  hosts: critterwatch
+  roles:
+    - dotnet-runtime
+    - role: infisical-agent
+      vars:
+        infisical_agent_env_path: /etc/critterwatch/critterwatch.env
+        infisical_agent_min_keys: 2
+    - critterwatch
+
 - name: Configure the PR preview host (VLAN 140, ADR 19)
   hosts: preview
   roles:

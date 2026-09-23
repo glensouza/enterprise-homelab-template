@@ -16,12 +16,21 @@
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.0" />
     <PackageVersion Include="StackExchange.Redis" Version="2.9.25" />
     <PackageVersion Include="MessagePack" Version="3.1.8" />
-    <PackageVersion Include="WolverineFx" Version="6.21.0" />
-    <PackageVersion Include="WolverineFx.RabbitMQ" Version="6.21.0" />
-    <PackageVersion Include="WolverineFx.AmazonSqs" Version="6.21.0" />
-    <PackageVersion Include="WolverineFx.AzureServiceBus" Version="6.21.0" />
-    <PackageVersion Include="WolverineFx.Postgresql" Version="6.21.0" />
-    <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="6.21.0" />
+    <!-- 6.21.0 -> 6.29.1 (docs/01 ADR 91): the minimum WolverineFx version
+         Wolverine.CritterWatch 1.0.1 requires (confirmed live - NU1605
+         package-downgrade error at 6.21.0). Bumped deliberately to the
+         minimum that satisfies the constraint, not latest (6.39.1 at time
+         of writing) - narrowest possible change for a first integration. -->
+    <PackageVersion Include="WolverineFx" Version="6.29.1" />
+    <PackageVersion Include="WolverineFx.RabbitMQ" Version="6.29.1" />
+    <PackageVersion Include="WolverineFx.AmazonSqs" Version="6.29.1" />
+    <PackageVersion Include="WolverineFx.AzureServiceBus" Version="6.29.1" />
+    <PackageVersion Include="WolverineFx.Postgresql" Version="6.29.1" />
+    <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="6.29.1" />
+    <!-- CritterWatch (docs/01 ADR 91): Wolverine.CritterWatch is BrewHouse's
+         client, CritterWatch is the standalone console's own package. -->
+    <PackageVersion Include="Wolverine.CritterWatch" Version="1.0.1" />
+    <PackageVersion Include="CritterWatch" Version="1.0.1" />
     <PackageVersion Include="AspNetCore.HealthChecks.Npgsql" Version="9.0.0" />
     <PackageVersion Include="AspNetCore.HealthChecks.Redis" Version="9.0.0" />
     <PackageVersion Include="AspNetCore.HealthChecks.Rabbitmq" Version="9.0.0" />
