@@ -29,7 +29,14 @@ services:
       - "127.0.0.1:8080:8080"
 
   watchtower:
-    image: containrrr/watchtower:latest
+    # docs/01 ADR 103: containrrr/watchtower was archived upstream
+    # (Dec 2025, no new builds since 2023-11) - confirmed live, its
+    # vendored Docker client (API 1.25) couldn't even start against this
+    # host's current Docker Engine (API 1.56, bumped by the fleet patch's
+    # OS upgrade), crash-looping on every start. nickfedor/watchtower is
+    # the actively-maintained drop-in fork (same image name, same env
+    # vars, same socket mount) - https://github.com/nicholas-fedor/watchtower
+    image: nickfedor/watchtower:latest
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
