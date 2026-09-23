@@ -1,0 +1,232 @@
+name: Terraform
+
+# docs/01 ADR 97: replaces terraform-plan.yml + terraform-apply.yml. Those
+# were two independently-dispatched workflows - a human had to copy the
+# plan job's run ID by hand into the apply job's plan_run_id input, and a
+# real infra change with zero drift (e.g. a re-run after nothing changed)
+# still needed that same manual hand-off before anyone could tell apply
+# had nothing to do. Here, plan and apply are two jobs in ONE run: apply
+# only exists at all when `terraform plan -detailed-exitcode` actually
+# reports a diff, and when it does, the SAME approval gate as before
+# (environment: homelab, ADR 22) pauses that job for a human to review and
+# click Approve - no run ID to copy, no separate dispatch, and a no-op
+# plan now visibly finishes green with nothing further to approve instead
+# of silently expecting someone to still hand it off.
+#
+# ADR 22's original point survives unchanged: a real terraform/** diff
+# should be reviewed as a diff before it applies. Pushing straight to main
+# (this repo's normal working style) still posts the plan to this run's
+# Step Summary and pauses for approval - the review still has to happen,
+# just via the environment's approval screen rather than a PR comment.
+# Opening a PR is still fully supported (plan-only - see the apply job's
+# `if`, which excludes pull_request events unconditionally, defense in
+# depth against a fork PR ever reaching an apply) for whoever wants a diff
+# reviewed as a PR before merging.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
+  pull_request:
+    paths:
+      - 'terraform/**'
+  workflow_dispatch:
+    inputs:
+      replace_target:
+        description: >-
+          Optional resource address to force-replace (terraform plan
+          -replace=<address>), e.g. for the drop_preview_to_mgmt-style
+          index-ordering recovery documented in LAB-RUNBOOK.md - leave
+          blank for a normal plan.
+        required: false
+        type: string
+
+# Never cancel an in-progress run for a newer one - unlike deploy-blazor.yml
+# (ADR-documented cancel-in-progress: true is fine there, a superseded
+# deploy is just retried), a cancelled terraform apply mid-flight can leave
+# real infrastructure and Terraform's own state disagreeing with each
+# other. A second push queues behind whatever's currently running
+# (including sitting in the approval-pending state) rather than racing it -
+# same choice terraform-apply.yml already made, just now applying to the
+# whole pipeline instead of only the apply half.
+concurrency:
+  group: terraform-state
+  cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: terraform
+
+env:
+  # Only variables with NO default in variables.tf. Anything with a default
+  # (proxmox_node_1/2, unifi_api_url, proxmox_ssh_user, lxc_datastore, ...)
+  # is deliberately left unset here — a TF_VAR_x="" from a missing repo
+  # variable would override that default with an empty string, not fall
+  # through to it.
+  TF_VAR_proxmox_api_url: ${{ vars.PROXMOX_API_URL }}
+  TF_VAR_proxmox_password: ${{ secrets.PROXMOX_PASSWORD }}
+  TF_VAR_unifi_username: ${{ vars.UNIFI_USERNAME }}
+  TF_VAR_unifi_password: ${{ secrets.UNIFI_PASSWORD }}
+  TF_VAR_debian_template_id: ${{ vars.DEBIAN_TEMPLATE_ID }}
+  TF_VAR_ssh_public_key: ${{ vars.SSH_PUBLIC_KEY }}
+  TF_PLUGIN_CACHE_DIR: /opt/terraform-plugin-cache
+
+jobs:
+  plan:
+    runs-on: self-hosted
+    permissions:
+      pull-requests: write
+    outputs:
+      has_changes: ${{ steps.plan.outputs.has_changes }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # Default `git clean` would also wipe ansible/credentials/ (the
+          # generated step_ca/pgAdmin passwords, LAB-RUNBOOK's "generate
+          # once, reuse forever" secrets) on every single run — this is a
+          # persistent self-hosted runner, not an ephemeral one.
+          clean: false
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      # -detailed-exitcode: 0 = no diff, 1 = error, 2 = a real diff exists.
+      # has_changes drives the apply job's `if` below - a clean plan now
+      # finishes this workflow green with no further step for anyone to
+      # remember to skip, instead of leaving a plan_run_id dangling with
+      # nothing to apply.
+      - name: Terraform Plan
+        id: plan
+        env:
+          REPLACE_TARGET: ${{ inputs.replace_target }}
+        run: |
+          set +e
+          if [ -n "$REPLACE_TARGET" ]; then
+            terraform plan -input=false -detailed-exitcode -replace="$REPLACE_TARGET" -out=tfplan
+          else
+            terraform plan -input=false -detailed-exitcode -out=tfplan
+          fi
+          exit_code=$?
+          set -e
+          terraform show -no-color tfplan > plan.txt
+          if [ "$exit_code" -eq 2 ]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          elif [ "$exit_code" -eq 0 ]; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            exit "$exit_code"
+          fi
+
+      - name: Upload plan artifact (applied verbatim by the apply job below)
+        if: steps.plan.outputs.has_changes == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: terraform/tfplan
+          retention-days: 5
+
+      - name: Comment plan on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const hasChanges = '${{ steps.plan.outputs.has_changes }}' === 'true';
+            let body = fs.readFileSync('terraform/plan.txt', 'utf8');
+            const header = hasChanges
+              ? `### Terraform Plan — run [\`${context.runId}\`](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})\n` +
+                `This plan has real changes. Merging to \`main\` will re-run it and pause for approval before applying (\`environment: homelab\`) - this comment does not apply anything by itself.\n\n`
+              : `### Terraform Plan — run [\`${context.runId}\`](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})\n` +
+                `No changes.\n\n`;
+            const maxBody = 65000 - header.length - 20;
+            if (body.length > maxBody) {
+              body = body.slice(0, maxBody) + '\n... (truncated, see the full log in the workflow run)';
+            }
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `${header}<details><summary>Show plan</summary>\n\n\`\`\`\n${body}\n\`\`\`\n</details>`
+            });
+
+      # Every non-PR trigger (push to main, workflow_dispatch) has no PR to
+      # comment on - the run's own Step Summary is the review surface
+      # instead, same as before (ADR 64). Still requires someone to
+      # actually open it and read it before approving the apply job below.
+      - name: Write plan to the run's Step Summary
+        if: github.event_name != 'pull_request'
+        env:
+          REPLACE_TARGET: ${{ inputs.replace_target }}
+        run: |
+          {
+            echo "### Terraform Plan — run [\`${GITHUB_RUN_ID}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})"
+            if [ "${{ steps.plan.outputs.has_changes }}" = "true" ]; then
+              echo "This plan has real changes - the **apply** job below is now waiting on \`environment: homelab\` approval. Review this plan before approving it."
+            else
+              echo "No changes - nothing further will run."
+            fi
+            echo
+            if [ -n "$REPLACE_TARGET" ]; then
+              echo "**-replace target:** \`${REPLACE_TARGET}\` - forces this resource to be destroyed and recreated (no config diff backs this)."
+              echo
+            fi
+            echo '<details><summary>Show plan</summary>'
+            echo
+            echo '```'
+            cat plan.txt
+            echo '```'
+            echo '</details>'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  apply:
+    needs: plan
+    # pull_request is excluded unconditionally, not just left to fall out of
+    # has_changes - defense in depth so a fork PR (ADR 84's own risk
+    # framing for this self-hosted runner) can never reach an apply no
+    # matter what a future edit to the plan job does.
+    if: needs.plan.outputs.has_changes == 'true' && github.event_name != 'pull_request'
+    runs-on: self-hosted
+    environment: homelab
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          clean: false
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Back up UniFi config before touching it (ADR 40)
+        env:
+          UNIFI_API_URL: https://10.10.10.1
+          UNIFI_USERNAME: ${{ vars.UNIFI_USERNAME }}
+          UNIFI_PASSWORD: ${{ secrets.UNIFI_PASSWORD }}
+        run: ./unifi-backup.sh
+
+      - name: Download the reviewed plan (same run - no plan_run_id to pass by hand anymore)
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan
+          path: terraform
+
+      - name: Terraform Apply (exact reviewed plan — no re-plan)
+        # Also writes ../ansible/inventory/terraform-hosts.yml as a side
+        # effect (the local_file.ansible_inventory resource in outputs.tf).
+        run: terraform apply -input=false tfplan
+
+      - name: Ansible converge
+        working-directory: ansible
+        run: >
+          ansible-playbook site.yml
+          -e @/opt/ansible-secrets/all.yml
+          -e @/opt/ansible-secrets/dns.yml
+          -e @/opt/ansible-secrets/web.yml
