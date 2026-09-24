@@ -68,4 +68,61 @@
             </root>
         </mxGraphModel>
     </diagram>
+    <diagram id="photo-upload-flow" name="Photo Upload Flow">
+        <mxGraphModel dx="2204" dy="1442" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1260" pageHeight="300" background="#FBF6EF" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+
+                <mxCell id="pbrowser1" value="Browser&#xa;clicks Simulate Photo Upload" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4ebe1;strokeColor=#6b4226;fontColor=#2a1a12;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="20" y="110" width="130" height="80" as="geometry"/>
+                </mxCell>
+
+                <mxCell id="pcircuit" value="Blazor Circuit&#xa;UploadMockPhoto()&#xa;reads the bundled sample photo from wwwroot" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4ebe1;strokeColor=#6b4226;fontColor=#2a1a12;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="210" y="90" width="190" height="120" as="geometry"/>
+                </mxCell>
+
+                <mxCell id="pstorage" value="Storage Backend&#xa;IBlobStore&#xa;NAS disk in the homelab, S3 via Floci in a PR preview — same code either way" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4ebe1;strokeColor=#6b4226;fontColor=#2a1a12;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="460" y="90" width="220" height="120" as="geometry"/>
+                </mxCell>
+
+                <mxCell id="pbrowser2" value="Browser&#xa;new &lt;img&gt; src, same SignalR connection" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4ebe1;strokeColor=#6b4226;fontColor=#2a1a12;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="210" y="240" width="190" height="60" as="geometry"/>
+                </mxCell>
+
+                <mxCell id="pendpoint" value="GET /api/photos/&#xa;reads back via IBlobStore" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4ebe1;strokeColor=#6b4226;fontColor=#2a1a12;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="810" y="240" width="220" height="60" as="geometry"/>
+                </mxCell>
+
+                <mxCell id="pbrowser3" value="Browser&#xa;renders the real photo bytes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4ebe1;strokeColor=#6b4226;fontColor=#2a1a12;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="1100" y="120" width="140" height="80" as="geometry"/>
+                </mxCell>
+
+                <mxCell id="pe1" value="&#9312; click" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#6b4226;fontColor=#2a1a12;" parent="1" source="pbrowser1" target="pcircuit" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <mxCell id="pe2" value="&#9313; write&#xa;awaited — no queue" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#6b4226;fontColor=#2a1a12;" parent="1" source="pcircuit" target="pstorage" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <mxCell id="pe3" value="&#9314; re-render" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#6b4226;fontColor=#2a1a12;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" parent="1" source="pcircuit" target="pbrowser2" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <mxCell id="pe4" value="&#9315; browser's own GET — plain HTTP, not SignalR" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#6b4226;fontColor=#2a1a12;" parent="1" source="pbrowser2" target="pendpoint" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <mxCell id="pe5" value="&#9316; ReadBytesAsync — same backend as the write" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#6b4226;fontColor=#2a1a12;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" parent="1" source="pendpoint" target="pstorage" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <mxCell id="pe6" value="&#9317; image bytes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#6b4226;fontColor=#2a1a12;" parent="1" source="pendpoint" target="pbrowser3" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+            </root>
+        </mxGraphModel>
+    </diagram>
 </mxfile>
