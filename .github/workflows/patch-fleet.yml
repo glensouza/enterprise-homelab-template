@@ -23,13 +23,9 @@ name: Patch Fleet
 # dependencies are done patching would surface a real, user-visible outage
 # (backend mid-reboot) on top of a normal maintenance window, not avoid one.
 #
-# devops (10.10.10.111) patches itself last, as its own step, because it's
-# the box running this very workflow's self-hosted runner (ADR 22) - a
-# reboot there kills the runner mid-job. ansible/roles/patch schedules that
-# reboot ~15s delayed and detached specifically so the step below still
-# gets to report success first; `continue-on-error` plus the always-run
-# confirmation step after it are the belt-and-suspenders in case that
-# timing is ever tight enough that it doesn't.
+# devops (10.10.10.111) is deliberately NOT patched here: it hosts this
+# workflow's self-hosted runner (ADR 22), so a reboot would kill the runner
+# mid-job. It is patched manually, outside this workflow.
 
 on:
   workflow_dispatch: {}
@@ -97,18 +93,6 @@ jobs:
         if: always()
         uses: ./.github/actions/kuma-maintenance-off
 
-      # - name: Patch the devops LXC (self) - delayed self-reboot, see role
-      #   working-directory: ansible
-      #   continue-on-error: true
-      #   run: >
-      #     ansible-playbook patch.yml
-      #     -e @/opt/ansible-secrets/all.yml
-      #     -e @/opt/ansible-secrets/dns.yml
-      #     -e @/opt/ansible-secrets/web.yml
-      #     --limit devops
-
       - name: Confirm the run completed
         if: always()
-        run: |
-          echo "Fleet patch run finished."
-          echo "devops LXC (10.10.10.111) reboots ~15s after its own step reports success - the runner will be briefly unavailable for the next queued job while it comes back."
+        run: echo "Fleet patch run finished."
