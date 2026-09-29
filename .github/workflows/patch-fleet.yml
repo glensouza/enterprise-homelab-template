@@ -97,15 +97,15 @@ jobs:
         if: always()
         uses: ./.github/actions/kuma-maintenance-off
 
-      - name: Patch the devops LXC (self) - delayed self-reboot, see role
-        working-directory: ansible
-        continue-on-error: true
-        run: >
-          ansible-playbook patch.yml
-          -e @/opt/ansible-secrets/all.yml
-          -e @/opt/ansible-secrets/dns.yml
-          -e @/opt/ansible-secrets/web.yml
-          --limit devops
+      # - name: Patch the devops LXC (self) - delayed self-reboot, see role
+      #   working-directory: ansible
+      #   continue-on-error: true
+      #   run: >
+      #     ansible-playbook patch.yml
+      #     -e @/opt/ansible-secrets/all.yml
+      #     -e @/opt/ansible-secrets/dns.yml
+      #     -e @/opt/ansible-secrets/web.yml
+      #     --limit devops
 
       - name: Confirm the run completed
         if: always()
