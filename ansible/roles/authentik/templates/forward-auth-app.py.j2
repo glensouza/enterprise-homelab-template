@@ -1,0 +1,58 @@
+# Rendered by roles/authentik (docs/01 ADR 107) and piped to `django-admin shell`.
+# Idempotent get-or-update of ONE tier-2 forward-auth Provider + Application,
+# attached to the embedded outpost. Plain top-level statements on purpose -
+# `django-admin shell` execs stdin with separate globals/locals, so
+# comprehensions/functions referencing top-level names would NameError.
+from authentik.core.models import Application
+from authentik.flows.models import Flow
+from authentik.outposts.models import Outpost
+from authentik.providers.proxy.models import ProxyMode, ProxyProvider
+
+name = "{{ item.name }} (forward-auth)"
+slug = "{{ item.slug }}"
+external_host = "https://{{ item.host }}.{{ internal_domain }}"
+cookie_domain = "{{ internal_domain }}"
+changed = False
+
+auth_flow = Flow.objects.get(slug="default-provider-authorization-implicit-consent")
+invalidation_flow = Flow.objects.get(slug="default-provider-invalidation-flow")
+
+provider = ProxyProvider.objects.filter(name=name).first()
+if provider is None:
+    provider = ProxyProvider(name=name)
+    changed = True
+if (
+    provider.mode != ProxyMode.FORWARD_DOMAIN
+    or provider.external_host != external_host
+    or provider.cookie_domain != cookie_domain
+    or provider.authorization_flow_id != auth_flow.pk
+    or provider.invalidation_flow_id != invalidation_flow.pk
+):
+    provider.mode = ProxyMode.FORWARD_DOMAIN
+    provider.external_host = external_host
+    provider.cookie_domain = cookie_domain
+    provider.authorization_flow = auth_flow
+    provider.invalidation_flow = invalidation_flow
+    changed = True
+if changed:
+    # Same helper the Admin UI calls: derives redirect_uris from external_host
+    # and attaches the proxy ScopeMappings (ADR 92).
+    provider.set_oauth_defaults()
+    provider.save()
+
+app, created = Application.objects.get_or_create(
+    slug=slug, defaults={"name": "{{ item.name }}", "provider": provider}
+)
+if created:
+    changed = True
+elif app.provider_id != provider.pk:
+    app.provider = provider
+    app.save()
+    changed = True
+
+outpost = Outpost.objects.get(name="authentik Embedded Outpost")
+if not outpost.providers.filter(pk=provider.pk).exists():
+    outpost.providers.add(provider)
+    changed = True
+
+print("FORWARD_AUTH_CHANGED" if changed else "FORWARD_AUTH_OK", slug)

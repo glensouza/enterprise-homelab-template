@@ -139,5 +139,6 @@
     name: infisical-secret
   vars:
     infisical_secret_name: TECHNITIUM_ADMIN_PASSWORD
+    infisical_secret_target: admin
     infisical_secret_value: "{{ technitium_admin_password }}"
   when: infisical_project_id is defined

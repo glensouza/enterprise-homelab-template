@@ -94,6 +94,7 @@
     name: infisical-secret
   vars:
     infisical_secret_name: ConnectionStrings__brewhousedb
+    infisical_secret_target: brewhouse
     infisical_secret_value: "Host={{ ansible_host }};Port=5432;Database=brewhouse_db;Username=brewhouse;Password={{ postgres_brewhouse_password }}"
   when: infisical_project_id is defined
 
@@ -174,6 +175,7 @@
     name: infisical-secret
   vars:
     infisical_secret_name: ConnectionStrings__critterwatch
+    infisical_secret_target: critterwatch
     infisical_secret_value: "Host={{ ansible_host }};Port=5432;Database=critterwatch;Username=critterwatch;Password={{ hostvars['critterwatch'].critterwatch_db_password }}"
   when: infisical_project_id is defined
 

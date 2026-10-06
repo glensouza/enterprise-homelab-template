@@ -79,11 +79,60 @@
     name: rabbitmq-server
     state: present
 
+# Resource guardrails (docs/01 ADR 108). The Debian unit ships LimitNOFILE=32768;
+# a connection leak in the web tier's /health check exhausted it, Ranch then
+# logged "out of file descriptors" thousands of times a second, and the
+# resulting 5.7 GB log filled the root disk and crashed the broker. Raising
+# the limit only buys headroom - the leak itself was fixed in the app - and
+# RabbitMQ's own size-based log rotation (unlike the weekly logrotate job,
+# which only ever fires on schedule) is what actually bounds the log.
+- name: Create the RabbitMQ systemd drop-in and conf.d directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - /etc/systemd/system/rabbitmq-server.service.d
+    - /etc/rabbitmq/conf.d
+
+- name: Raise RabbitMQ's file-descriptor limit
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/rabbitmq-server.service.d/limits.conf
+    content: |
+      # Managed by Ansible (roles/rabbitmq) - docs/01 ADR 108.
+      [Service]
+      LimitNOFILE={{ rabbitmq_limit_nofile }}
+    owner: root
+    group: root
+    mode: "0644"
+  register: rabbitmq_limits
+
+- name: Cap RabbitMQ's own log file size
+  ansible.builtin.copy:
+    dest: /etc/rabbitmq/conf.d/10-logging.conf
+    content: |
+      # Managed by Ansible (roles/rabbitmq) - docs/01 ADR 108.
+      log.file.rotation.size = {{ rabbitmq_log_rotation_size_bytes }}
+      log.file.rotation.count = {{ rabbitmq_log_rotation_count }}
+    owner: rabbitmq
+    group: rabbitmq
+    mode: "0644"
+  register: rabbitmq_logging
+
 - name: Enable and start RabbitMQ
   ansible.builtin.systemd:
     name: rabbitmq-server
     enabled: true
     state: started
+    daemon_reload: "{{ rabbitmq_limits.changed }}"
+
+- name: Restart RabbitMQ if the limit or logging config changed
+  ansible.builtin.systemd:
+    name: rabbitmq-server
+    state: restarted
+  when: rabbitmq_limits.changed or rabbitmq_logging.changed
 
 - name: Enable the RabbitMQ management plugin
   ansible.builtin.command: rabbitmq-plugins enable rabbitmq_management
@@ -114,12 +163,16 @@
   ansible.builtin.command: rabbitmqctl set_permissions -p / brewhouse ".*" ".*" ".*"
   changed_when: false
 
-- name: Push ConnectionStrings__messaging to Infisical
+# One copy per consumer's Infisical folder, so each service's agent identity
+# can read only its own path (docs/01 ADR 108).
+- name: Push ConnectionStrings__messaging to Infisical (per consumer)
   ansible.builtin.include_role:
     name: infisical-secret
   vars:
     infisical_secret_name: ConnectionStrings__messaging
+    infisical_secret_target: "{{ item }}"
     infisical_secret_value: "amqp://brewhouse:{{ rabbitmq_password }}@{{ ansible_host }}:5672/"
+  loop: [brewhouse, critterwatch]
   when: infisical_project_id is defined
 
 # Tier-1 native OIDC via Authentik (docs/01 ADR 73). client_id is

@@ -1,6 +1,23 @@
 ---
 # Defaults preserve the original single-consumer behavior (BrewHouse's web
-# tier, ADR 12) unchanged - a new consumer (e.g. roles/critterwatch)
-# overrides both when it includes this role (docs/01 ADR 91).
+# tier, ADR 12) - a new consumer (e.g. roles/critterwatch) overrides these
+# when it includes this role (docs/01 ADR 91).
 infisical_agent_env_path: /etc/brewhouse/brewhouse.env
-infisical_agent_min_keys: 4
+
+# Which consumer's secrets this Agent renders (docs/01 ADR 108). The Agent
+# used to render every secret at the project root, which also held vault-only
+# admin credentials other roles push for humans (Technitium/Homepage/pgAdmin/
+# Portainer passwords, the devops root password) - so every app process,
+# including the internet-facing web tier, ran with them in its environment.
+# Now it reads only its own Infisical project (infisical_project_ids.<target>,
+# /opt/ansible-secrets/all.yml) with an identity that is a viewer of just that
+# project. Until that project exists it falls back to the /<target> folder in
+# the main project - same layout as roles/infisical-secret pushes to.
+infisical_agent_target: brewhouse
+infisical_agent_own_project: "{{ (infisical_project_ids | default({})).get(infisical_agent_target) }}"
+infisical_agent_project_id: "{{ infisical_agent_own_project if infisical_agent_own_project else infisical_project_id }}"
+infisical_agent_secret_path: "{{ '/' if infisical_agent_own_project else '/' ~ infisical_agent_target }}"
+
+# Fail the play if fewer than this many keys rendered, so a missing/renamed
+# secret is caught instead of the app crash-looping on a half-empty env file.
+infisical_agent_min_keys: 5

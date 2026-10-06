@@ -39,7 +39,7 @@
 
 - name: Write the Agent's client-id
   ansible.builtin.copy:
-    content: "{{ infisical_agent_client_id }}"
+    content: "{{ infisical_agent_consumer_client_id | default(infisical_agent_client_id) }}"
     dest: /etc/infisical/client-id
     owner: root
     group: root
@@ -48,7 +48,7 @@
 
 - name: Write the Agent's client-secret
   ansible.builtin.copy:
-    content: "{{ infisical_agent_client_secret }}"
+    content: "{{ infisical_agent_consumer_client_secret | default(infisical_agent_client_secret) }}"
     dest: /etc/infisical/client-secret
     owner: root
     group: root

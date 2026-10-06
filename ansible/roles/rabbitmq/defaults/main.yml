@@ -1,0 +1,8 @@
+---
+# docs/01 ADR 108. The Debian unit's own default is 32768.
+rabbitmq_limit_nofile: 65536
+# RabbitMQ's native size-based rotation: at most (count + 1) files of this
+# size on disk. 50 MiB x 6 = 300 MiB worst case, versus the 5.7 GB single
+# file that filled the 7.8 GB root disk.
+rabbitmq_log_rotation_size_bytes: 52428800
+rabbitmq_log_rotation_count: 5

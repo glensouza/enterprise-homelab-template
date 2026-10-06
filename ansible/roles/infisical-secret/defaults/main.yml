@@ -1,0 +1,15 @@
+---
+# Which consumer this secret belongs to (docs/01 ADR 108): "brewhouse",
+# "critterwatch", or "admin" (vault-only, human credentials no Agent reads).
+# Empty = legacy root-of-main-project behavior.
+infisical_secret_target: ""
+
+# Each runtime consumer gets its OWN Infisical project (the free plan can't
+# scope an identity to a folder, so a project is the only real boundary):
+# infisical_project_ids: {brewhouse: <id>, critterwatch: <id>} in
+# /opt/ansible-secrets/all.yml. Until a consumer's project exists the secret
+# falls back to a /<target> folder in the main project, so converge works at
+# every step of the migration. "admin" always lives in the main project.
+infisical_secret_own_project: "{{ (infisical_project_ids | default({})).get(infisical_secret_target) }}"
+infisical_secret_project_id: "{{ infisical_secret_own_project if infisical_secret_own_project else infisical_project_id }}"
+infisical_secret_path: "{{ '/' if (infisical_secret_target == '' or infisical_secret_own_project) else '/' ~ infisical_secret_target }}"

@@ -97,6 +97,12 @@
     - role: infisical-agent
       vars:
         infisical_agent_env_path: /etc/critterwatch/critterwatch.env
+        # Own Infisical project (or /critterwatch folder until it exists) + identity scoped to just CritterWatch's own
+        # secrets (ADR 108). Falls back to the shared agent identity until
+        # /opt/ansible-secrets/critterwatch.yml supplies a dedicated one.
+        infisical_agent_target: critterwatch
+        infisical_agent_consumer_client_id: "{{ critterwatch_agent_client_id | default(infisical_agent_client_id) }}"
+        infisical_agent_consumer_client_secret: "{{ critterwatch_agent_client_secret | default(infisical_agent_client_secret) }}"
         infisical_agent_min_keys: 2
     - critterwatch
 

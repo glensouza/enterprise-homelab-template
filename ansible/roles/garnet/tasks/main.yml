@@ -129,5 +129,6 @@
     name: infisical-secret
   vars:
     infisical_secret_name: ConnectionStrings__cache
+    infisical_secret_target: brewhouse
     infisical_secret_value: "{{ ansible_host }}:{{ garnet_port }}"
   when: infisical_project_id is defined

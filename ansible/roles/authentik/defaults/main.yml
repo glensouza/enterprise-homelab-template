@@ -20,3 +20,8 @@ authentik_worker_https_port: 8443
 # convention (separate DBs for cache vs. the websocket/event channel).
 authentik_redis_cache_db: 0
 authentik_redis_channel_db: 1
+
+# Tier-2 forward-auth apps whose Authentik Provider/Application this role
+# manages (docs/01 ADR 107). host = the <host>.{{ internal_domain }} label.
+authentik_forward_auth_apps:
+  - { name: CritterWatch, slug: critterwatch, host: critterwatch }

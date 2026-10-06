@@ -23,6 +23,24 @@
   register: infisical_auth
   no_log: true
 
+# Idempotent: 200 on create, 400 when the folder already exists. Skipped for
+# the root path. One level deep only (infisical_secret_path is "/<name>").
+- name: "Infisical: ensure folder {{ infisical_secret_path }} exists"
+  ansible.builtin.uri:
+    url: "http://{{ hostvars['infisical'].ansible_host }}:8080/api/v2/folders"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ infisical_auth.json.accessToken }}"
+    body_format: json
+    body:
+      projectId: "{{ infisical_secret_project_id }}"
+      environment: "{{ infisical_environment }}"
+      name: "{{ infisical_secret_path | regex_replace('^/', '') }}"
+      path: "/"
+    status_code: [200, 400]
+  when: infisical_secret_path != "/"
+  no_log: true
+
 - name: "Infisical: create {{ infisical_secret_name }}"
   ansible.builtin.uri:
     url: "http://{{ hostvars['infisical'].ansible_host }}:8080/api/v3/secrets/raw/{{ infisical_secret_name }}"
@@ -31,9 +49,9 @@
       Authorization: "Bearer {{ infisical_auth.json.accessToken }}"
     body_format: json
     body:
-      workspaceId: "{{ infisical_project_id }}"
+      workspaceId: "{{ infisical_secret_project_id }}"
       environment: "{{ infisical_environment }}"
-      secretPath: "/"
+      secretPath: "{{ infisical_secret_path }}"
       secretValue: "{{ infisical_secret_value }}"
     status_code: [200, 400]
   register: infisical_create
@@ -47,9 +65,9 @@
       Authorization: "Bearer {{ infisical_auth.json.accessToken }}"
     body_format: json
     body:
-      workspaceId: "{{ infisical_project_id }}"
+      workspaceId: "{{ infisical_secret_project_id }}"
       environment: "{{ infisical_environment }}"
-      secretPath: "/"
+      secretPath: "{{ infisical_secret_path }}"
       secretValue: "{{ infisical_secret_value }}"
     status_code: 200
   when: infisical_create.status == 400

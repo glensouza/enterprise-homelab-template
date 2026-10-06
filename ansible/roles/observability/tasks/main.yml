@@ -155,6 +155,7 @@
     name: infisical-secret
   vars:
     infisical_secret_name: OTEL_EXPORTER_OTLP_ENDPOINT
+    infisical_secret_target: brewhouse
     infisical_secret_value: "http://{{ ansible_host }}:4318"
   when: infisical_project_id is defined
 
@@ -175,6 +176,7 @@
     name: infisical-secret
   vars:
     infisical_secret_name: OTEL_EXPORTER_OTLP_PROTOCOL
+    infisical_secret_target: brewhouse
     infisical_secret_value: "http/protobuf"
   when: infisical_project_id is defined
 
@@ -198,17 +200,43 @@
   ansible.builtin.command: update-ca-certificates
   when: grafana_oidc_client_id is defined and observability_step_ca_cert.changed
 
-- name: Configure Grafana's generic OAuth login against Authentik
+# --- Grafana OIDC via a systemd EnvironmentFile drop-in (docs/01 ADR 109) ----
+# This used to be a blockinfile in /etc/default/grafana-server. That file is
+# SOURCED AS SHELL by the grafana package's postinst, so the unquoted
+# `GF_AUTH_GENERIC_OAUTH_SCOPES=openid profile email` ran `profile` as a
+# command (exit 127), left grafana half-configured, and failed every
+# `apt dist-upgrade` (Patch Fleet, 2026-10-06). ADR 102 also changed the
+# block's marker text, so the old block was never replaced - each converge
+# appended a second copy. systemd's EnvironmentFile has no such parsing
+# problem, and the packaged defaults file is left alone (it's a dpkg conffile).
+- name: Remove the old Authentik OIDC blocks from the packaged defaults file
   ansible.builtin.blockinfile:
     path: /etc/default/grafana-server
-    marker: "# {mark} ANSIBLE MANAGED BLOCK - Authentik OIDC (docs/01 ADR 72/102)"
-    block: |
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - Authentik OIDC (docs/01 ADR {{ item }})"
+    state: absent
+  loop: ["72", "72/102"]
+
+- name: Remove stray GF_* lines left in the packaged defaults file
+  ansible.builtin.lineinfile:
+    path: /etc/default/grafana-server
+    regexp: '^GF_'
+    state: absent
+
+- name: Configure Grafana's generic OAuth login against Authentik
+  ansible.builtin.copy:
+    dest: /etc/grafana/oauth.env
+    owner: root
+    group: grafana
+    mode: "0640"
+    content: |
+      # Managed by Ansible (roles/observability) - docs/01 ADR 72/102/109.
+      # Read by systemd (EnvironmentFile=), never sourced by a shell.
       GF_SERVER_ROOT_URL=http://{{ ansible_host }}:3000/
       GF_AUTH_GENERIC_OAUTH_ENABLED=true
       GF_AUTH_GENERIC_OAUTH_NAME=Authentik
       GF_AUTH_GENERIC_OAUTH_CLIENT_ID={{ grafana_oidc_client_id }}
       GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET={{ grafana_oidc_client_secret }}
-      GF_AUTH_GENERIC_OAUTH_SCOPES=openid profile email
+      GF_AUTH_GENERIC_OAUTH_SCOPES="openid profile email"
       GF_AUTH_GENERIC_OAUTH_AUTH_URL=https://authentik.{{ internal_domain }}/application/o/authorize/
       GF_AUTH_GENERIC_OAUTH_TOKEN_URL=https://authentik.{{ internal_domain }}/application/o/token/
       GF_AUTH_GENERIC_OAUTH_API_URL=https://authentik.{{ internal_domain }}/application/o/userinfo/
@@ -223,5 +251,40 @@
       # without also granting server-wide user/org administration to
       # whichever Authentik account happens to sign in.
       GF_USERS_AUTO_ASSIGN_ORG_ROLE=Editor
+  register: observability_grafana_oauth_env
   notify: restart grafana-server
   when: grafana_oidc_client_id is defined and grafana_oidc_client_secret is defined
+  no_log: true
+
+- name: Create the grafana-server systemd drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/grafana-server.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Load the OAuth env file into grafana-server
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/grafana-server.service.d/oauth.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Managed by Ansible (roles/observability) - docs/01 ADR 109.
+      [Service]
+      EnvironmentFile=-/etc/grafana/oauth.env
+  register: observability_grafana_dropin
+  notify: restart grafana-server
+
+- name: Reload systemd if the grafana-server drop-in changed
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: observability_grafana_dropin.changed
+
+# A prior failed dist-upgrade leaves the package half-configured ("iF");
+# now that the sourced file is clean, finish it. No-op when nothing is pending.
+- name: Finish configuring any half-configured packages
+  ansible.builtin.command: dpkg --configure -a
+  register: observability_dpkg_configure
+  changed_when: "'Setting up' in observability_dpkg_configure.stdout"

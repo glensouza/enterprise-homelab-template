@@ -173,6 +173,7 @@
     name: infisical-secret
   vars:
     infisical_secret_name: HOMEPAGE_AUTH_PASSWORD
+    infisical_secret_target: admin
     infisical_secret_value: "{{ homepage_auth_password }}"
   when: infisical_project_id is defined
 

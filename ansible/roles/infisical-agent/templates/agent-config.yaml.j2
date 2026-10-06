@@ -8,7 +8,7 @@ auth:
 templates:
   - template-content: |
 {% raw %}
-      {{- with listSecrets "{% endraw %}{{ infisical_project_id }}{% raw %}" "{% endraw %}{{ infisical_environment }}{% raw %}" "/" }}
+      {{- with listSecrets "{% endraw %}{{ infisical_agent_project_id }}{% raw %}" "{% endraw %}{{ infisical_environment }}{% raw %}" "{% endraw %}{{ infisical_agent_secret_path }}{% raw %}" }}
       {{- range . }}
       {{ .Key }}={{ .Value }}
       {{- end }}

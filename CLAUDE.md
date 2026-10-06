@@ -71,7 +71,7 @@ PostgreSQL (pgvector) is the store; Garnet is both cache and the Blazor Server S
 
 ### Secrets & observability
 
-No secrets in `appsettings.json` and no SDK in the app (ADR 12): the Infisical Agent renders `/etc/brewhouse/brewhouse.env`, loaded by systemd via `EnvironmentFile=`; the app fails fast if connection strings are missing. Telemetry is OpenTelemetry over OTLP (`UseOtlpExporter` driven by `OTEL_EXPORTER_OTLP_ENDPOINT`) — Grafana Alloy on VLAN 130 in the homelab, the Aspire Dashboard locally (ADR 09).
+No secrets in `appsettings.json` and no SDK in the app (ADR 12): the Infisical Agent renders `/etc/brewhouse/brewhouse.env`, loaded by systemd via `EnvironmentFile=`; the app fails fast if connection strings are missing. Secrets live in per-service Infisical folders (`/brewhouse`, `/critterwatch`, vault-only `/admin`) and each Agent renders only its own folder (ADR 108) - never push a human-only credential to a folder an Agent reads. Telemetry is OpenTelemetry over OTLP (`UseOtlpExporter` driven by `OTEL_EXPORTER_OTLP_ENDPOINT`) — Grafana Alloy on VLAN 130 in the homelab fanning out to Loki (logs), Tempo (traces) and Prometheus (metrics) with Grafana on top (`docs/07`, `ansible/roles/observability`), the Aspire Dashboard locally (ADR 09). Decided to stay on this stack rather than adopt SigNoz.
 
 ## Network topology
 
