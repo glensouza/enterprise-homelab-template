@@ -193,8 +193,13 @@ var healthChecksBuilder = builder.Services.AddHealthChecks()
     .AddRedis(cacheConnectionString);
 if (messagingTransport == MessagingTransportConfigurator.RabbitMq)
 {
-    healthChecksBuilder.AddRabbitMQ(_ =>
-        new RabbitMQ.Client.ConnectionFactory { Uri = new Uri(rabbitConnectionString!) }.CreateConnectionAsync());
+    // The health check calls this factory on every probe and never disposes the
+    // result - so hand it ONE shared connection, not a new one per call (ADR 108).
+    var rabbitHealthFactory = new RabbitMQ.Client.ConnectionFactory { Uri = new Uri(rabbitConnectionString!) };
+    builder.Services.AddSingleton(_ => new RabbitMqHealthConnection(
+        cancellationToken => rabbitHealthFactory.CreateConnectionAsync(cancellationToken)));
+    healthChecksBuilder.AddRabbitMQ(sp =>
+        sp.GetRequiredService<RabbitMqHealthConnection>().GetConnectionAsync());
 }
 
 // 8. VERSION: exposed via VersionService (reads assembly version injected at publish by /p:Version)
