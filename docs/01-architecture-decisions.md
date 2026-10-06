@@ -729,7 +729,7 @@
 
 * **Decision:** `roles/observability` no longer edits the packaged `/etc/default/grafana-server`. Grafana's OIDC settings now live in `/etc/grafana/oauth.env` (0640 root:grafana) loaded by a `grafana-server.service.d/oauth.conf` `EnvironmentFile=` drop-in; the old duplicated `blockinfile` blocks and stray `GF_*` lines are removed, and `dpkg --configure -a` finishes any half-configured package.
 * **Rationale:** Confirmed live on the failed 2026-10-06 `Patch Fleet` run: `apt-get dist-upgrade` on `observability` died with `/var/lib/dpkg/info/grafana.postinst: /etc/default/grafana-server: profile: not found` (exit 127), leaving `grafana` `iF` (half-configured). The postinst *sources* that file as shell, and `GF_AUTH_GENERIC_OAUTH_SCOPES=openid profile email` is unquoted, so `profile` ran as a command. systemd's `EnvironmentFile` has no such problem. The file was also triple-written: ADR 102 changed the `blockinfile` marker text, so the ADR 72 block was never replaced and each converge appended a second copy. The same run's other two failures (`rabbitmq` unreachable, web `/health` gate) were the RabbitMQ outage of ADR 107/108, not patching bugs.
-* **Not verified:** the role change has not been converged against the live node yet (lab unreachable from the authoring machine at the time); first converge should leave `dpkg --audit` empty.
+* **Confirmed live, with a correction:** the first converge of this change (6fc149a) still failed on `observability` - the repair tasks sat AFTER the role's own `apt` tasks, which die on the half-configured package before ever reaching them. They now run first (stat-guarded), so the role self-heals a node already stuck in this state. Expect `dpkg --audit` to be empty afterwards.
 
 
 ---

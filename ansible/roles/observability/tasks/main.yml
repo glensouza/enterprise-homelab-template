@@ -6,6 +6,41 @@
 # that build-out is the on-camera subject of S1-09 and shouldn't be
 # pre-empted here.
 
+# --- Repair first (docs/01 ADR 109) -------------------------------------------
+# A previous converge left /etc/default/grafana-server with unquoted
+# `GF_AUTH_GENERIC_OAUTH_SCOPES=openid profile email` lines (duplicated: ADR
+# 102 changed the blockinfile marker, so each run appended another copy). The
+# grafana package's postinst SOURCES that file as shell, so any apt run that
+# touches the half-configured package fails - including every apt task below.
+# So this repair must run BEFORE the first apt call, not after it. Grafana's
+# settings now live in a systemd EnvironmentFile drop-in (see the OIDC section).
+- name: Check for the packaged Grafana defaults file
+  ansible.builtin.stat:
+    path: /etc/default/grafana-server
+  register: observability_grafana_defaults
+
+- name: Remove the old Authentik OIDC blocks from the packaged defaults file
+  ansible.builtin.blockinfile:
+    path: /etc/default/grafana-server
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - Authentik OIDC (docs/01 ADR {{ item }})"
+    state: absent
+  loop: ["72", "72/102"]
+  when: observability_grafana_defaults.stat.exists
+
+- name: Remove stray GF_* lines left in the packaged defaults file
+  ansible.builtin.lineinfile:
+    path: /etc/default/grafana-server
+    regexp: '^GF_'
+    state: absent
+  when: observability_grafana_defaults.stat.exists
+
+# A prior failed dist-upgrade leaves the package half-configured ("iF"); now
+# that the sourced file is clean, finish it. No-op when nothing is pending.
+- name: Finish configuring any half-configured packages
+  ansible.builtin.command: dpkg --configure -a
+  register: observability_dpkg_configure
+  changed_when: "'Setting up' in observability_dpkg_configure.stdout"
+
 - name: Install apt prerequisites
   ansible.builtin.apt:
     name: [apt-transport-https, software-properties-common, gnupg2, curl]
@@ -209,19 +244,7 @@
 # block's marker text, so the old block was never replaced - each converge
 # appended a second copy. systemd's EnvironmentFile has no such parsing
 # problem, and the packaged defaults file is left alone (it's a dpkg conffile).
-- name: Remove the old Authentik OIDC blocks from the packaged defaults file
-  ansible.builtin.blockinfile:
-    path: /etc/default/grafana-server
-    marker: "# {mark} ANSIBLE MANAGED BLOCK - Authentik OIDC (docs/01 ADR {{ item }})"
-    state: absent
-  loop: ["72", "72/102"]
-
-- name: Remove stray GF_* lines left in the packaged defaults file
-  ansible.builtin.lineinfile:
-    path: /etc/default/grafana-server
-    regexp: '^GF_'
-    state: absent
-
+# (The one-time repair of the old blocks lives at the very top of this role.)
 - name: Configure Grafana's generic OAuth login against Authentik
   ansible.builtin.copy:
     dest: /etc/grafana/oauth.env
@@ -281,10 +304,3 @@
   ansible.builtin.systemd:
     daemon_reload: true
   when: observability_grafana_dropin.changed
-
-# A prior failed dist-upgrade leaves the package half-configured ("iF");
-# now that the sourced file is clean, finish it. No-op when nothing is pending.
-- name: Finish configuring any half-configured packages
-  ansible.builtin.command: dpkg --configure -a
-  register: observability_dpkg_configure
-  changed_when: "'Setting up' in observability_dpkg_configure.stdout"
