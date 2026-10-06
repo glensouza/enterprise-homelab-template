@@ -230,3 +230,4 @@ jobs:
           -e @/opt/ansible-secrets/all.yml
           -e @/opt/ansible-secrets/dns.yml
           -e @/opt/ansible-secrets/web.yml
+          $(test -f /opt/ansible-secrets/critterwatch.yml && echo '-e @/opt/ansible-secrets/critterwatch.yml')
