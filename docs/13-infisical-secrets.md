@@ -146,3 +146,9 @@ identity (`HomeLab`). After running sections 2–3 and a converge:
 - Harness note for AI sessions: remote writes and moving credentials between hosts need explicit
   user approval; leave the secret hand-off to the human (hidden-input prompt), never a clipboard
   pipe or a network listener.
+- **Delete protection is ON for every new identity.** The API answers `500` (and a `400` on the PATCH) until
+  it is switched off in the UI (identity page → Edit → Delete Protection). Project-scoped identities
+  (`Managed by: Project`) can only be deleted from the UI — the `DELETE /api/v1/identities/<id>` route
+  `500`s for them; org-level identities delete fine once unprotected. Retiring the pre-split identities
+  (`HomeLab`, `HomeLab Provisioner`, the stray `brewhouse-agent`/`critterwatch-agent` in the main project)
+  was done this way on 2026-10-06; the type-to-confirm word is `confirm`.
