@@ -86,3 +86,16 @@ Infisical Agent installation is intentionally out of scope — the agent bootstr
 
 ### Source Material & Attribution
 Strategy relies on official Terraform documentation, `bpg/terraform-provider-proxmox` registry specs, the `resnickio/terraform-provider-unifi` registry specs, and pgBackRest user documentation.
+
+## Upgrading the devops LXC to Debian 13 in place (ADR 111)
+
+devops (`pve1`, VMID 111) is manually provisioned and holds state that cannot be recreated from code - `/opt/terraform-state`, `/opt/ansible-secrets`, `/opt/ansible-credentials`, `/opt/unifi-backups`, the GitHub runner - so it is upgraded in place, never rebuilt. It is outside Patch Fleet (ADR 106), so this is a manual, one-off procedure. Its third-party sources (Docker, HashiCorp) both publish `trixie` suites.
+
+1. **Quiet the box:** no workflow may be running or approved-and-pending (Actions tab).
+2. **Back up (on `pve1`):** `vzdump 111 --mode stop --storage synology-backups` (restoring this is the rollback; LXC snapshots are not available on its loop-backed directory storage). Also `tar czf` `/opt/terraform-state /opt/ansible-secrets /opt/ansible-credentials /opt/unifi-backups` to the NAS.
+3. **Free space:** `df -h /` needs ~3 GB free (it had 5 GB); `docker system prune` / `apt clean` if short.
+4. **Bring bookworm current:** `apt update && apt full-upgrade -y`.
+5. **Switch the suites:** `sed -i 's/bookworm/trixie/g' /etc/apt/sources.list /etc/apt/sources.list.d/*.list`, then drop the `-security` line's suffix change by hand - trixie's is `trixie-security main contrib` (the sed already yields that), and remove any `non-free-firmware` surprises.
+6. **Upgrade (inside `tmux`):** `export DEBIAN_FRONTEND=noninteractive; apt update && apt upgrade --without-new-pkgs -y -o Dpkg::Options::=--force-confold && apt full-upgrade -y -o Dpkg::Options::=--force-confold`, then `reboot`.
+7. **Verify:** `grep VERSION_CODENAME /etc/os-release` = trixie; `systemctl status actions.runner.*` active and the runner shows **online** in GitHub; `terraform version`; `docker ps`; `terraform plan` (from `terraform/`) reports no changes.
+8. **Ansible:** trixie's `ansible-core` is 2.19, which is stricter than the 2.14 the playbooks were written against (non-boolean `when:` results and some templating now error). Run `ansible-playbook --syntax-check site.yml` and a real converge, and fix what it flags. If 2.19 is a problem, a 2.18 venv (above) can sit first on the runner's PATH meanwhile. `ansible-galaxy collection install community.general` is still required.
