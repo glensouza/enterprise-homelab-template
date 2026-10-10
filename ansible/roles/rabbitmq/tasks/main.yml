@@ -226,7 +226,7 @@
     state: present
   when: rabbitmq_oidc_client_id is defined
 
-- name: Install Caddy (pinned release .deb)
+- name: Install Caddy (Debian backports)
   ansible.builtin.include_role:
     name: caddy-install
   when: rabbitmq_oidc_client_id is defined

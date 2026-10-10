@@ -1,25 +1,23 @@
 ---
-# Installs Caddy from a pinned GitHub release .deb (same package, same systemd unit and
-# `caddy` user as the old Cloudsmith repo). Included by every role that fronts a service
-# with Caddy. Also removes the dead Cloudsmith repo left on already-converged hosts.
-
-- name: Remove the retired Caddy apt repository
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: absent
-  loop:
-    - /etc/apt/sources.list.d/caddy-stable.list
-    - /etc/apt/sources.list.d/dl_cloudsmith_io_public_caddy_stable_deb_debian.list
-    - /etc/apt/keyrings/caddy-stable.asc
-
-- name: Download the pinned Caddy .deb
-  ansible.builtin.get_url:
-    url: "https://github.com/caddyserver/caddy/releases/download/v{{ caddy_version }}/caddy_{{ caddy_version }}_linux_amd64.deb"
-    dest: "/var/cache/caddy_{{ caddy_version }}_linux_amd64.deb"
-    checksum: "sha512:{{ caddy_deb_sha512 }}"
+# Installs Caddy from Debian's own trixie-backports (2.11.x). Trixie stable ships
+# 2.6.2, which predates `tls_trust_pool` (2.8) used by every Caddyfile here, so the
+# backports build is required - still a Debian-signed package, no third-party repo
+# (the Cloudsmith one started returning 402, ADR 110/111). Included by every role
+# that fronts a service with Caddy.
+- name: Enable Debian backports
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/debian-backports.sources
+    content: |
+      Types: deb
+      URIs: http://deb.debian.org/debian
+      Suites: {{ ansible_distribution_release }}-backports
+      Components: main
+      Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
     mode: "0644"
 
-- name: Install Caddy
+- name: Install Caddy from backports
   ansible.builtin.apt:
-    deb: "/var/cache/caddy_{{ caddy_version }}_linux_amd64.deb"
+    name: caddy
+    default_release: "{{ ansible_distribution_release }}-backports"
+    update_cache: true
     state: present
