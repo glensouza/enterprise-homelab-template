@@ -17,6 +17,8 @@ on:
     paths:
       - 'ansible/**'
       - 'src/systemd/**'
+  # Manual re-run (e.g. after a rebuild whose chained converge failed, ADR 111).
+  workflow_dispatch:
 
 # Only the latest push's run stays queued - see deploy-blazor.yml for the
 # same tradeoff note (cancels wherever the older run is, not just while
