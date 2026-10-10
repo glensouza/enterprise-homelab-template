@@ -446,22 +446,9 @@
     name: [debian-keyring, debian-archive-keyring, apt-transport-https]
     state: present
 
-- name: Add the Caddy apt GPG key
-  ansible.builtin.get_url:
-    url: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
-    dest: /etc/apt/keyrings/caddy-stable.asc
-    mode: "0644"
-
-- name: Add the Caddy apt repository
-  ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/caddy-stable.asc] https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main"
-    state: present
-
-- name: Install Caddy
-  ansible.builtin.apt:
-    name: caddy
-    update_cache: true
-    state: present
+- name: Install Caddy (pinned release .deb)
+  ansible.builtin.include_role:
+    name: caddy-install
 
 - name: Create the Caddy PKI directory
   ansible.builtin.file:

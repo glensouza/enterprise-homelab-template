@@ -3,6 +3,17 @@
 # after patching - no `/var/run/reboot-required` check - a predictable
 # reboot every run is simpler to reason about for a manually triggered,
 # infrequent action than conditional logic that only sometimes reboots.
+# The Cloudsmith Caddy apt repo now returns 402 (ADR 110) and would fail the update
+# below on every Caddy host; Caddy is installed from a pinned .deb now, so drop the
+# stale source here too - patching must not depend on a converge having run first.
+- name: Remove the retired Caddy apt repository
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/apt/sources.list.d/caddy-stable.list
+    - /etc/apt/sources.list.d/dl_cloudsmith_io_public_caddy_stable_deb_debian.list
+
 - name: apt update + full-upgrade
   ansible.builtin.apt:
     update_cache: true
