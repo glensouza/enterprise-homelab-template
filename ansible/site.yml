@@ -12,7 +12,7 @@
 # 2026-10-10: every host UNREACHABLE at +11s, all 16 reachable ~3 min later).
 # Wait for every host before any role runs.
 - name: Wait for every host to accept connections
-  hosts: all
+  hosts: all:!devops
   gather_facts: false
   tasks:
     - name: Wait for SSH

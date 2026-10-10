@@ -4,6 +4,8 @@ The entire lab is provisioned declaratively: **Terraform** creates the UniFi VLA
 
 **Neither command runs from a workstation anymore (ADR 22).** A manually-provisioned "devops" LXC on `pve1` hosts the GitHub Actions self-hosted runner, Terraform, and Ansible. `terraform-plan.yml` runs on every PR touching `terraform/**` and posts the plan as a PR comment; `terraform-apply.yml` is a manual, `homelab`-environment-gated workflow that applies that *exact* reviewed plan artifact, then runs `ansible-playbook site.yml`. The CLI commands below still describe what actually happens — they're just invoked by CI now instead of by hand. See `LAB-RUNBOOK.md`'s "DevOps LXC (pve1)" section for how that box is built.
 
+**Controller requirement (ADR 111):** the targets run Debian 13 / Python 3.13, so the controller needs **ansible-core >= 2.18** (Debian 12's packaged 2.14 fails every `get_url`/`uri` with `HTTPSConnection ... 'cert_file'`). On devops: `python3 -m venv /opt/ansible-venv && /opt/ansible-venv/bin/pip install 'ansible-core>=2.18,<2.19' && /opt/ansible-venv/bin/ansible-galaxy collection install community.general`, then put `/opt/ansible-venv/bin` first on the runner's PATH.
+
 ```text
 terraform/                        # bpg/proxmox + resnickio/unifi
 ├── versions.tf / providers.tf    # provider pins and connection config
