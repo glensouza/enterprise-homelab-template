@@ -7,6 +7,19 @@
 # each push their own generated connection secret into it as their last task
 # (ADR 28, ansible/roles/infisical-secret), so Infisical has to already be up
 # and reachable before any of those plays run, not after.
+# Terraform's apply job starts this playbook seconds after `pct create`, while
+# the new LXCs are still booting and sshd isn't listening yet (confirmed live
+# 2026-10-10: every host UNREACHABLE at +11s, all 16 reachable ~3 min later).
+# Wait for every host before any role runs.
+- name: Wait for every host to accept connections
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Wait for SSH
+      ansible.builtin.wait_for_connection:
+        delay: 5
+        timeout: 600
+
 - name: Configure Infisical secrets vault (VLAN 130, ADR 12/26)
   hosts: infisical
   roles:
