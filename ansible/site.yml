@@ -20,6 +20,18 @@
         delay: 5
         timeout: 600
 
+# Debian 13's minimal LXC template (unlike Debian 12's) ships without gnupg, so any
+# role that `gpg --dearmor`s a vendor apt key died with "No such file: gpg" (confirmed
+# live on infisical, 2026-10-10; rabbitmq and authentik do the same).
+- name: Install base packages every role assumes
+  hosts: all:!devops
+  tasks:
+    - name: Install gnupg, curl and CA certificates
+      ansible.builtin.apt:
+        name: [gnupg, curl, ca-certificates]
+        state: present
+        update_cache: true
+
 - name: Configure Infisical secrets vault (VLAN 130, ADR 12/26)
   hosts: infisical
   roles:
