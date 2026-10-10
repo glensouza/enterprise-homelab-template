@@ -102,12 +102,10 @@
 # once those are placed in /opt/ansible-secrets/all.yml (ADR 36) directly by
 # whoever completed that wizard.
 - name: Install python3-venv (needed for the monitor-seeding script)
-  # Confirmed live: plain `python3-venv` isn't sufficient on this Debian 12
-  # template - venv creation fails with "ensurepip is not available" until
-  # the version-specific package (matching the system's actual python3.11)
-  # is installed explicitly.
+  # On Debian 13 (trixie) `python3-venv` pulls in the matching python3.13-venv
+  # (bookworm needed the version-specific python3.11-venv named explicitly).
   ansible.builtin.apt:
-    name: python3.11-venv
+    name: python3-venv
     state: present
   when: uptime_kuma_username is defined and uptime_kuma_password is defined
 

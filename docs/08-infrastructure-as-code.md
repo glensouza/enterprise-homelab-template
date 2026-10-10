@@ -44,7 +44,7 @@ ansible/
 
 1. **API token:** Proxmox GUI → Datacenter → Permissions → API Tokens → create `root@pam!terraform` (uncheck *Privilege Separation* or grant `PVEAdmin`).
 2. **UniFi local admin:** create a dedicated local (non-SSO) admin account on the UDM-Pro for Terraform.
-3. **Debian template:** on each node, `pveam download local debian-12-standard_<ver>_amd64.tar.zst` and set `debian_template_id` accordingly.
+3. **Debian template:** on each node, `pveam download local debian-13-standard_<ver>_amd64.tar.zst` and set `debian_template_id` accordingly.
 4. **Fill in variables:** on the devops LXC, either `cp terraform.tfvars.example terraform.tfvars` for ad-hoc manual runs (never committed — git-ignored), or set the equivalent GitHub repository variables/secrets so `terraform-plan.yml`/`terraform-apply.yml` can run without a local tfvars file at all (ADR 22).
 5. **Apply — via CI (normal path):** open a PR touching `terraform/**` → `terraform-plan.yml` comments the plan → merge → run **Terraform Apply** (`workflow_dispatch`, `plan_run_id` = the plan run you reviewed) → `homelab` environment approval → it applies that exact plan and runs `ansible-playbook site.yml`.
 6. **Apply — manual fallback (if the devops LXC or Actions are unavailable):**

@@ -1,12 +1,10 @@
 ---
 # RabbitMQ (VLAN 120, ADR 07/10) - sourced from the community-scripts
 # ProxmoxVE installer (ct/rabbitmq.sh / install/rabbitmq-install.sh, commit
-# 787dbf2420ec8217c967eb4c152cb3003446d327), adapted for Debian 12
-# (bookworm) - that script targets Debian 13 (trixie), whose single-repo
-# setup doesn't apply here. RabbitMQ's own install docs specify TWO repos
-# for bookworm (rabbitmq-erlang + rabbitmq-server, both path-scoped to
-# /debian/bookworm) since bookworm's own Erlang packages are considered too
-# old for current RabbitMQ.
+# 787dbf2420ec8217c967eb4c152cb3003446d327). RabbitMQ's own install docs
+# specify TWO repos (rabbitmq-erlang + rabbitmq-server, both path-scoped to
+# the distro codename) - current Erlang/OTP is newer than the distro's. Both
+# follow ansible_distribution_release (trixie; deb1.rabbitmq.com has both).
 - name: Install prerequisite packages
   ansible.builtin.apt:
     name: apt-transport-https
@@ -28,8 +26,8 @@
     dest: /etc/apt/sources.list.d/rabbitmq-erlang.sources
     content: |
       Types: deb
-      URIs: https://deb1.rabbitmq.com/rabbitmq-erlang/debian/bookworm
-      Suites: bookworm
+      URIs: https://deb1.rabbitmq.com/rabbitmq-erlang/debian/{{ ansible_distribution_release }}
+      Suites: {{ ansible_distribution_release }}
       Components: main
       Signed-By: /etc/apt/keyrings/rabbitmq.gpg
     mode: "0644"
@@ -40,8 +38,8 @@
     dest: /etc/apt/sources.list.d/rabbitmq-server.sources
     content: |
       Types: deb
-      URIs: https://deb1.rabbitmq.com/rabbitmq-server/debian/bookworm
-      Suites: bookworm
+      URIs: https://deb1.rabbitmq.com/rabbitmq-server/debian/{{ ansible_distribution_release }}
+      Suites: {{ ansible_distribution_release }}
       Components: main
       Signed-By: /etc/apt/keyrings/rabbitmq.gpg
     mode: "0644"

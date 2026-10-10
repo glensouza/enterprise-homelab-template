@@ -72,7 +72,7 @@ variable "lxc_datastore" {
 }
 
 variable "debian_template_id" {
-  description = "Container template for all LXCs, e.g. 'local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst' (upload once per node storage)"
+  description = "Container template for all LXCs, e.g. 'local:vztmpl/debian-13-standard_13.6-1_amd64.tar.zst' (upload once per node storage)"
   type        = string
 }
 
