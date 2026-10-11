@@ -12,6 +12,7 @@
 # 2026-10-10: every host UNREACHABLE at +11s, all 16 reachable ~3 min later).
 # Wait for every host before any role runs.
 - name: Wait for every host to accept connections
+  tags: [vault]
   hosts: all:!devops
   gather_facts: false
   tasks:
@@ -24,6 +25,7 @@
 # role that `gpg --dearmor`s a vendor apt key died with "No such file: gpg" (confirmed
 # live on infisical, 2026-10-10; rabbitmq and authentik do the same).
 - name: Install base packages every role assumes
+  tags: [vault]
   hosts: all:!devops
   tasks:
     - name: Install gnupg, curl and CA certificates
@@ -33,6 +35,7 @@
         update_cache: true
 
 - name: Configure Infisical secrets vault (VLAN 130, ADR 12/26)
+  tags: [vault]
   hosts: infisical
   roles:
     - infisical
