@@ -225,9 +225,8 @@ jobs:
 
       - name: Ansible converge
         working-directory: ansible
-        run: >
-          ansible-playbook site.yml
-          -e @/opt/ansible-secrets/all.yml
-          -e @/opt/ansible-secrets/dns.yml
-          -e @/opt/ansible-secrets/web.yml
-          $(test -f /opt/ansible-secrets/critterwatch.yml && echo '-e @/opt/ansible-secrets/critterwatch.yml')
+        # Vault up -> scripted Infisical bootstrap -> full converge (ADR 112).
+        env:
+          INFISICAL_ADMIN_EMAIL: ${{ secrets.INFISICAL_ADMIN_EMAIL }}
+          INFISICAL_ADMIN_PASSWORD: ${{ secrets.INFISICAL_ADMIN_PASSWORD }}
+        run: bash ./converge.sh
