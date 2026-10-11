@@ -40,13 +40,6 @@
   roles:
     - infisical
 
-- name: Configure Blazor web nodes (VLAN 110)
-  hosts: web
-  roles:
-    - dotnet-runtime
-    - infisical-agent
-    - blazor-app
-
 - name: Configure PostgreSQL node (VLAN 120)
   hosts: postgres
   roles:
@@ -146,6 +139,16 @@
   hosts: observability_hosts
   roles:
     - observability
+
+# Runs AFTER postgres, garnet, rabbitmq and observability on purpose: the Agent renders the
+# secrets those roles push into Infisical, and on a fresh rebuild they do not exist until then
+# (ADR 112; a rebuild failed on this ordering 2026-10-11).
+- name: Configure Blazor web nodes (VLAN 110)
+  hosts: web
+  roles:
+    - dotnet-runtime
+    - infisical-agent
+    - blazor-app
 
 # Stub install (DEMO-AUDIT.md R7 sibling gap) — a real status page, no
 # monitors configured yet.
