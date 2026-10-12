@@ -1,0 +1,5 @@
+---
+- name: restart prometheus-snmp-exporter
+  ansible.builtin.service:
+    name: prometheus-snmp-exporter
+    state: restarted

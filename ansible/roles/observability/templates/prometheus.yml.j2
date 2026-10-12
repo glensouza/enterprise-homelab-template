@@ -52,3 +52,41 @@ scrape_configs:
       - target_label: __address__
         replacement: localhost:9221
 {% endif %}
+
+{% if snmp_exporter_enabled | bool %}
+  # Synology NAS and Kemp LoadMaster over SNMPv3 via the local snmp_exporter (roles/snmp-exporter,
+  # ADR 116).
+  - job_name: snmp_synology
+    metrics_path: /snmp
+    params:
+      module: [synology]
+      auth: [homelab_v3]
+    static_configs:
+      - targets: ["{{ snmp_synology_target }}"]
+        labels:
+          host: synology-nas
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: localhost:9116
+
+  - job_name: snmp_kemp
+    metrics_path: /snmp
+    params:
+      module: [kemp]
+      auth: [homelab_v3]
+    static_configs:
+      - targets: ["{{ snmp_kemp_target }}"]
+        labels:
+          host: kemp
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: localhost:9116
+{% endif %}

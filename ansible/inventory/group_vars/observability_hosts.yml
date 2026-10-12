@@ -14,6 +14,17 @@ alertmanager_smtp_smarthost: "smtp.gmail.com:587"
 pve_exporter_version: "3.10.1"
 pve_exporter_target: "10.10.10.101"
 
+# snmp_exporter (docs/01 ADR 116): SNMPv3 authPriv (SHA + AES) against the Synology NAS and
+# the Kemp LoadMaster's management address. The credentials are the GitHub secrets SNMP_USER /
+# SNMP_AUTH_PASSWORD / SNMP_PRIV_PASSWORD, read from the converge environment (docs/13); SNMP
+# monitoring is skipped until all three exist.
+snmp_user: "{{ lookup('ansible.builtin.env', 'SNMP_USER') }}"
+snmp_auth_password: "{{ lookup('ansible.builtin.env', 'SNMP_AUTH_PASSWORD') }}"
+snmp_priv_password: "{{ lookup('ansible.builtin.env', 'SNMP_PRIV_PASSWORD') }}"
+snmp_exporter_enabled: "{{ snmp_user != '' and snmp_auth_password != '' and snmp_priv_password != '' }}"
+snmp_synology_target: "{{ nas_server }}"
+snmp_kemp_target: "10.10.10.199"
+
 # Picked up by the homepage role (ADR 38) to auto-populate the dashboard.
 homepage_service:
   - group: Observability

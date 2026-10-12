@@ -31,6 +31,15 @@ The `OTEL_EXPORTER_OTLP_ENDPOINT` value is rendered into `/etc/brewhouse/brewhou
 * **Proxmox:** `prometheus-pve-exporter` (localhost `:9221` on the observability LXC) reads the Proxmox API with a read-only token that `terraform/pve-exporter.tf` creates (ADR 115); alerts for node down, exporter down and storage > 85 %.
 * **Secrets:** the GitHub secrets `ALERTMANAGER_SMTP_USER` / `ALERTMANAGER_SMTP_PASSWORD` (see `docs/13`).
 
+### SNMP monitoring of the Synology NAS and the Kemp LoadMaster (ADR 116)
+`prometheus-snmp-exporter` (localhost `:9116` on the observability LXC) polls both devices over **SNMPv3 `authPriv` (SHA + AES)**. One user, `SNMP_USER`, on both devices; the secrets are `SNMP_USER`, `SNMP_AUTH_PASSWORD`, `SNMP_PRIV_PASSWORD` (docs/13).
+
+**Enable SNMPv3 on the Synology (DSM 7.x):** Control Panel -> Terminal & SNMP -> SNMP tab -> tick *Enable SNMP service* and *SNMPv3 service*; user name = `SNMP_USER`; protocol *SHA* + the auth password; tick *Enable SNMP privacy*, protocol *AES* + the privacy password; leave SNMPv1/v2c off; Apply. If the DSM firewall is on (Control Panel -> Security -> Firewall), allow UDP 161 from `10.10.130.118`.
+
+**Enable SNMPv3 on the Kemp LoadMaster (WUI `https://10.10.10.199`):** System Configuration -> Miscellaneous Options -> SNMP Options -> enable SNMP and SNMPv3; user name = `SNMP_USER`; authentication protocol *SHA* + the auth password; tick *Enable Privacy*, protocol *AES* + the privacy password; restrict *SNMP Clients* to `10.10.130.118`; clear the default community string. (Menu labels per Progress' LoadMaster WUI guide, "SNMP Options" / "SNMP V3 Options".)
+
+Passwords: 20+ characters, letters and digits only (DSM rejects `"`, `'`, `\` and spaces); `openssl rand -hex 16` gives a suitable one. Check from devops: `snmpwalk -v3 -l authPriv -u <user> -a SHA -A <auth> -x AES -X <priv> 10.10.10.90 1.3.6.1.4.1.6574.1`.
+
 ## 4. Health Checks
 The `/health` endpoint is unchanged: it performs deep checks against PostgreSQL, Garnet, and RabbitMQ and remains the probe target for Kemp L7 routing. It is independent of the telemetry pipeline.
 

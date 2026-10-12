@@ -1,0 +1,66 @@
+---
+# snmp_exporter on the observability LXC (docs/01 ADR 116): Prometheus scrapes the Synology NAS
+# and the Kemp LoadMaster through it using SNMPv3 authPriv (SHA + AES). The credentials are the
+# GitHub secrets SNMP_USER / SNMP_AUTH_PASSWORD / SNMP_PRIV_PASSWORD, passed to the converge as
+# environment variables (group_vars/observability_hosts.yml); the role is skipped until all three
+# exist. The passwords also get a vault copy in Infisical /admin (never read by an Agent, ADR 108).
+- name: Configure snmp_exporter
+  when: snmp_exporter_enabled | bool
+  block:
+    - name: Install snmp_exporter
+      ansible.builtin.apt:
+        name: prometheus-snmp-exporter
+        state: present
+
+    # Localhost only: Prometheus is on the same host. The packaged unit runs as `prometheus`.
+    - name: Configure snmp_exporter flags
+      ansible.builtin.copy:
+        dest: /etc/default/prometheus-snmp-exporter
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          # Managed by Ansible (roles/snmp-exporter) - docs/01 ADR 116.
+          ARGS="--config.file=/etc/prometheus/snmp.yml --web.listen-address=127.0.0.1:9116"
+      notify: restart prometheus-snmp-exporter
+
+    - name: Write snmp.yml (SNMPv3 credentials + Synology/Kemp modules)
+      ansible.builtin.template:
+        src: snmp.yml.j2
+        dest: /etc/prometheus/snmp.yml
+        owner: root
+        group: prometheus
+        mode: "0640"
+        validate: /usr/bin/prometheus-snmp-exporter --config.file=%s --dry-run
+      no_log: true
+      notify: restart prometheus-snmp-exporter
+
+    - name: Push the SNMPv3 secrets to Infisical (vault-only /admin)
+      ansible.builtin.include_role:
+        name: infisical-secret
+      vars:
+        infisical_secret_name: "{{ item.name }}"
+        infisical_secret_target: admin
+        infisical_secret_value: "{{ item.value }}"
+      loop:
+        - { name: SNMP_USER, value: "{{ snmp_user }}" }
+        - { name: SNMP_AUTH_PASSWORD, value: "{{ snmp_auth_password }}" }
+        - { name: SNMP_PRIV_PASSWORD, value: "{{ snmp_priv_password }}" }
+      loop_control:
+        label: "{{ item.name }}"
+      when: infisical_project_id is defined
+      no_log: true
+
+    - name: Flush handlers so snmp_exporter starts with its final config
+      ansible.builtin.meta: flush_handlers
+
+    - name: Enable and start snmp_exporter
+      ansible.builtin.systemd:
+        name: prometheus-snmp-exporter
+        enabled: true
+        state: started
+
+- name: Warn when SNMP monitoring is not configured
+  ansible.builtin.debug:
+    msg: "SNMP_USER / SNMP_AUTH_PASSWORD / SNMP_PRIV_PASSWORD not all set - snmp_exporter and the Synology/Kemp scrapes are skipped (docs/13)."
+  when: not (snmp_exporter_enabled | bool)

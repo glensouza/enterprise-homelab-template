@@ -1,0 +1,246 @@
+# Managed by Ansible (roles/snmp-exporter) — docs/01 ADR 116. Manual edits will be overwritten.
+# Hand-written instead of generated: the OIDs come straight from Synology's published MIB bundle
+# (SYNOLOGY-SYSTEM/DISK/RAID-MIB) and Kemp's B100-MIB (enterprise 1.3.6.1.4.1.12196.13), so no MIB
+# files or generator run are needed at converge time.
+auths:
+  homelab_v3:
+    version: 3
+    security_level: authPriv
+    username: "{{ snmp_user }}"
+    auth_protocol: SHA
+    password: "{{ snmp_auth_password }}"
+    priv_protocol: AES
+    priv_password: "{{ snmp_priv_password }}"
+
+modules:
+  # --- Synology DSM (NAS) --------------------------------------------------------------
+  synology:
+    timeout: 10s
+    retries: 2
+    walk:
+      - 1.3.6.1.2.1.1.3          # sysUpTime
+      - 1.3.6.1.2.1.2.2.1.8      # ifOperStatus
+      - 1.3.6.1.2.1.31.1.1.1     # ifXTable (names, 64-bit counters)
+      - 1.3.6.1.2.1.25.2.3.1     # hrStorageTable (volumes)
+      - 1.3.6.1.4.1.2021.4       # UCD memory
+      - 1.3.6.1.4.1.2021.10.1    # UCD load average
+      - 1.3.6.1.4.1.6574.1       # synoSystem
+      - 1.3.6.1.4.1.6574.2       # synoDisk
+      - 1.3.6.1.4.1.6574.3       # synoRaid
+    metrics:
+      - { name: snmp_sys_uptime_ticks, oid: 1.3.6.1.2.1.1.3, type: gauge, help: "sysUpTime in 1/100 s" }
+      - { name: synology_system_status, oid: 1.3.6.1.4.1.6574.1.1, type: gauge, help: "1 = Normal, 2 = Failed" }
+      - { name: synology_temperature_celsius, oid: 1.3.6.1.4.1.6574.1.2, type: gauge, help: "System temperature" }
+      - { name: synology_power_status, oid: 1.3.6.1.4.1.6574.1.3, type: gauge, help: "1 = Normal, 2 = Failed" }
+      - { name: synology_system_fan_status, oid: 1.3.6.1.4.1.6574.1.4.1, type: gauge, help: "1 = Normal, 2 = Failed" }
+      - { name: synology_cpu_fan_status, oid: 1.3.6.1.4.1.6574.1.4.2, type: gauge, help: "1 = Normal, 2 = Failed" }
+      - { name: synology_model_info, oid: 1.3.6.1.4.1.6574.1.5.1, type: DisplayString, help: "DSM model name" }
+      - { name: synology_dsm_version_info, oid: 1.3.6.1.4.1.6574.1.5.3, type: DisplayString, help: "DSM version" }
+      - { name: synology_upgrade_available, oid: 1.3.6.1.4.1.6574.1.5.4, type: gauge, help: "1 = available, 2 = unavailable, 3 = connecting, 4 = disconnected, 5 = others" }
+      - name: synology_disk_status
+        oid: 1.3.6.1.4.1.6574.2.1.1.5
+        type: gauge
+        help: "1 Normal, 2 Initialized, 3 NotInitialized, 4 SystemPartitionFailed, 5 Crashed"
+        indexes: [{ labelname: diskIndex, type: gauge }]
+        lookups:
+          - { labels: [diskIndex], labelname: diskID, oid: 1.3.6.1.4.1.6574.2.1.1.2, type: DisplayString }
+          - { labels: [diskIndex], labelname: diskModel, oid: 1.3.6.1.4.1.6574.2.1.1.3, type: DisplayString }
+      - name: synology_disk_temperature_celsius
+        oid: 1.3.6.1.4.1.6574.2.1.1.6
+        type: gauge
+        help: "Disk temperature"
+        indexes: [{ labelname: diskIndex, type: gauge }]
+        lookups:
+          - { labels: [diskIndex], labelname: diskID, oid: 1.3.6.1.4.1.6574.2.1.1.2, type: DisplayString }
+      - name: synology_disk_bad_sectors
+        oid: 1.3.6.1.4.1.6574.2.1.1.9
+        type: gauge
+        help: "Disk bad sector count"
+        indexes: [{ labelname: diskIndex, type: gauge }]
+        lookups:
+          - { labels: [diskIndex], labelname: diskID, oid: 1.3.6.1.4.1.6574.2.1.1.2, type: DisplayString }
+      - name: synology_disk_health_status
+        oid: 1.3.6.1.4.1.6574.2.1.1.13
+        type: gauge
+        help: "1 Normal, 2 Warning, 3 Critical, 4 Failing"
+        indexes: [{ labelname: diskIndex, type: gauge }]
+        lookups:
+          - { labels: [diskIndex], labelname: diskID, oid: 1.3.6.1.4.1.6574.2.1.1.2, type: DisplayString }
+      - name: synology_raid_status
+        oid: 1.3.6.1.4.1.6574.3.1.1.3
+        type: gauge
+        help: "1 Normal, 2-10 repairing/migrating/expanding/syncing/etc, 11 Degrade, 12 Crashed"
+        indexes: [{ labelname: raidIndex, type: gauge }]
+        lookups:
+          - { labels: [raidIndex], labelname: raidName, oid: 1.3.6.1.4.1.6574.3.1.1.2, type: DisplayString }
+      - name: synology_raid_free_bytes
+        oid: 1.3.6.1.4.1.6574.3.1.1.4
+        type: gauge
+        help: "RAID free size"
+        indexes: [{ labelname: raidIndex, type: gauge }]
+        lookups:
+          - { labels: [raidIndex], labelname: raidName, oid: 1.3.6.1.4.1.6574.3.1.1.2, type: DisplayString }
+      - name: synology_raid_total_bytes
+        oid: 1.3.6.1.4.1.6574.3.1.1.5
+        type: gauge
+        help: "RAID total size"
+        indexes: [{ labelname: raidIndex, type: gauge }]
+        lookups:
+          - { labels: [raidIndex], labelname: raidName, oid: 1.3.6.1.4.1.6574.3.1.1.2, type: DisplayString }
+      - name: snmp_storage_size_units
+        oid: 1.3.6.1.2.1.25.2.3.1.5
+        type: gauge
+        help: "hrStorageSize, in allocation units"
+        indexes: [{ labelname: hrStorageIndex, type: gauge }]
+        lookups:
+          - { labels: [hrStorageIndex], labelname: hrStorageDescr, oid: 1.3.6.1.2.1.25.2.3.1.3, type: DisplayString }
+      - name: snmp_storage_used_units
+        oid: 1.3.6.1.2.1.25.2.3.1.6
+        type: gauge
+        help: "hrStorageUsed, in allocation units"
+        indexes: [{ labelname: hrStorageIndex, type: gauge }]
+        lookups:
+          - { labels: [hrStorageIndex], labelname: hrStorageDescr, oid: 1.3.6.1.2.1.25.2.3.1.3, type: DisplayString }
+      - name: snmp_storage_allocation_unit_bytes
+        oid: 1.3.6.1.2.1.25.2.3.1.4
+        type: gauge
+        help: "hrStorageAllocationUnits"
+        indexes: [{ labelname: hrStorageIndex, type: gauge }]
+        lookups:
+          - { labels: [hrStorageIndex], labelname: hrStorageDescr, oid: 1.3.6.1.2.1.25.2.3.1.3, type: DisplayString }
+      - { name: snmp_mem_total_kbytes, oid: 1.3.6.1.4.1.2021.4.5, type: gauge, help: "UCD memTotalReal" }
+      - { name: snmp_mem_available_kbytes, oid: 1.3.6.1.4.1.2021.4.6, type: gauge, help: "UCD memAvailReal" }
+      - name: snmp_load_average_x100
+        oid: 1.3.6.1.4.1.2021.10.1.5
+        type: gauge
+        help: "UCD laLoadInt (load average x 100)"
+        indexes: [{ labelname: laIndex, type: gauge }]
+      - name: snmp_if_oper_status
+        oid: 1.3.6.1.2.1.2.2.1.8
+        type: gauge
+        help: "ifOperStatus: 1 up, 2 down"
+        indexes: [{ labelname: ifIndex, type: gauge }]
+        lookups:
+          - { labels: [ifIndex], labelname: ifName, oid: 1.3.6.1.2.1.31.1.1.1.1, type: DisplayString }
+      - name: snmp_if_hc_in_octets
+        oid: 1.3.6.1.2.1.31.1.1.1.6
+        type: counter
+        help: "ifHCInOctets"
+        indexes: [{ labelname: ifIndex, type: gauge }]
+        lookups:
+          - { labels: [ifIndex], labelname: ifName, oid: 1.3.6.1.2.1.31.1.1.1.1, type: DisplayString }
+      - name: snmp_if_hc_out_octets
+        oid: 1.3.6.1.2.1.31.1.1.1.10
+        type: counter
+        help: "ifHCOutOctets"
+        indexes: [{ labelname: ifIndex, type: gauge }]
+        lookups:
+          - { labels: [ifIndex], labelname: ifName, oid: 1.3.6.1.2.1.31.1.1.1.1, type: DisplayString }
+
+  # --- Kemp LoadMaster (B100-MIB, enterprise 1.3.6.1.4.1.12196.13) ----------------------
+  kemp:
+    timeout: 10s
+    retries: 2
+    walk:
+      - 1.3.6.1.2.1.1.3
+      - 1.3.6.1.2.1.2.2.1.8
+      - 1.3.6.1.2.1.31.1.1.1
+      - 1.3.6.1.4.1.12196.13.0   # node scalars
+      - 1.3.6.1.4.1.12196.13.1   # virtual-service table
+      - 1.3.6.1.4.1.12196.13.2   # real-server table
+    metrics:
+      - { name: snmp_sys_uptime_ticks, oid: 1.3.6.1.2.1.1.3, type: gauge, help: "sysUpTime in 1/100 s" }
+      - { name: kemp_version_info, oid: 1.3.6.1.4.1.12196.13.0.1, type: DisplayString, help: "LoadMaster version" }
+      - { name: kemp_services, oid: 1.3.6.1.4.1.12196.13.0.2, type: gauge, help: "Number of services" }
+      - { name: kemp_daemon_state, oid: 1.3.6.1.4.1.12196.13.0.7, type: gauge, help: "daemonState enumeration" }
+      - { name: kemp_ha_state, oid: 1.3.6.1.4.1.12196.13.0.9, type: gauge, help: "haState enumeration" }
+      - { name: kemp_patch_version_info, oid: 1.3.6.1.4.1.12196.13.0.10, type: DisplayString, help: "LoadMaster patch version" }
+      - { name: kemp_tps_total, oid: 1.3.6.1.4.1.12196.13.0.11, type: gauge, help: "Total transactions per second" }
+      - { name: kemp_tps_ssl, oid: 1.3.6.1.4.1.12196.13.0.12, type: gauge, help: "SSL transactions per second" }
+      - name: kemp_vs_state
+        oid: 1.3.6.1.4.1.12196.13.1.1.14
+        type: gauge
+        help: "Virtual service state enumeration (vSState)"
+        indexes: [{ labelname: vsIndex, type: gauge }]
+        lookups:
+          - { labels: [vsIndex], labelname: vsName, oid: 1.3.6.1.4.1.12196.13.1.1.13, type: DisplayString }
+          - { labels: [vsIndex], labelname: vsPort, oid: 1.3.6.1.4.1.12196.13.1.1.3, type: gauge }
+      - name: kemp_vs_real_servers
+        oid: 1.3.6.1.4.1.12196.13.1.1.10
+        type: gauge
+        help: "Real servers configured on the virtual service"
+        indexes: [{ labelname: vsIndex, type: gauge }]
+        lookups:
+          - { labels: [vsIndex], labelname: vsName, oid: 1.3.6.1.4.1.12196.13.1.1.13, type: DisplayString }
+          - { labels: [vsIndex], labelname: vsPort, oid: 1.3.6.1.4.1.12196.13.1.1.3, type: gauge }
+      - name: kemp_vs_active_connections
+        oid: 1.3.6.1.4.1.12196.13.1.1.21
+        type: gauge
+        help: "Active connections on the virtual service"
+        indexes: [{ labelname: vsIndex, type: gauge }]
+        lookups:
+          - { labels: [vsIndex], labelname: vsName, oid: 1.3.6.1.4.1.12196.13.1.1.13, type: DisplayString }
+          - { labels: [vsIndex], labelname: vsPort, oid: 1.3.6.1.4.1.12196.13.1.1.3, type: gauge }
+      - name: kemp_vs_connections_total
+        oid: 1.3.6.1.4.1.12196.13.1.1.16
+        type: counter
+        help: "Connections handled by the virtual service"
+        indexes: [{ labelname: vsIndex, type: gauge }]
+        lookups:
+          - { labels: [vsIndex], labelname: vsName, oid: 1.3.6.1.4.1.12196.13.1.1.13, type: DisplayString }
+          - { labels: [vsIndex], labelname: vsPort, oid: 1.3.6.1.4.1.12196.13.1.1.3, type: gauge }
+      - name: kemp_vs_in_bytes_total
+        oid: 1.3.6.1.4.1.12196.13.1.1.19
+        type: counter
+        help: "Bytes received by the virtual service"
+        indexes: [{ labelname: vsIndex, type: gauge }]
+        lookups:
+          - { labels: [vsIndex], labelname: vsName, oid: 1.3.6.1.4.1.12196.13.1.1.13, type: DisplayString }
+          - { labels: [vsIndex], labelname: vsPort, oid: 1.3.6.1.4.1.12196.13.1.1.3, type: gauge }
+      - name: kemp_vs_out_bytes_total
+        oid: 1.3.6.1.4.1.12196.13.1.1.20
+        type: counter
+        help: "Bytes sent by the virtual service"
+        indexes: [{ labelname: vsIndex, type: gauge }]
+        lookups:
+          - { labels: [vsIndex], labelname: vsName, oid: 1.3.6.1.4.1.12196.13.1.1.13, type: DisplayString }
+          - { labels: [vsIndex], labelname: vsPort, oid: 1.3.6.1.4.1.12196.13.1.1.3, type: gauge }
+      # Real-server rows are indexed by (virtual service index, real server index). If the
+      # first live walk shows a different index shape, adjust here (ADR 116 verification).
+      - name: kemp_rs_state
+        oid: 1.3.6.1.4.1.12196.13.2.1.8
+        type: gauge
+        help: "Real server state enumeration (rSState)"
+        indexes: [{ labelname: rsVsIndex, type: gauge }, { labelname: rsIndex, type: gauge }]
+        lookups:
+          - { labels: [rsVsIndex], labelname: vsName, oid: 1.3.6.1.4.1.12196.13.1.1.13, type: DisplayString }
+          - { labels: [rsVsIndex, rsIndex], labelname: rsAddress, oid: 1.3.6.1.4.1.12196.13.2.1.2, type: InetAddress }
+      - name: kemp_rs_active_connections
+        oid: 1.3.6.1.4.1.12196.13.2.1.17
+        type: gauge
+        help: "Active connections on the real server"
+        indexes: [{ labelname: rsVsIndex, type: gauge }, { labelname: rsIndex, type: gauge }]
+        lookups:
+          - { labels: [rsVsIndex], labelname: vsName, oid: 1.3.6.1.4.1.12196.13.1.1.13, type: DisplayString }
+          - { labels: [rsVsIndex, rsIndex], labelname: rsAddress, oid: 1.3.6.1.4.1.12196.13.2.1.2, type: InetAddress }
+      - name: snmp_if_oper_status
+        oid: 1.3.6.1.2.1.2.2.1.8
+        type: gauge
+        help: "ifOperStatus: 1 up, 2 down"
+        indexes: [{ labelname: ifIndex, type: gauge }]
+        lookups:
+          - { labels: [ifIndex], labelname: ifName, oid: 1.3.6.1.2.1.31.1.1.1.1, type: DisplayString }
+      - name: snmp_if_hc_in_octets
+        oid: 1.3.6.1.2.1.31.1.1.1.6
+        type: counter
+        help: "ifHCInOctets"
+        indexes: [{ labelname: ifIndex, type: gauge }]
+        lookups:
+          - { labels: [ifIndex], labelname: ifName, oid: 1.3.6.1.2.1.31.1.1.1.1, type: DisplayString }
+      - name: snmp_if_hc_out_octets
+        oid: 1.3.6.1.2.1.31.1.1.1.10
+        type: counter
+        help: "ifHCOutOctets"
+        indexes: [{ labelname: ifIndex, type: gauge }]
+        lookups:
+          - { labels: [ifIndex], labelname: ifName, oid: 1.3.6.1.2.1.31.1.1.1.1, type: DisplayString }

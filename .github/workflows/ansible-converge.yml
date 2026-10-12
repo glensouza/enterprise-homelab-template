@@ -56,4 +56,7 @@ jobs:
           CLOUDFLARED_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARED_TUNNEL_TOKEN }}
           ALERTMANAGER_SMTP_USER: ${{ secrets.ALERTMANAGER_SMTP_USER }}
           ALERTMANAGER_SMTP_PASSWORD: ${{ secrets.ALERTMANAGER_SMTP_PASSWORD }}
+          SNMP_USER: ${{ secrets.SNMP_USER }}
+          SNMP_AUTH_PASSWORD: ${{ secrets.SNMP_AUTH_PASSWORD }}
+          SNMP_PRIV_PASSWORD: ${{ secrets.SNMP_PRIV_PASSWORD }}
         run: bash ./converge.sh

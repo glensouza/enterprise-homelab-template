@@ -95,3 +95,61 @@ groups:
         annotations:
           summary: "Proxmox {{ $labels.id }} is {{ $value | printf \"%.0f\" }}% full"
           description: "Storage {{ $labels.id }} has been above 85% for 15 minutes."
+
+  - name: snmp
+    rules:
+      - alert: SnmpTargetDown
+        expr: up{job=~"snmp_.*"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.host }} is not answering SNMP"
+          description: "Prometheus' {{ $labels.job }} scrape has failed for 5 minutes (device down, SNMPv3 disabled or credentials wrong, or UDP 161 blocked)."
+
+      - alert: SynologySystemFailed
+        expr: synology_system_status != 1 or synology_power_status != 1 or synology_system_fan_status != 1 or synology_cpu_fan_status != 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Synology reports a system, power or fan failure"
+          description: "One of systemStatus / powerStatus / fan status is not Normal (1) on the Synology NAS."
+
+      - alert: SynologyDiskUnhealthy
+        expr: synology_disk_status != 1 or synology_disk_health_status != 1
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Synology disk {{ $labels.diskID }} is not healthy"
+          description: "Disk {{ $labels.diskID }} reports status/health other than Normal for 10 minutes."
+
+      - alert: SynologyRaidDegraded
+        expr: synology_raid_status >= 11
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Synology RAID {{ $labels.raidName }} is degraded or crashed"
+          description: "RAID {{ $labels.raidName }} has status {{ $value }} (11 = Degrade, 12 = Crashed)."
+
+      - alert: SynologyVolumeHigh
+        expr: |
+          100 * snmp_storage_used_units{job="snmp_synology", hrStorageDescr=~"/volume.*"}
+              / snmp_storage_size_units{job="snmp_synology", hrStorageDescr=~"/volume.*"} > 85
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Synology {{ $labels.hrStorageDescr }} is {{ $value | printf \"%.0f\" }}% full"
+          description: "Volume {{ $labels.hrStorageDescr }} has been above 85% for 15 minutes."
+
+      - alert: SynologyTemperatureHigh
+        expr: synology_temperature_celsius > 70 or synology_disk_temperature_celsius > 60
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Synology temperature is high ({{ $value }} C)"
+          description: "System temperature above 70 C or a disk above 60 C for 10 minutes."
