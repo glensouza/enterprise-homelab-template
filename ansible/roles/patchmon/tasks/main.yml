@@ -109,6 +109,16 @@
       {{ 'restarted' if (patchmon_config.changed or patchmon_unit.changed or patchmon_binary.changed)
          else 'started' }}
 
+# First-run admin + fleet enrollment token (ADR 113): runs on the controller
+# against PatchMon's API, state in /opt/ansible-secrets/patchmon.yml.
+- name: Bootstrap the PatchMon admin and enrollment token
+  ansible.builtin.command: python3 {{ playbook_dir }}/files/bootstrap-patchmon.py
+  environment:
+    PATCHMON_URL: "http://{{ ansible_host }}:{{ patchmon_port }}"
+  delegate_to: localhost
+  register: patchmon_bootstrap
+  changed_when: "'created' in patchmon_bootstrap.stdout"
+
 # Tier-2 forward-auth (docs/01 ADR 66).
 - name: Front PatchMon with Caddy + Authentik forward-auth
   ansible.builtin.include_role:
