@@ -34,6 +34,16 @@
         state: present
         update_cache: true
 
+    # The LXCs have no IPv6 route, so a dual-stack download host (download.technitium.com)
+    # failed get_url with 'Network is unreachable' on its AAAA address (2026-10-12).
+    - name: Prefer IPv4 when resolving dual-stack hosts
+      ansible.builtin.lineinfile:
+        path: /etc/gai.conf
+        regexp: '^#?precedence ::ffff:0:0/96'
+        line: 'precedence ::ffff:0:0/96  100'
+        create: true
+        mode: '0644'
+
 - name: Configure Infisical secrets vault (VLAN 130, ADR 12/26)
   tags: [vault]
   hosts: infisical
