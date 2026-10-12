@@ -72,3 +72,7 @@ UniFi Network 8.x+ replaced the old ruleset/LAN-IN model with **zone-based firew
 | **Block** | VLAN 140 (Preview) | VLAN 130 (Management) | `Any` | Block all other Preview -> Management traffic (after the four specific allows above). |
 
 *Note: access from the admin LAN to the preview host (HTTPS 443, and SSH from the self-hosted runner) is allowed by the UDM-Pro's default inter-VLAN permit; only VLAN-to-VLAN isolation is locked down above.*
+
+## Prometheus scraping (ADR 114)
+
+No policy was added for monitoring. Prometheus on the observability LXC (VLAN 130, `10.10.130.118`) scrapes node_exporter on `:9100` of every LXC across VLAN 110/120/130/140. That direction is already covered by `mgmt_to_any` (VLAN 130 -> any); the `drop_*_to_mgmt` policies only block the reverse. If a future change narrows `mgmt_to_any`, add an explicit `mgmt_to_node_exporter` allow (`tcp/9100`) for those VLANs.

@@ -1,0 +1,38 @@
+---
+# Fleet-wide node_exporter (docs/01 ADR 114). Debian's own package, no tarball: it
+# ships the systemd unit, the `prometheus` user and the textfile directory.
+# Scraped by Prometheus on the observability host (:9100, templated from inventory).
+- name: Install prometheus-node-exporter
+  ansible.builtin.apt:
+    name: prometheus-node-exporter
+    state: present
+    update_cache: true
+
+# --collector.systemd feeds the failed-unit alert; the textfile directory is where
+# other roles drop *.prom files (the postgres role's pgBackRest backup-age metric).
+# Debian's unit reads this file via EnvironmentFile= (not sourced by a shell), but
+# the value is quoted anyway - see ADR 109 for what unquoted values cost here.
+- name: Configure node_exporter flags
+  ansible.builtin.copy:
+    dest: /etc/default/prometheus-node-exporter
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Managed by Ansible (roles/node-exporter) - docs/01 ADR 114.
+      ARGS="--collector.systemd --collector.textfile.directory=/var/lib/prometheus/node-exporter"
+  notify: restart prometheus-node-exporter
+
+- name: Ensure the textfile collector directory exists
+  ansible.builtin.file:
+    path: /var/lib/prometheus/node-exporter
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Enable and start node_exporter
+  ansible.builtin.systemd:
+    name: prometheus-node-exporter
+    enabled: true
+    state: started

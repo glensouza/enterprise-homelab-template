@@ -76,6 +76,19 @@ resumes. If Infisical is initialized but the credentials are lost and that file 
 log in as the org admin, create client credentials for `brewhouse-provisioner`, put them in `all.yml`, and
 re-run (it then repairs the rest).
 
+### GitHub secrets that feed a converge (survive a destroy)
+
+| Secret | Used by |
+|---|---|
+| `INFISICAL_ADMIN_EMAIL` / `INFISICAL_ADMIN_PASSWORD` | `bootstrap-infisical.py` (section 2) |
+| `CLOUDFLARED_TUNNEL_TOKEN` | `roles/cloudflared` |
+| `ALERTMANAGER_SMTP_USER` / `ALERTMANAGER_SMTP_PASSWORD` | `roles/observability` Alertmanager email (ADR 114). The password is a Gmail **app password**; the role also stores a vault copy in Infisical `/admin`. |
+
+```bash
+gh secret set ALERTMANAGER_SMTP_USER --body "you@gmail.com"
+gh secret set ALERTMANAGER_SMTP_PASSWORD      # prompts; not echoed
+```
+
 ---
 
 ## 3. Rebuild order (fresh environment)

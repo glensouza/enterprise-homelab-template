@@ -36,7 +36,7 @@ just the two below, so the NAS's NFS export must allow all four node IPs.
 | **RabbitMQ** | VLAN 120 (`10.10.120.112`) | **`pve4`** (Node 1) | 1 | 1024 MB | *None* | Primary message broker for Wolverine |
 | **Infisical** | VLAN 130 (`10.10.130.116`) | **`pve4`** (Node 1) | 2 | 1536 MB | *None* | Back-office admin portal for secret management |
 | **Uptime Kuma** | VLAN 130 (`10.10.130.117`) | **`pve3`** (Node 2) | 1 | 512 MB  | *None* | Utility monitoring container |
-| **Grafana Loki / Observability** | VLAN 130 (`10.10.130.118`) | **`pve3`** (Node 2) | 2 | 2048 MB | *None* | Utility telemetry receiver (Alloy + Loki + Grafana) |
+| **Grafana Loki / Observability** | VLAN 130 (`10.10.130.118`) | **`pve3`** (Node 2) | 2 | 2048 MB | *None* | Utility telemetry receiver (Alloy + Loki + Grafana + Prometheus + Alertmanager; ADR 114) |
 | **Technitium DNS** | VLAN 130 (`10.10.130.119`) | **`pve3`** (Node 2) | 1 | 512 MB  | *None* | Local DNS server (`brewhouse.internal`) |
 | **step-ca (internal PKI)** | VLAN 130 (`10.10.130.121`) | **`pve3`** (Node 2) | 1 | 512 MB  | *None* | Utility internal Certificate Authority |
 | **PatchMon** | VLAN 130 (`10.10.130.122`) | **`pve3`** (Node 2) | 1 | 1024 MB | *None* | Fleet-wide OS package/patch tracking — server + auto-enrolled agent on every LXC (ADR 33/34) |

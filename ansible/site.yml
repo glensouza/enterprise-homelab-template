@@ -91,6 +91,13 @@
   roles:
     - root-password
 
+# Fleet-wide node_exporter (docs/01 ADR 114): scraped by Prometheus on observability.
+# devops excluded, same reason as the Cockpit/PatchMon play (ADR 49).
+- name: Install node_exporter on every host (ADR 114)
+  hosts: all:!devops
+  roles:
+    - node-exporter
+
 - name: Configure step-ca internal PKI (VLAN 130, ADR 20)
   hosts: pki
   roles:

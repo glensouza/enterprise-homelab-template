@@ -317,3 +317,38 @@
     enabled: true
     state: started
     daemon_reload: true
+
+# --- pgBackRest backup-age metric (docs/01 ADR 114) ---------------------------
+# Writes pgbackrest_last_backup_timestamp_seconds into node_exporter's textfile
+# directory (roles/node-exporter); Prometheus alerts when it goes stale.
+- name: Install jq (parses pgbackrest --output=json)
+  ansible.builtin.apt:
+    name: jq
+    state: present
+
+- name: Install pgbackrest-textfile script (canonical copy in src/systemd/)
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../src/systemd/pgbackrest-textfile.sh"
+    dest: /usr/local/sbin/pgbackrest-textfile.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install pgbackrest-textfile units (canonical copies in src/systemd/)
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../src/systemd/{{ item }}"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - pgbackrest-textfile.service
+    - pgbackrest-textfile.timer
+  notify: systemd daemon-reload
+
+- name: Enable pgbackrest-textfile timer
+  ansible.builtin.systemd:
+    name: pgbackrest-textfile.timer
+    enabled: true
+    state: started
+    daemon_reload: true

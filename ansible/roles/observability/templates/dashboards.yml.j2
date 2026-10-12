@@ -1,0 +1,10 @@
+# Managed by Ansible (roles/observability) — docs/01 ADR 114.
+apiVersion: 1
+
+providers:
+  - name: homelab
+    type: file
+    disableDeletion: false
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards

@@ -1,0 +1,68 @@
+# Managed by Ansible (roles/observability) — docs/01 ADR 114. Validated with promtool.
+groups:
+  - name: infrastructure
+    rules:
+      - alert: HostDown
+        expr: up{job="node"} == 0
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.host }} is down"
+          description: "Prometheus has not scraped node_exporter on {{ $labels.host }} ({{ $labels.instance }}) for 3 minutes."
+
+      - alert: DiskUsageHigh
+        expr: |
+          100 * (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|nfs.*|fuse.*"}
+                   / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs|nfs.*|fuse.*"}) > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.host }}: {{ $labels.mountpoint }} is {{ $value | printf \"%.0f\" }}% full"
+          description: "Filesystem {{ $labels.mountpoint }} on {{ $labels.host }} has been above 85% for 10 minutes."
+
+      - alert: MemoryPressure
+        expr: 100 * node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.host }}: only {{ $value | printf \"%.0f\" }}% of memory available"
+          description: "MemAvailable on {{ $labels.host }} has been below 10% of total for 10 minutes."
+
+      - alert: SystemdUnitFailed
+        expr: node_systemd_unit_state{state="failed"} == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.host }}: {{ $labels.name }} has failed"
+          description: "systemd unit {{ $labels.name }} on {{ $labels.host }} has been in the failed state for 5 minutes."
+
+  - name: backups
+    rules:
+      # A diff runs Mon-Sat 02:30 and a full on Sun 02:30 (roles/postgres), so a
+      # healthy repo never goes more than ~24h without a backup; 36h allows one
+      # slow or missed night to be noticed the day after.
+      - alert: PgBackRestBackupStale
+        expr: time() - pgbackrest_last_backup_timestamp_seconds > 36 * 3600
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "pgBackRest: last backup on {{ $labels.host }} is {{ $value | humanizeDuration }} old"
+          description: "No successful pgBackRest backup for stanza {{ $labels.stanza }} in over 36 hours."
+
+      # The metric file is rewritten every 5 minutes; if it is missing or the
+      # collector failed, the staleness alert above would silently never fire.
+      - alert: PgBackRestMetricMissing
+        expr: |
+          absent(pgbackrest_last_backup_timestamp_seconds{job="node"})
+          or pgbackrest_textfile_scrape_success == 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "pgBackRest backup-age metric is missing or failing"
+          description: "The textfile collector on the postgres host is not reporting a last-backup timestamp (pgbackrest info failed, or the timer is not running)."

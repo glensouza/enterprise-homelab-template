@@ -169,6 +169,146 @@
     mode: "0644"
   notify: restart grafana-server
 
+# --- Alertmanager + alert rules + node dashboard (docs/01 ADR 114) -------------
+# SMTP settings come from the controller's environment (GitHub secrets passed by
+# the converge workflows) so a destroy-and-recreate needs no hand-work. The
+# password is also pushed to Infisical /admin (vault copy for humans), and read
+# back from there when a converge runs without the env var (manual runs).
+- name: Resolve Alertmanager SMTP settings from the environment
+  ansible.builtin.set_fact:
+    alertmanager_smtp_user: "{{ lookup('ansible.builtin.env', 'ALERTMANAGER_SMTP_USER') }}"
+    alertmanager_smtp_password: "{{ lookup('ansible.builtin.env', 'ALERTMANAGER_SMTP_PASSWORD') }}"
+  no_log: true
+
+- name: Fall back to the vault copy of the SMTP password
+  when: alertmanager_smtp_password == "" and infisical_project_id is defined
+  no_log: true
+  block:
+    - name: "Infisical: authenticate as the provisioning identity"
+      ansible.builtin.uri:
+        url: "http://{{ hostvars['infisical'].ansible_host }}:8080/api/v1/auth/universal-auth/login"
+        method: POST
+        body_format: json
+        body:
+          clientId: "{{ infisical_provision_client_id }}"
+          clientSecret: "{{ infisical_provision_client_secret }}"
+      register: observability_infisical_auth
+
+    - name: "Infisical: read ALERTMANAGER_SMTP_PASSWORD from /admin"
+      ansible.builtin.uri:
+        url: "http://{{ hostvars['infisical'].ansible_host }}:8080/api/v3/secrets/raw/ALERTMANAGER_SMTP_PASSWORD?workspaceId={{ infisical_project_id }}&environment={{ infisical_environment }}&secretPath=/admin"
+        headers:
+          Authorization: "Bearer {{ observability_infisical_auth.json.accessToken }}"
+        status_code: [200, 404]
+      register: observability_infisical_smtp
+
+    - name: Use the vault copy
+      ansible.builtin.set_fact:
+        alertmanager_smtp_password: "{{ observability_infisical_smtp.json.secret.secretValue | default('') }}"
+
+- name: Email alerts are enabled only when both SMTP values are present
+  ansible.builtin.set_fact:
+    alertmanager_email_enabled: "{{ alertmanager_smtp_user != '' and alertmanager_smtp_password != '' }}"
+    alertmanager_email_to: "{{ alertmanager_smtp_user }}"
+
+- name: Warn when alerts have nowhere to go
+  ansible.builtin.debug:
+    msg: "ALERTMANAGER_SMTP_USER / ALERTMANAGER_SMTP_PASSWORD not set - Alertmanager gets a blackhole receiver; no alert emails will be sent."
+  when: not alertmanager_email_enabled
+
+- name: Push ALERTMANAGER_SMTP_PASSWORD to Infisical (vault-only /admin)
+  ansible.builtin.include_role:
+    name: infisical-secret
+  vars:
+    infisical_secret_name: ALERTMANAGER_SMTP_PASSWORD
+    infisical_secret_target: admin
+    infisical_secret_value: "{{ alertmanager_smtp_password }}"
+  when: infisical_project_id is defined and alertmanager_email_enabled
+
+- name: Install Alertmanager
+  ansible.builtin.apt:
+    name: prometheus-alertmanager
+    state: present
+
+# Single instance: no gossip cluster, so :9094 stays closed.
+- name: Configure Alertmanager flags
+  ansible.builtin.copy:
+    dest: /etc/default/prometheus-alertmanager
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Managed by Ansible (roles/observability) - docs/01 ADR 114.
+      ARGS="--cluster.listen-address="
+  notify: restart prometheus-alertmanager
+
+- name: Store the SMTP password for Alertmanager (root:prometheus 0640)
+  ansible.builtin.copy:
+    dest: /etc/prometheus/alertmanager-smtp-password
+    content: "{{ alertmanager_smtp_password }}"
+    owner: root
+    group: prometheus
+    mode: "0640"
+  when: alertmanager_email_enabled
+  no_log: true
+  notify: restart prometheus-alertmanager
+
+- name: Configure Alertmanager
+  ansible.builtin.template:
+    src: alertmanager.yml.j2
+    dest: /etc/prometheus/alertmanager.yml
+    owner: root
+    group: prometheus
+    mode: "0640"
+  notify: restart prometheus-alertmanager
+
+- name: Create the Prometheus rules directory
+  ansible.builtin.file:
+    path: /etc/prometheus/rules
+    state: directory
+    owner: prometheus
+    group: prometheus
+    mode: "0755"
+
+# Copied verbatim (not templated): the rules contain Prometheus' own {{ }} annotations.
+- name: Install alert rules
+  ansible.builtin.copy:
+    src: alert-rules.yml
+    dest: /etc/prometheus/rules/infrastructure.yml
+    owner: prometheus
+    group: prometheus
+    mode: "0644"
+    validate: /usr/local/bin/promtool check rules %s
+  notify: restart prometheus
+
+- name: Create the Grafana dashboards directory
+  ansible.builtin.file:
+    path: /var/lib/grafana/dashboards
+    state: directory
+    owner: grafana
+    group: grafana
+    mode: "0755"
+
+- name: Provision the Grafana dashboard provider
+  ansible.builtin.template:
+    src: dashboards.yml.j2
+    dest: /etc/grafana/provisioning/dashboards/homelab.yml
+    mode: "0644"
+  notify: restart grafana-server
+
+# grafana.com dashboard 1860 "Node Exporter Full", pinned to revision 42 and
+# checksummed. It selects its datasource through a template variable, so no
+# datasource substitution is needed.
+- name: Download the Node Exporter Full dashboard
+  ansible.builtin.get_url:
+    url: https://grafana.com/api/dashboards/1860/revisions/42/download
+    dest: /var/lib/grafana/dashboards/node-exporter-full.json
+    checksum: "sha256:a4d827eb1819044bba2d6d257347175f6811910f2583fadeaf7e123c4df2125e"
+    owner: grafana
+    group: grafana
+    mode: "0644"
+  notify: restart grafana-server
+
 - name: Flush handlers so every service starts with its final config
   ansible.builtin.meta: flush_handlers
 
@@ -180,6 +320,7 @@
     daemon_reload: true
   loop:
     - prometheus
+    - prometheus-alertmanager
     - loki
     - tempo
     - alloy

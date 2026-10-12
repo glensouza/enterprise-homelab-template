@@ -23,6 +23,12 @@ Provision a Debian LXC on Node 2 (VLAN 130 - `10.10.130.118`) hosting:
 
 The `OTEL_EXPORTER_OTLP_ENDPOINT` value is rendered into `/etc/brewhouse/brewhouse.env` by the Infisical Agent and loaded by systemd via `EnvironmentFile=`.
 
+### Infrastructure monitoring (ADR 114)
+* **node_exporter** runs on every Ansible-managed host (`roles/node-exporter`, `:9100`); Prometheus scrapes them all, with targets templated from the inventory. The VLAN 130 observability host reaches every VLAN through the existing `mgmt_to_any` policy.
+* **Alertmanager** (`:9093` on the observability LXC) emails alerts through Gmail SMTP (`smtp.gmail.com:587`, STARTTLS). First alerts: host down, disk > 85 %, memory pressure, failed systemd unit, stale or missing pgBackRest backup. Rules: `ansible/roles/observability/files/alert-rules.yml`.
+* **Dashboards as code:** Grafana provisions "Node Exporter Full" (grafana.com 1860) from the role; nothing is imported by hand.
+* **Secrets:** the GitHub secrets `ALERTMANAGER_SMTP_USER` / `ALERTMANAGER_SMTP_PASSWORD` (see `docs/13`).
+
 ## 4. Health Checks
 The `/health` endpoint is unchanged: it performs deep checks against PostgreSQL, Garnet, and RabbitMQ and remains the probe target for Kemp L7 routing. It is independent of the telemetry pipeline.
 

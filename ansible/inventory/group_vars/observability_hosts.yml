@@ -3,6 +3,11 @@
 prometheus_version: "2.55.1"
 observability_retention: 24h
 
+# Alertmanager email (docs/01 ADR 114). The sender/recipient address and the Gmail app
+# password are NOT here: they arrive as the GitHub secrets ALERTMANAGER_SMTP_USER /
+# ALERTMANAGER_SMTP_PASSWORD (environment of the converge run, docs/13).
+alertmanager_smtp_smarthost: "smtp.gmail.com:587"
+
 # Picked up by the homepage role (ADR 38) to auto-populate the dashboard.
 homepage_service:
   - group: Observability

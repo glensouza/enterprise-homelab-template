@@ -2,9 +2,33 @@
 global:
   scrape_interval: 15s
 
+# Alert rules live in /etc/prometheus/rules (docs/01 ADR 114).
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["localhost:9093"]
+
 # App metrics arrive via Alloy's remote_write (config.alloy.j2), not scraped
-# here. This self-scrape is just enough to prove Prometheus is alive on screen.
+# here. The scrapes below are infrastructure metrics.
 scrape_configs:
   - job_name: prometheus
     static_configs:
-      - targets: ["localhost:9090"]
+      - targets: ["localhost:9091"] # see prometheus.service.j2 - not 9090
+
+  - job_name: alertmanager
+    static_configs:
+      - targets: ["localhost:9093"]
+
+  # node_exporter on every Ansible-managed host (roles/node-exporter), templated
+  # from the inventory so a new host is scraped on the next converge. devops is
+  # excluded: Ansible cannot reach it (ADR 49), so it has no node_exporter.
+  - job_name: node
+    static_configs:
+{% for host in groups['all'] | difference(groups['devops'] | default([])) | sort %}
+      - targets: ["{{ hostvars[host].ansible_host }}:9100"]
+        labels:
+          host: "{{ host }}"
+{% endfor %}

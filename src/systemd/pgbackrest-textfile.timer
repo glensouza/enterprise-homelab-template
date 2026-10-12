@@ -1,0 +1,9 @@
+[Unit]
+Description=Refresh the pgBackRest backup-age metric every 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target

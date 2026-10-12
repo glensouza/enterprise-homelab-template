@@ -1,0 +1,30 @@
+# Managed by Ansible (roles/observability) — docs/01 ADR 114. Manual edits will be overwritten.
+global:
+{% if alertmanager_email_enabled %}
+  smtp_smarthost: "{{ alertmanager_smtp_smarthost }}"
+  smtp_from: "{{ alertmanager_smtp_user }}"
+  smtp_auth_username: "{{ alertmanager_smtp_user }}"
+  smtp_auth_password_file: /etc/prometheus/alertmanager-smtp-password
+  smtp_require_tls: true
+{% else %}
+  resolve_timeout: 5m
+{% endif %}
+
+route:
+  receiver: "{{ 'email' if alertmanager_email_enabled else 'blackhole' }}"
+  group_by: [alertname, host]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+{% if alertmanager_email_enabled %}
+  - name: email
+    email_configs:
+      - to: "{{ alertmanager_email_to }}"
+        send_resolved: true
+{% else %}
+  # No SMTP credentials were available at converge time (ALERTMANAGER_SMTP_USER /
+  # ALERTMANAGER_SMTP_PASSWORD) - alerts are evaluated but delivered nowhere.
+  - name: blackhole
+{% endif %}
