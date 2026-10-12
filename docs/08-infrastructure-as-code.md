@@ -44,6 +44,8 @@ ansible/
 
 ### First-time setup
 
+> **Note (ADR 17 / ADR 115):** Terraform itself uses the `root@pam` password, not a token. The only API token is the read-only `pve-exporter@pve!exporter`, created by `terraform/pve-exporter.tf`. The step below is historical.
+
 1. **API token:** Proxmox GUI → Datacenter → Permissions → API Tokens → create `root@pam!terraform` (uncheck *Privilege Separation* or grant `PVEAdmin`).
 2. **UniFi local admin:** create a dedicated local (non-SSO) admin account on the UDM-Pro for Terraform.
 3. **Debian template:** on each node, `pveam download local debian-13-standard_<ver>_amd64.tar.zst` and set `debian_template_id` accordingly.

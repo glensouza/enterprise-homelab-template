@@ -84,6 +84,8 @@ re-run (it then repairs the rest).
 | `CLOUDFLARED_TUNNEL_TOKEN` | `roles/cloudflared` |
 | `ALERTMANAGER_SMTP_USER` / `ALERTMANAGER_SMTP_PASSWORD` | `roles/observability` Alertmanager email (ADR 114). The password is a Gmail **app password**; the role also stores a vault copy in Infisical `/admin`. |
 
+The Proxmox read-only token is not a GitHub secret: `terraform apply` creates it and writes `/opt/ansible-secrets/pve-exporter.yml` on devops (0600), which `converge.sh` loads (ADR 115). It is deleted and re-minted on destroy/apply.
+
 ```bash
 gh secret set ALERTMANAGER_SMTP_USER --body "you@gmail.com"
 gh secret set ALERTMANAGER_SMTP_PASSWORD      # prompts; not echoed

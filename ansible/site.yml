@@ -156,6 +156,8 @@
   hosts: observability_hosts
   roles:
     - observability
+    # ADR 115: needs /opt/ansible-secrets/pve-exporter.yml (written by terraform apply).
+    - pve-exporter
 
 # Runs AFTER postgres, garnet, rabbitmq and observability on purpose: the Agent renders the
 # secrets those roles push into Infisical, and on a fresh rebuild they do not exist until then

@@ -66,3 +66,32 @@ groups:
         annotations:
           summary: "pgBackRest backup-age metric is missing or failing"
           description: "The textfile collector on the postgres host is not reporting a last-backup timestamp (pgbackrest info failed, or the timer is not running)."
+
+  - name: proxmox
+    rules:
+      - alert: PveExporterDown
+        expr: up{job="pve"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Proxmox exporter cannot read the Proxmox API"
+          description: "Prometheus' pve job has failed for 5 minutes (exporter down, or the API/token is rejecting it)."
+
+      - alert: PveNodeDown
+        expr: pve_up{id=~"node/.*"} == 0
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Proxmox node {{ $labels.id }} is down"
+          description: "The Proxmox API reports {{ $labels.id }} as offline."
+
+      - alert: PveStorageHigh
+        expr: 100 * pve_disk_usage_bytes{id=~"storage/.*"} / pve_disk_size_bytes{id=~"storage/.*"} > 85
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Proxmox {{ $labels.id }} is {{ $value | printf \"%.0f\" }}% full"
+          description: "Storage {{ $labels.id }} has been above 85% for 15 minutes."

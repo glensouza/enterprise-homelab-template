@@ -76,3 +76,5 @@ UniFi Network 8.x+ replaced the old ruleset/LAN-IN model with **zone-based firew
 ## Prometheus scraping (ADR 114)
 
 No policy was added for monitoring. Prometheus on the observability LXC (VLAN 130, `10.10.130.118`) scrapes node_exporter on `:9100` of every LXC across VLAN 110/120/130/140. That direction is already covered by `mgmt_to_any` (VLAN 130 -> any); the `drop_*_to_mgmt` policies only block the reverse. If a future change narrows `mgmt_to_any`, add an explicit `mgmt_to_node_exporter` allow (`tcp/9100`) for those VLANs.
+
+The Proxmox exporter (ADR 115) reaches the Proxmox API on `10.10.10.101:8006` from the observability LXC; VLAN 130 -> existing LAN is likewise covered by `mgmt_to_any`.

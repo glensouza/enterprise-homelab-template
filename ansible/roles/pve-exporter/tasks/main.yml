@@ -1,0 +1,71 @@
+---
+# prometheus-pve-exporter on the observability LXC (docs/01 ADR 115). Not in Debian 13's
+# apt, so it goes into a pinned venv from PyPI (same approach as roles/uptime-kuma). It
+# listens on localhost only; Prometheus scrapes it as a proxy to the Proxmox API.
+#
+# The read-only token is minted by terraform/pve-exporter.tf and arrives via
+# /opt/ansible-secrets/pve-exporter.yml (converge.sh). Skipped until that file exists,
+# like the other externally-supplied credentials.
+- name: Configure prometheus-pve-exporter
+  when: pve_exporter_token_secret is defined
+  block:
+    - name: Install Python venv support
+      ansible.builtin.apt:
+        name: [python3-venv, python3-packaging]
+        state: present
+
+    - name: Create the pve-exporter system user
+      ansible.builtin.user:
+        name: pve-exporter
+        system: true
+        shell: /usr/sbin/nologin
+        create_home: false
+
+    - name: Install prometheus-pve-exporter into a venv
+      ansible.builtin.pip:
+        name: "prometheus-pve-exporter=={{ pve_exporter_version }}"
+        virtualenv: /opt/pve-exporter
+        virtualenv_command: python3 -m venv
+      notify: restart pve-exporter
+
+    - name: Create the config directory
+      ansible.builtin.file:
+        path: /etc/pve-exporter
+        state: directory
+        owner: root
+        group: pve-exporter
+        mode: "0750"
+
+    # verify_ssl is off: the Proxmox API presents its self-signed cluster certificate.
+    - name: Configure the exporter's Proxmox credentials
+      ansible.builtin.copy:
+        dest: /etc/pve-exporter/pve.yml
+        owner: root
+        group: pve-exporter
+        mode: "0640"
+        content: |
+          # Managed by Ansible (roles/pve-exporter) - docs/01 ADR 115.
+          default:
+            user: "{{ pve_exporter_user }}"
+            token_name: "{{ pve_exporter_token_name }}"
+            token_value: "{{ pve_exporter_token_secret }}"
+            verify_ssl: false
+      no_log: true
+      notify: restart pve-exporter
+
+    - name: Install the pve-exporter systemd unit
+      ansible.builtin.template:
+        src: pve-exporter.service.j2
+        dest: /etc/systemd/system/pve-exporter.service
+        mode: "0644"
+      notify: [systemd daemon-reload, restart pve-exporter]
+
+    - name: Flush handlers so the exporter starts with its final config
+      ansible.builtin.meta: flush_handlers
+
+    - name: Enable and start pve-exporter
+      ansible.builtin.systemd:
+        name: pve-exporter
+        enabled: true
+        state: started
+        daemon_reload: true

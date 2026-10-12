@@ -11,7 +11,7 @@ S=/opt/ansible-secrets
 
 extra_vars() {
   local f
-  for f in all dns web critterwatch; do
+  for f in all dns web critterwatch pve-exporter; do
     [ -f "$S/$f.yml" ] && printf -- '-e\n@%s/%s.yml\n' "$S" "$f"
   done
 }

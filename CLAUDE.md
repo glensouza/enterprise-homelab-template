@@ -116,7 +116,7 @@ Synology NAS and Kemp are pre-existing, non-Terraform-managed hardware and stay 
 |------|----|-----------------|
 | Infisical (Admin Portal) | `10.10.130.116` | `pve4` (Node 1 - Primary) |
 | Uptime Kuma | `10.10.130.117` | `pve3` (Node 2 - Secondary) |
-| Grafana Loki / Observability (+ Prometheus, Alertmanager; scrapes node_exporter `:9100` on every host, ADR 114) | `10.10.130.118` | `pve3` (Node 2 - Secondary) |
+| Grafana Loki / Observability (+ Prometheus, Alertmanager; scrapes node_exporter `:9100` on every host, ADR 114; Proxmox API via pve-exporter with a Terraform-created read-only token, ADR 115) | `10.10.130.118` | `pve3` (Node 2 - Secondary) |
 | Technitium DNS (wildcard `*.pr.brewhouse.internal`) | `10.10.130.119` | `pve3` (Node 2 - Secondary) |
 | step-ca internal PKI (ACME, port 4443) | `10.10.130.121` | `pve3` (Node 2 - Secondary) |
 | PatchMon (OS patch tracking, ADR 33/34) | `10.10.130.122` | `pve3` (Node 2 - Secondary) |

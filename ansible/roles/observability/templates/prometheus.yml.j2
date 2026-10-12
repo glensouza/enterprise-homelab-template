@@ -32,3 +32,23 @@ scrape_configs:
         labels:
           host: "{{ host }}"
 {% endfor %}
+
+{% if pve_exporter_token_secret is defined %}
+  # Proxmox cluster via prometheus-pve-exporter (roles/pve-exporter, ADR 115): Prometheus
+  # asks the local exporter to query the Proxmox API at pve_exporter_target.
+  - job_name: pve
+    metrics_path: /pve
+    params:
+      module: [default]
+      cluster: ["1"]
+      node: ["1"]
+    static_configs:
+      - targets: ["{{ pve_exporter_target }}"]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: localhost:9221
+{% endif %}

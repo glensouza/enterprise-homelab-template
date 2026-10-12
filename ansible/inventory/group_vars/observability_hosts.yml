@@ -8,6 +8,12 @@ observability_retention: 24h
 # ALERTMANAGER_SMTP_PASSWORD (environment of the converge run, docs/13).
 alertmanager_smtp_smarthost: "smtp.gmail.com:587"
 
+# prometheus-pve-exporter (docs/01 ADR 115). The read-only token comes from
+# /opt/ansible-secrets/pve-exporter.yml (terraform/pve-exporter.tf). The Proxmox API is
+# cluster-aware, so pve1 (the cluster master) answers for every node.
+pve_exporter_version: "3.10.1"
+pve_exporter_target: "10.10.10.101"
+
 # Picked up by the homepage role (ADR 38) to auto-populate the dashboard.
 homepage_service:
   - group: Observability
