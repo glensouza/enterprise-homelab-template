@@ -269,6 +269,16 @@
 # A fresh cluster has no backup until the first timer (02:30); the backup-age alert
 # (ADR 114) would fire on every rebuild. Take the first full backup now. Counted per
 # db-id: after stanza-upgrade (ADR 113) the repo also holds the old cluster's backups.
+# A run as the wrong user once left a root-owned log file here; pgbackrest (as postgres) then
+# cannot open it. Keep the whole tree postgres-owned.
+- name: Keep the pgBackRest log directory owned by postgres
+  ansible.builtin.file:
+    path: /var/log/pgbackrest
+    state: directory
+    owner: postgres
+    group: postgres
+    recurse: true
+
 - name: Take the first full backup when the current cluster has none
   ansible.builtin.shell: |
     set -o pipefail
@@ -283,6 +293,14 @@
   become_user: postgres
   register: pgbackrest_first_backup
   changed_when: "'TOOK_FIRST_BACKUP' in pgbackrest_first_backup.stdout"
+  # Not fatal: a failing backup must not stop the rest of the fleet converging. The
+  # PgBackRestBackupStale / PgBackRestMetricMissing alerts (ADR 114) are the signal.
+  failed_when: false
+
+- name: Warn when the first pgBackRest backup failed
+  ansible.builtin.debug:
+    msg: "The first pgBackRest full backup failed (rc={{ pgbackrest_first_backup.rc }}): {{ (pgbackrest_first_backup.stdout_lines | select('search', 'ERROR') | list) | join(' | ') }}"
+  when: pgbackrest_first_backup.rc | default(0) != 0
 
 - name: Install pgBackRest backup timers
   ansible.builtin.template:
