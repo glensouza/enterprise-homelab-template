@@ -359,11 +359,18 @@
   # the first run seeds everything, a later version bump adds only genuinely
   # new blueprint files, and anything already there (including a manually
   # customized blueprint) is never overwritten.
-  ansible.builtin.copy:
-    src: "/opt/authentik-{{ authentik_version }}/blueprints/"
-    dest: /opt/authentik-data/blueprints/
-    remote_src: true
-    force: false
+  # `cp -n` (no clobber) instead of copy+remote_src+force:false: under ansible-core 2.19 that
+  # left the directory EMPTY, so the default flows/brand never got created (rebuild 2026-10-12).
+  ansible.builtin.command:
+    cmd: "cp -rn /opt/authentik-{{ authentik_version }}/blueprints/. /opt/authentik-data/blueprints/"
+  register: authentik_blueprint_copy
+  changed_when: false
+
+- name: Own the persistent blueprints directory as the authentik user
+  ansible.builtin.file:
+    path: /opt/authentik-data/blueprints
+    state: directory
+    recurse: true
     owner: authentik
     group: authentik
 
