@@ -25,7 +25,7 @@ locals {
     # namespace, not a permissions/ownership mistake on the NAS side.
     # Privileged containers have no separate user namespace, so neither
     # limitation applies. pve3/pve4 each mount
-    # 10.10.10.90:/volume1/homelab-media at /mnt/homelab-media (host-level
+    # //10.10.10.90/homelab-media (CIFS) at /mnt/homelab-media (host-level
     # /etc/fstab, not Terraform-managed).
     # memory/swap bumped from 1024/0 (2026-09-18) after the node on pve4
     # wedged solid under load (2-core/1GB, load average 16-26, unresponsive
@@ -54,7 +54,7 @@ locals {
 
     # VLAN 120 — Backend / Data tier (pve4 Primary)
     # postgresql: privileged, same reasons as blazor-web-03/04 above. pve4
-    # mounts 10.10.10.90:/volume1/homelab-postgres-data at
+    # mounts //10.10.10.90/homelab-postgres-data (CIFS, with mfsymlinks, ADR 118) at
     # /mnt/homelab-postgres-data (host-level, not Terraform-managed).
     postgresql = { vm_id = 410, node = var.proxmox_node_1, ip = "10.10.120.110/24", gateway = "10.10.120.1", vlan = 120, cores = 4, memory = 4096, disk = 40, tags = ["terraform", "vlan120", "data"], privileged = true, mount_point = { volume = "/mnt/homelab-postgres-data", path = "/mnt/synology/postgres-data" } }
     garnet     = { vm_id = 411, node = var.proxmox_node_1, ip = "10.10.120.111/24", gateway = "10.10.120.1", vlan = 120, cores = 2, memory = 2048, disk = 8, tags = ["terraform", "vlan120", "data"] }
