@@ -14,14 +14,12 @@
       Components: main
       Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
     mode: "0644"
-  register: caddy_backports_source
 
 # apt validates default_release BEFORE update_cache runs, so the new index must be fetched first
 # (failed on patchmon: "trixie-backports is invalid for APT::Default-Release").
 - name: Refresh apt so the backports index is known
   ansible.builtin.apt:
     update_cache: true
-  when: caddy_backports_source.changed
 
 - name: Install Caddy from backports
   ansible.builtin.apt:
