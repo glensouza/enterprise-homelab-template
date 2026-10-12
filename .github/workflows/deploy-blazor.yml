@@ -7,15 +7,16 @@ on:
     # Confirmed live: with no paths filter at all, this used to queue a
     # full deploy (and wait on a homelab approval) for ANY push to main
     # - docs, terraform, anything. Scoped to exactly what dotnet publish
-    # actually builds from: the app project itself, its two version/package
-    # inputs, and version.txt (drives the resolved semantic version). Not
-    # src/BrewHouse.AppHost (local-dev/Aspire only, never deployed) or
-    # src/systemd (that's ansible-converge.yml's job, not this workflow's).
+    # actually builds from: the app project itself and its two package
+    # inputs. Not src/BrewHouse.AppHost (local-dev/Aspire only, never
+    # deployed) or src/systemd (that's ansible-converge.yml's job, not this
+    # workflow's). Not version.txt either (ADR 117): bump-minor.yml bumps it
+    # on EVERY PR, so listing it deployed the web app after ansible-only
+    # merges; the deploy reads the current version.txt whenever it does run.
     paths:
       - 'src/BrewHouse/**'
       - 'Directory.Packages.props'
       - 'global.json'
-      - 'version.txt'
   # Manual re-run with no code change: needed the moment a web node's
   # container gets recreated (a Terraform replace, e.g. docs/01 ADR 50) -
   # the blazor-app role enables the systemd unit but deliberately never

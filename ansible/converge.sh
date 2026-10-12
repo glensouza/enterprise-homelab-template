@@ -7,6 +7,8 @@
 # credentials cannot be created inside the same run that consumes them.
 set -euo pipefail
 cd "$(dirname "$0")"
+# Re-learn every host's SSH key however this run ends (docs/01 ADR 117): a rebuild changes them all.
+trap 'bash files/refresh-known-hosts.sh || true' EXIT
 S=/opt/ansible-secrets
 
 extra_vars() {

@@ -55,8 +55,13 @@ public class HomeComponentTests : BunitContext
             var cut = Render<Home>();
             cut.Find("button").Click();
 
-            Assert.Contains("Photo written to storage backend and read back successfully.", cut.Markup);
-            Assert.Contains("/api/photos/auctions/coffee/Segfault-Yirgacheffe-Front.png", cut.Markup);
+            // The click handler is async: wait for the re-render instead of asserting immediately
+            // (an immediate assert raced the handler and failed intermittently on CI).
+            cut.WaitForAssertion(() =>
+            {
+                Assert.Contains("Photo written to storage backend and read back successfully.", cut.Markup);
+                Assert.Contains("/api/photos/auctions/coffee/Segfault-Yirgacheffe-Front.png", cut.Markup);
+            }, TimeSpan.FromSeconds(5));
             mockBlobStore.Verify(
                 b => b.WriteBytesAsync(
                     "auctions/coffee/Segfault-Yirgacheffe-Front.png",
