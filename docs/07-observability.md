@@ -26,7 +26,8 @@ The `OTEL_EXPORTER_OTLP_ENDPOINT` value is rendered into `/etc/brewhouse/brewhou
 ### Infrastructure monitoring (ADR 114)
 * **node_exporter** runs on every Ansible-managed host (`roles/node-exporter`, `:9100`); Prometheus scrapes them all, with targets templated from the inventory. The VLAN 130 observability host reaches every VLAN through the existing `mgmt_to_any` policy.
 * **Alertmanager** (`:9093` on the observability LXC) emails alerts through Gmail SMTP (`smtp.gmail.com:587`, STARTTLS). First alerts: host down, disk > 85 %, memory pressure, failed systemd unit, stale or missing pgBackRest backup. Rules: `ansible/roles/observability/files/alert-rules.yml`.
-* **Dashboards as code:** Grafana provisions "Node Exporter Full" (grafana.com 1860) from the role; nothing is imported by hand.
+* **Dashboards as code:** Grafana provisions "Node Exporter Full" (grafana.com 1860) and "Proxmox via Prometheus" (10347) from the role; nothing is imported by hand.
+* **devops** is scraped as well: the converge runs on it, so `site.yml` applies the node-exporter role to it over a local connection.
 * **Proxmox:** `prometheus-pve-exporter` (localhost `:9221` on the observability LXC) reads the Proxmox API with a read-only token that `terraform/pve-exporter.tf` creates (ADR 115); alerts for node down, exporter down and storage > 85 %.
 * **Secrets:** the GitHub secrets `ALERTMANAGER_SMTP_USER` / `ALERTMANAGER_SMTP_PASSWORD` (see `docs/13`).
 

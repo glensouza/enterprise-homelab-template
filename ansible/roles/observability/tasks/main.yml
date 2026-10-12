@@ -309,6 +309,40 @@
     mode: "0644"
   notify: restart grafana-server
 
+# grafana.com dashboard 10347 "Proxmox via Prometheus", revision 5, sha256-pinned. It
+# hard-codes a ${DS_PROMETHEUS} datasource placeholder (an import-time input), so it is
+# fetched to a staging path and written out with the provisioned datasource uid.
+- name: Create the dashboard staging directory
+  ansible.builtin.file:
+    path: /usr/local/share/grafana-dashboards
+    state: directory
+    mode: "0755"
+  when: pve_exporter_token_secret is defined
+
+- name: Download the Proxmox via Prometheus dashboard
+  ansible.builtin.get_url:
+    url: https://grafana.com/api/dashboards/10347/revisions/5/download
+    dest: /usr/local/share/grafana-dashboards/proxmox-via-prometheus.json
+    checksum: "sha256:ac7b52531baf0fd6563b8419742d80b738439ad5db6819aa2cbb7b11c6858eff"
+    mode: "0644"
+  when: pve_exporter_token_secret is defined
+
+- name: Read the staged Proxmox dashboard
+  ansible.builtin.slurp:
+    src: /usr/local/share/grafana-dashboards/proxmox-via-prometheus.json
+  register: observability_pve_dashboard
+  when: pve_exporter_token_secret is defined
+
+- name: Provision the Proxmox dashboard with the Prometheus datasource uid
+  ansible.builtin.copy:
+    dest: /var/lib/grafana/dashboards/proxmox-via-prometheus.json
+    content: "{{ observability_pve_dashboard.content | b64decode | replace('${DS_PROMETHEUS}', 'prometheus') }}"
+    owner: grafana
+    group: grafana
+    mode: "0644"
+  when: pve_exporter_token_secret is defined
+  notify: restart grafana-server
+
 - name: Flush handlers so every service starts with its final config
   ansible.builtin.meta: flush_handlers
 

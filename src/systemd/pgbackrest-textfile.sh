@@ -14,8 +14,10 @@ trap 'rm -f "$TMP"' EXIT
 success=0
 last_stop=""
 if json="$(runuser -u postgres -- pgbackrest --stanza="$STANZA" --output=json info 2>/dev/null)"; then
-  # Newest backup of any type (full/diff/incr); empty when the repo has none yet.
-  last_stop="$(jq -r '[.[0].backup[]?.timestamp.stop] | max // empty' <<<"$json" 2>/dev/null)" && success=1
+  # Newest backup (any type) of the CURRENT cluster; after a rebuild's stanza-upgrade the
+  # repo also holds the old cluster's backups, which must not hide a missing new one.
+  # Empty when the cluster has none yet.
+  last_stop="$(jq -r '(.[0].db | map(.id) | max) as $c | [.[0].backup[]? | select(.database.id == $c) | .timestamp.stop] | max // empty' <<<"$json" 2>/dev/null)" && success=1
 fi
 
 {

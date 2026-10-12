@@ -22,12 +22,12 @@ scrape_configs:
     static_configs:
       - targets: ["localhost:9093"]
 
-  # node_exporter on every Ansible-managed host (roles/node-exporter), templated
-  # from the inventory so a new host is scraped on the next converge. devops is
-  # excluded: Ansible cannot reach it (ADR 49), so it has no node_exporter.
+  # node_exporter on every inventory host (roles/node-exporter), templated from the
+  # inventory so a new host is scraped on the next converge. devops is included: the
+  # converge installs it locally on the controller (site.yml).
   - job_name: node
     static_configs:
-{% for host in groups['all'] | difference(groups['devops'] | default([])) | sort %}
+{% for host in groups['all'] | sort %}
       - targets: ["{{ hostvars[host].ansible_host }}:9100"]
         labels:
           host: "{{ host }}"

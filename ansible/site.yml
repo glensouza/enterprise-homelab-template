@@ -92,11 +92,20 @@
     - root-password
 
 # Fleet-wide node_exporter (docs/01 ADR 114): scraped by Prometheus on observability.
-# devops excluded, same reason as the Cockpit/PatchMon play (ADR 49).
 - name: Install node_exporter on every host (ADR 114)
   hosts: all:!devops
   roles:
     - node-exporter
+
+# devops is not SSH-reachable from itself (ADR 49), but this converge runs ON it, so
+# the same role is applied over a local connection. The address guard keeps a run from
+# any other machine from installing node_exporter on that machine.
+- name: Install node_exporter on the devops controller itself (ADR 114)
+  hosts: devops
+  connection: local
+  roles:
+    - role: node-exporter
+      when: ansible_host in ansible_facts['all_ipv4_addresses']
 
 - name: Configure step-ca internal PKI (VLAN 130, ADR 20)
   hosts: pki

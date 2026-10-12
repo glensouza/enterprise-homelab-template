@@ -182,7 +182,7 @@
 # --- pgBackRest ---------------------------------------------------------------
 - name: Install pgBackRest
   ansible.builtin.apt:
-    name: pgbackrest
+    name: [pgbackrest, jq]
     update_cache: true
     state: present
 
@@ -265,6 +265,23 @@
   become_user: postgres
   register: pgbackrest_check
   changed_when: false
+
+# A fresh cluster has no backup until the first timer (02:30); the backup-age alert
+# (ADR 114) would fire on every rebuild. Take the first full backup now. Counted per
+# db-id: after stanza-upgrade (ADR 113) the repo also holds the old cluster's backups.
+- name: Take the first full backup when the current cluster has none
+  ansible.builtin.shell: |
+    set -o pipefail
+    n=$(pgbackrest --stanza={{ pgbackrest_stanza }} --output=json info \
+      | jq '(.[0].db | map(.id) | max) as $c | [.[0].backup[]? | select(.database.id == $c)] | length')
+    if [ "$n" = "0" ]; then
+      pgbackrest --stanza={{ pgbackrest_stanza }} --type=full backup && echo TOOK_FIRST_BACKUP
+    fi
+  args:
+    executable: /bin/bash
+  become_user: postgres
+  register: pgbackrest_first_backup
+  changed_when: "'TOOK_FIRST_BACKUP' in pgbackrest_first_backup.stdout"
 
 - name: Install pgBackRest backup timers
   ansible.builtin.template:
