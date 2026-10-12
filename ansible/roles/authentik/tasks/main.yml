@@ -511,6 +511,34 @@
     - brewhouse-icon.jpg
     - brewhouse-logo.jpg
 
+# On a fresh database the default flows, Brand and embedded outpost are created by blueprints
+# that the worker applies a few minutes after first boot (the forward-auth task below died
+# with Flow.DoesNotExist on a rebuild, 2026-10-12). Wait for them before using them.
+- name: Wait for Authentik's default blueprints to be applied
+  ansible.builtin.command:
+    cmd: .venv/bin/django-admin shell
+    stdin: |
+      from authentik.flows.models import Flow
+      from authentik.brands.models import Brand
+      from authentik.outposts.models import Outpost
+      ok = (Flow.objects.filter(slug__in=["default-provider-authorization-implicit-consent", "default-provider-invalidation-flow"]).count() == 2
+            and Brand.objects.filter(default=True).exists()
+            and Outpost.objects.filter(name="authentik Embedded Outpost").exists())
+      print("BLUEPRINTS_READY" if ok else "BLUEPRINTS_PENDING")
+  args:
+    chdir: /opt/authentik
+  environment:
+    DJANGO_SETTINGS_MODULE: authentik.root.settings
+    PYTHONPATH: /opt/authentik
+    VENV_PATH: /opt/authentik/.venv
+    PYTHONDONTWRITEBYTECODE: "1"
+    TMPDIR: /dev/shm/authentik-server
+  register: authentik_blueprints
+  until: "'BLUEPRINTS_READY' in authentik_blueprints.stdout"
+  retries: 60
+  delay: 10
+  changed_when: false
+
 - name: Set the default Brand's title/logo/favicon
   ansible.builtin.command:
     cmd: >-
