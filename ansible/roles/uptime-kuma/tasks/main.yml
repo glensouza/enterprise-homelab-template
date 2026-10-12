@@ -76,6 +76,27 @@
     group: uptime-kuma
     recurse: true
 
+# Kuma 2.x boots into a "choose a database" wizard unless data/db-config.json
+# exists, which would leave a fresh rebuild waiting on a human. SQLite is
+# what the 1.x install used. force: false = never overwrite a chosen config.
+- name: Create the Uptime Kuma data directory
+  ansible.builtin.file:
+    path: /opt/uptime-kuma/data
+    state: directory
+    owner: uptime-kuma
+    group: uptime-kuma
+    mode: "0750"
+
+- name: Pre-select SQLite so Kuma skips its database-setup wizard
+  ansible.builtin.copy:
+    content: '{"type": "sqlite"}'
+    dest: /opt/uptime-kuma/data/db-config.json
+    owner: uptime-kuma
+    group: uptime-kuma
+    mode: "0640"
+    force: false
+  register: uptime_kuma_dbconfig
+
 - name: Install the systemd unit
   ansible.builtin.template:
     src: uptime-kuma.service.j2
@@ -92,6 +113,13 @@
     enabled: true
     state: started
     daemon_reload: true
+
+# Already running in the database wizard from a pre-config start: restart.
+- name: Restart Uptime Kuma if the database config was just written
+  ansible.builtin.systemd:
+    name: uptime-kuma
+    state: restarted
+  when: uptime_kuma_dbconfig.changed
 
 # --- Seed monitors as code (docs/01 ADR 60) -----------------------------------
 # Skips gracefully (same idiom as the technitium role) until

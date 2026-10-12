@@ -69,6 +69,10 @@ def main():
 
     api = UptimeKumaApi(url, timeout=30)
     try:
+        # A freshly rebuilt instance has no admin yet; create it with the
+        # supplied credentials instead of needing the first-run wizard.
+        if api.need_setup():
+            api.setup(username, password)
         login_with_retry(api, username, password)
         existing = {m["name"]: m for m in api.get_monitors()}
 
