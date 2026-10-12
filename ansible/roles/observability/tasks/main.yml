@@ -43,7 +43,7 @@
 
 - name: Install apt prerequisites
   ansible.builtin.apt:
-    name: [apt-transport-https, software-properties-common, gnupg2, curl]
+    name: [apt-transport-https, gnupg, curl]
     update_cache: true
     state: present
 
