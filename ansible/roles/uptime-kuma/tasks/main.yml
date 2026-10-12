@@ -105,7 +105,7 @@
   # On Debian 13 (trixie) `python3-venv` pulls in the matching python3.13-venv
   # (bookworm needed the version-specific python3.11-venv named explicitly).
   ansible.builtin.apt:
-    name: python3-venv
+    name: [python3-venv, python3-packaging]
     state: present
   when: uptime_kuma_username is defined and uptime_kuma_password is defined
 
