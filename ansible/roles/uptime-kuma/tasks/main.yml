@@ -164,6 +164,13 @@
     mode: "0644"
   when: uptime_kuma_username is defined and uptime_kuma_password is defined
 
+- name: Wait for Uptime Kuma to accept connections
+  ansible.builtin.wait_for:
+    port: "{{ uptime_kuma_port | default(3001) }}"
+    delay: 5
+    timeout: 120
+  when: uptime_kuma_username is defined and uptime_kuma_password is defined
+
 - name: Seed any missing monitors and reconcile url/hostname/port drift
   ansible.builtin.command: /opt/uptime-kuma-seed/bin/python /opt/uptime-kuma-seed/seed_monitors.py /opt/uptime-kuma-seed/monitors.json
   environment:
@@ -174,6 +181,11 @@
   changed_when: >-
     (seed_result.stdout | from_json).added | length > 0
     or (seed_result.stdout | from_json).updated | length > 0
+  # Right after a restart/first-run setup the socket.io handshake can lag
+  # the listening port; retry rather than fail the converge.
+  retries: 5
+  delay: 15
+  until: seed_result is succeeded
   no_log: true
   when: uptime_kuma_username is defined and uptime_kuma_password is defined
 
