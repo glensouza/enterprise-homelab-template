@@ -17,6 +17,7 @@ import secrets
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 URL = os.environ["PATCHMON_URL"].rstrip("/")
@@ -103,6 +104,15 @@ def main():
             sys.exit("could not log in as the new admin")
         save_state(state)
         print("created PatchMon admin")
+
+    # The first-run wizard also sets the "server URL" that generated agent
+    # install scripts embed (default localhost, which no agent can reach).
+    u = urllib.parse.urlparse(URL)
+    code, body = call("PUT", "/settings", {
+        "server_protocol": u.scheme, "server_host": u.hostname,
+        "server_port": u.port or (443 if u.scheme == "https" else 80)}, token=token)
+    if code != 200:
+        sys.exit(f"setting the PatchMon server URL failed ({code}): {body}")
 
     code, tokens = call("GET", "/auto-enrollment/tokens", token=token)
     if code != 200:
