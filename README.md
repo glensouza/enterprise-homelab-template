@@ -17,8 +17,7 @@ This repository utilizes a consolidated AI-Native approach via a single `CLAUDE.
 [![PR Preview Deploy](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/pr-preview.yml/badge.svg)](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/pr-preview.yml)
 [![Rollback Blazor App](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/rollback.yml/badge.svg)](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/rollback.yml)
 [![Secret Scan](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/secret-scan.yml)
-[![Terraform Apply](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/terraform-apply.yml/badge.svg)](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/terraform-apply.yml)
-[![Terraform Plan](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/terraform-plan.yml/badge.svg)](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/terraform-plan.yml)
+[![Terraform](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/terraform.yml/badge.svg)](https://github.com/glensouza/enterprise-homelab-template/actions/workflows/terraform.yml)
 
 ## Repository Structure
 
