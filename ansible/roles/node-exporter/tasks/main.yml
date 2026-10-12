@@ -36,3 +36,19 @@
     name: prometheus-node-exporter
     enabled: true
     state: started
+
+# Debian 13 ships nvme-cli's nvmf-autoconnect.service enabled; inside an LXC there is
+# no NVMe subsystem to scan, so it fails on every boot ("Failed to scan topology") and
+# would trip SystemdUnitFailed on all hosts. Masking it (symlink to /dev/null, what
+# `systemctl mask` does) is a no-op if the unit does not exist.
+- name: Mask nvmf-autoconnect.service (can never work in an LXC)
+  ansible.builtin.file:
+    src: /dev/null
+    dest: /etc/systemd/system/nvmf-autoconnect.service
+    state: link
+    force: true
+  register: node_exporter_nvmf_masked
+
+- name: Reload systemd and clear the stale failed state
+  ansible.builtin.shell: systemctl daemon-reload && systemctl reset-failed nvmf-autoconnect.service || true
+  when: node_exporter_nvmf_masked.changed
