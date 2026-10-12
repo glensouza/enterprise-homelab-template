@@ -102,3 +102,8 @@
   register: infisical_env_keys
   changed_when: false
   failed_when: infisical_env_keys.stdout | int < infisical_agent_min_keys
+  # The Agent re-renders on its polling interval (5m), so secrets pushed by
+  # earlier plays in the same run can take up to one interval to appear.
+  until: infisical_env_keys.stdout | int >= infisical_agent_min_keys
+  retries: 45
+  delay: 10
