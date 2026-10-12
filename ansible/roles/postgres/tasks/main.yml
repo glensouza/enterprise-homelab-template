@@ -246,7 +246,18 @@
   become_user: postgres
   register: stanza_create
   changed_when: "'stanza-create command end: completed successfully' in stanza_create.stderr"
-  failed_when: stanza_create.rc != 0
+  # rc 28 = the NAS repo already holds a previous (destroyed) database's
+  # history; handled by the stanza-upgrade task below, never by deleting it.
+  failed_when: stanza_create.rc not in [0, 28]
+
+# A rebuilt cluster has a new system-id but the repo on the NAS survives the
+# rebuild: adopt it as a new db-id and keep the old backups beside it.
+- name: Adopt the existing pgBackRest repo for the rebuilt cluster (stanza-upgrade)
+  ansible.builtin.command: "pgbackrest --stanza={{ pgbackrest_stanza }} stanza-upgrade"
+  become: true
+  become_user: postgres
+  when: stanza_create.rc == 28
+  changed_when: true
 
 - name: Verify WAL archiving is flowing into the repo
   ansible.builtin.command: "pgbackrest --stanza={{ pgbackrest_stanza }} check"
