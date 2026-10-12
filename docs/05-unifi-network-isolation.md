@@ -81,4 +81,4 @@ The Proxmox exporter (ADR 115) reaches the Proxmox API on `10.10.10.101:8006` fr
 
 The devops LXC (`10.10.10.111`, existing LAN) is scraped on `:9100` the same way (ADR 114).
 
-SNMP (ADR 116): the observability LXC polls the Synology (`10.10.10.90`) and the Kemp management address (`10.10.10.199`) on UDP 161; VLAN 130 -> existing LAN is covered by `mgmt_to_any`. The device-side allow lists are the other half: Kemp's *SNMP Clients* and, if enabled, the DSM firewall must allow `10.10.130.118`.
+SNMP (ADR 116): the observability LXC polls the Synology (`10.10.10.90`) and the Kemp management address (`10.10.10.199`) on UDP 161; VLAN 130 -> existing LAN is covered by `mgmt_to_any`. On the device side only the DSM firewall (if enabled) needs `10.10.130.118` allowed; the LoadMaster cannot restrict clients once SNMPv3 is on.
