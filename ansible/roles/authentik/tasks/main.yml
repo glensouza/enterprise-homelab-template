@@ -492,6 +492,14 @@
 # pinned 2026.8.3 source live) - pointed at this same Caddy instance's own
 # /brand/* route above, not Homepage, so the login page's logo never
 # depends on a second LXC being up.
+- name: Create the brand image directory
+  ansible.builtin.file:
+    path: /opt/authentik-brand
+    state: directory
+    owner: caddy
+    group: caddy
+    mode: "0755"
+
 - name: Copy the brand logo/favicon images
   ansible.builtin.copy:
     src: "brand/{{ item }}"
