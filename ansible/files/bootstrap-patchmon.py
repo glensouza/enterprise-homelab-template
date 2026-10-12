@@ -90,7 +90,8 @@ def main():
     if token is None:
         state = {
             "patchmon_admin_username": ADMIN_USER,
-            "patchmon_admin_password": secrets.token_urlsafe(24),
+            # PatchMon requires upper, lower, digit and a special character.
+            "patchmon_admin_password": secrets.token_urlsafe(24) + "!Aa1",
         }
         code, body = call("POST", "/auth/setup-admin", {
             "username": ADMIN_USER, "email": ADMIN_EMAIL,
