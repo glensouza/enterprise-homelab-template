@@ -248,3 +248,33 @@ moved {
   from = proxmox_virtual_environment_container.lxc["blazor-web-02"]
   to   = proxmox_virtual_environment_container.lxc["blazor-web-03"]
 }
+
+# docs/01 ADR 113: `terraform destroy` truly destroys the database - it also
+# empties the PostgreSQL backup folders on the NAS (pgBackRest repo = WAL
+# archive + backups, and the pg_dump directory). A rebuild (apply onto
+# existing state, or a replace) never goes through this: terraform_data is
+# only destroyed on a real destroy / removal from config, and it is ordered
+# BEFORE the container is destroyed (depends_on), so the LXC and its NAS
+# bind-mount are still up for the cleanup. Deliberately scoped to the two
+# folders' CONTENTS (-mindepth 1) - never the share root (#recycle etc.).
+# on_failure = continue so an already-dead LXC cannot block the destroy; the
+# warning then tells the operator to clear the folders by hand.
+resource "terraform_data" "postgres_nas_wipe" {
+  input = {
+    ip      = split("/", local.lxcs["postgresql"].ip)[0]
+    mount   = "/mnt/synology/postgres-data"
+    folders = "/mnt/synology/postgres-data/pgbackrest /mnt/synology/postgres-data/backups"
+  }
+
+  depends_on = [proxmox_virtual_environment_container.lxc]
+
+  provisioner "local-exec" {
+    when       = destroy
+    on_failure = continue
+    command    = <<-EOT
+      ssh -i ~/.ssh/brewhouse_ansible -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20 root@${self.input.ip} \
+        'mountpoint -q ${self.input.mount} && find ${self.input.folders} -mindepth 1 -delete && echo "postgres NAS folders emptied"' \
+        || echo "WARNING: could not empty ${self.input.folders} on the NAS - clear them by hand"
+    EOT
+  }
+}

@@ -176,4 +176,5 @@ Local development needs no manual config — the AppHost injects all connection 
 
 - **LXC Deletion:** never run `pct destroy <vmid>` — and treat `terraform destroy` on an LXC the same way.
 - **Data Wipe:** never run `rm -rf` on any directory mapped to a Synology NAS.
+  **Sole exception (ADR 113):** `terraform destroy` empties the PostgreSQL backup folders (`/mnt/synology/postgres-data/pgbackrest` and `/backups`) via `terraform_data.postgres_nas_wipe` in `terraform/lxc.tf`. A destroy means a truly destroyed database; rebuilds never wipe. Nothing else on the NAS is ever wiped, and never by hand or from ad-hoc commands.
 - **Database Drops:** never execute `DROP DATABASE` or `DROP TABLE` without explicit confirmation.
