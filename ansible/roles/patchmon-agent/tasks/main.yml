@@ -14,7 +14,7 @@
 - name: Load the PatchMon enrollment token generated this run
   ansible.builtin.include_vars:
     file: /opt/ansible-secrets/patchmon.yml
-  when: lookup('ansible.builtin.fileexists', '/opt/ansible-secrets/patchmon.yml')
+  when: "'/opt/ansible-secrets/patchmon.yml' is file"
   no_log: true
 
 - name: Check whether the PatchMon agent is already enrolled
