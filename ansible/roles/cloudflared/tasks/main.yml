@@ -12,17 +12,44 @@
 # (homelab.smartsoftwarecoffee.com) came back to a real 200. A systemd
 # drop-in, not editing the vendored unit file directly, so a future
 # reinstall via the same community script doesn't silently re-clobber it.
-# On a fresh rebuild cloudflared is not installed yet: it needs a Cloudflare tunnel token
-# that is entered by hand (docs/04 section 2), so there is nothing to tune. Skip this
-# host until it is installed; the next converge applies the override (ADR 112).
-- name: Check whether cloudflared is installed
+# Installs and enrolls cloudflared from Cloudflare's own apt repo (ADR 112; previously a
+# manual community-script step, which a rebuild silently skipped). The tunnel token comes
+# from the GitHub secret CLOUDFLARED_TUNNEL_TOKEN (env on the runner); without it the host
+# is skipped rather than failing the converge.
+- name: Check whether cloudflared is installed and enrolled
   ansible.builtin.stat:
     path: /etc/systemd/system/cloudflared.service
   register: cloudflared_unit
 
-- name: Skip cloudflared until it has been installed by hand
+- name: Skip cloudflared - no tunnel token supplied (set the CLOUDFLARED_TUNNEL_TOKEN GitHub secret)
   ansible.builtin.meta: end_host
+  when: not cloudflared_unit.stat.exists and cloudflared_tunnel_token | length == 0
+
+- name: Add Cloudflare's apt signing key
+  ansible.builtin.get_url:
+    url: https://pkg.cloudflare.com/cloudflare-main.gpg
+    dest: /usr/share/keyrings/cloudflare-main.gpg
+    mode: "0644"
   when: not cloudflared_unit.stat.exists
+
+- name: Add the cloudflared apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main"
+    filename: cloudflared
+    state: present
+  when: not cloudflared_unit.stat.exists
+
+- name: Install cloudflared
+  ansible.builtin.apt:
+    name: cloudflared
+    update_cache: true
+    state: present
+  when: not cloudflared_unit.stat.exists
+
+- name: Enroll cloudflared with the tunnel (creates cloudflared.service)
+  ansible.builtin.command: "cloudflared service install {{ cloudflared_tunnel_token }}"
+  when: not cloudflared_unit.stat.exists
+  no_log: true
 
 - name: Ensure the cloudflared.service systemd drop-in directory exists
   ansible.builtin.file:

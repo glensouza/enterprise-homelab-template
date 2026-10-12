@@ -80,11 +80,14 @@ and `ConnectionStrings__brewhousedb` are pushed automatically by the same role.
 
 ### Cloudflared Zero-Trust Tunnel
 
-Run directly in the **Proxmox Host Shell**:
+Automated (ADR 112): `ansible/roles/cloudflared` installs cloudflared from Cloudflare's apt repo and runs
+`cloudflared service install <token>`. Set the connector token once as a GitHub secret:
 
 ```bash
-bash -c "$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/cloudflared.sh)"
+gh secret set CLOUDFLARED_TUNNEL_TOKEN   # paste the tunnel token; prompts, not echoed
 ```
+
+Without the secret the host is skipped (the converge still succeeds).
 
 ---
 

@@ -1,0 +1,4 @@
+---
+# Cloudflare Zero Trust tunnel token (connector token). Supplied by the CLOUDFLARED_TUNNEL_TOKEN
+# GitHub secret, which the workflows expose as an env var on the runner. Never commit it.
+cloudflared_tunnel_token: "{{ lookup('env', 'CLOUDFLARED_TUNNEL_TOKEN') }}"
