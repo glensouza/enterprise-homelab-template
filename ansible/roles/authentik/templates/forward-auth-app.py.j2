@@ -37,6 +37,8 @@ if (
 if changed:
     # Same helper the Admin UI calls: derives redirect_uris from external_host
     # and attaches the proxy ScopeMappings (ADR 92).
+    # The M2M mappings need a PK (2026.8), so save once before and after.
+    provider.save()
     provider.set_oauth_defaults()
     provider.save()
 
