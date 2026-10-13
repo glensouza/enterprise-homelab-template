@@ -34,6 +34,44 @@
     mode: "0600"
   no_log: true
 
+# --- The CA survives a rebuild (docs/01 ADR 126) ---------------------------------------------------------
+# `step ca init` mints a new root every time it runs on a fresh LXC, which made every `terraform destroy`
+# invalidate the root each client machine had been told to trust. The CA's state (root + intermediate
+# certificates and keys, ca.json, templates - not the issued-certificate database) is therefore saved on the
+# controller, outside git and outside anything a destroy touches (next to the CA password it is encrypted
+# with, ADR 35), and restored here before `step ca init` would run; init then sees ca.json and skips.
+- name: Look for a saved copy of the CA on the controller
+  ansible.builtin.stat:
+    path: /opt/ansible-credentials/step-ca/step-ca-state.tgz
+  delegate_to: localhost
+  become: false
+  register: step_ca_saved
+
+- name: Restore the saved CA into /root/.step
+  when: step_ca_saved.stat.exists
+  block:
+    - name: Create /root/.step
+      ansible.builtin.file:
+        path: /root/.step
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Unpack the saved CA (creates keeps ca.json from being overwritten on later runs)
+      ansible.builtin.unarchive:
+        src: /opt/ansible-credentials/step-ca/step-ca-state.tgz
+        dest: /root/.step
+        creates: /root/.step/config/ca.json
+
+    - name: Create the (empty) certificate database directory
+      ansible.builtin.file:
+        path: /root/.step/db
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
 - name: Initialize step-ca with an ACME provisioner (first run only)
   ansible.builtin.command: >
     step ca init
@@ -77,6 +115,45 @@
     dest: /opt/ansible-fetched/step-ca/root_ca.crt
     flat: true
 
+- name: Save the CA on the controller so the next rebuild restores it (first creation only)
+  when: not step_ca_saved.stat.exists
+  block:
+    - name: Archive the CA state (without the certificate database)
+      ansible.builtin.command: tar -czf /root/step-ca-state.tgz --exclude=./db -C /root/.step .
+      changed_when: true
+
+    - name: Make sure the controller directory exists (0700, it will hold the CA's private keys)
+      ansible.builtin.file:
+        path: /opt/ansible-credentials/step-ca
+        state: directory
+        mode: "0700"
+      delegate_to: localhost
+      become: false
+
+    - name: Fetch the archive to the controller
+      ansible.builtin.fetch:
+        src: /root/step-ca-state.tgz
+        dest: /opt/ansible-credentials/step-ca/step-ca-state.tgz
+        flat: true
+
+    - name: Restrict the saved archive to root
+      ansible.builtin.file:
+        path: /opt/ansible-credentials/step-ca/step-ca-state.tgz
+        mode: "0600"
+      delegate_to: localhost
+      become: false
+
+    - name: Remove the archive from the CA host
+      ansible.builtin.file:
+        path: /root/step-ca-state.tgz
+        state: absent
+
+  rescue:
+    # A failed save must never fail the rebuild: the CA is up, only the persistence is lost (the next
+    # rebuild then mints a new root and the operator re-imports it, as before ADR 126).
+    - name: Warn that the CA could not be saved
+      ansible.builtin.debug:
+        msg: "WARNING: could not save the step-ca state to /opt/ansible-credentials/step-ca - the next rebuild will mint a new root CA (docs/01 ADR 126)."
 # --- Fleet-wide Cockpit certificates (ADR 21) -------------------------------
 # Caddy/ACME certs come from the separate "acme" provisioner, so widening the
 # JWK provisioner's durations here does not affect the preview sites.
