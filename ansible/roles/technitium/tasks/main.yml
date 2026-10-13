@@ -31,20 +31,60 @@
     enabled: true
     state: started
 
-# ADR 31: self-bootstrap via the API's own default admin/admin login, so
-# secrets.yml doesn't have to be hand-populated from a manually-created UI
-# token before Ansible can manage zones at all. Only attempted when
-# technitium_api_token wasn't already supplied - confirmed live this session
-# that a 401 here (default password already changed by hand, as this LXC's
-# own instance already was) fails gracefully and falls through to the
-# existing manual-token path below, unchanged.
+# ADR 31/119: resolve a WORKING API token for this run. /opt/ansible-secrets/dns.yml's
+# technitium_api_token survives a rebuild, but the rebuilt server has never heard of it, and Technitium
+# answers a bad token with HTTP 200 + {"status":"invalid-token"} - so every zone/record task below used
+# to "succeed" while the zone stayed empty (found 2026-10-13: every *.brewhouse.internal name returned
+# NXDOMAIN, which also broke Authentik SSO and the Caddy forward-auth fronts). Order:
+#   1. the supplied token, if the server accepts it;
+#   2. a login with the generated admin password (cached in /opt/ansible-credentials, so it survives
+#      rebuilds and matches an already-bootstrapped server);
+#   3. the default admin/admin bootstrap, which is what a freshly built server still has.
+- name: Check the supplied API token against the server
+  ansible.builtin.uri:
+    url: "http://localhost:5380/api/zones/list?token={{ technitium_api_token }}"
+    method: GET
+    status_code: 200
+  register: technitium_token_check
+  failed_when: false
+  when: technitium_api_token is defined
+  no_log: true
+
+- name: Use the supplied token when the server accepts it
+  ansible.builtin.set_fact:
+    technitium_token: "{{ technitium_api_token }}"
+  when: >
+    technitium_api_token is defined and
+    technitium_token_check.json is defined and
+    technitium_token_check.json.status | default('') == 'ok'
+  no_log: true
+
+- name: Log in with the generated admin password
+  ansible.builtin.uri:
+    url: "http://localhost:5380/api/user/login?user=admin&pass={{ technitium_admin_password }}&includeInfo=false"
+    method: GET
+    status_code: 200
+  register: technitium_login
+  failed_when: false
+  when: technitium_token is not defined
+  no_log: true
+
+- name: Use the login token
+  ansible.builtin.set_fact:
+    technitium_token: "{{ technitium_login.json.token }}"
+  when: >
+    technitium_token is not defined and
+    technitium_login.json is defined and
+    technitium_login.json.token is defined
+  no_log: true
+
 - name: "Bootstrap: create an API token using the default admin/admin login"
   ansible.builtin.uri:
     url: "http://localhost:5380/api/user/createToken?user=admin&pass=admin&tokenName=ansible-bootstrap"
     method: GET
     status_code: [200, 401]
   register: technitium_bootstrap_token
-  when: technitium_api_token is not defined
+  when: technitium_token is not defined
   no_log: true
 
 - name: "Bootstrap: change the default admin password"
@@ -55,84 +95,92 @@
       Authorization: "Bearer {{ technitium_bootstrap_token.json.token }}"
     status_code: 200
   when: >
-    technitium_api_token is not defined and
+    technitium_token is not defined and
     technitium_bootstrap_token.json is defined and
     technitium_bootstrap_token.json.status | default('') == 'ok'
   no_log: true
 
 - name: "Bootstrap: use the new token for the rest of this run"
   ansible.builtin.set_fact:
-    technitium_api_token: "{{ technitium_bootstrap_token.json.token }}"
+    technitium_token: "{{ technitium_bootstrap_token.json.token }}"
   when: >
-    technitium_api_token is not defined and
+    technitium_token is not defined and
     technitium_bootstrap_token.json is defined and
     technitium_bootstrap_token.json.status | default('') == 'ok'
   no_log: true
 
-- name: "Bootstrap: tell the operator to save the token for future runs"
+- name: Warn when no working Technitium API token could be found
   ansible.builtin.debug:
     msg: >-
-      Technitium bootstrapped automatically. Save this token to
-      ansible/inventory/group_vars/dns/secrets.yml as technitium_api_token
-      so future runs don't need to bootstrap again -
-      {{ technitium_bootstrap_token.json.token }}
-  when: >
-    technitium_api_token is defined and
-    technitium_bootstrap_token is defined and
-    technitium_bootstrap_token.json is defined and
-    technitium_bootstrap_token.json.status | default('') == 'ok'
+      No working Technitium API token: the supplied one was rejected, the generated admin password does
+      not log in, and admin/admin is not the current password. Zones and records were NOT managed. Create a
+      token in the Technitium UI (http://{{ ansible_host }}:5380 -> admin -> Create Token) and put it in
+      /opt/ansible-secrets/dns.yml as technitium_api_token.
+  when: technitium_token is not defined
 
-# Zone management is API-driven. Set technitium_api_token (create one in the
-# Technitium web UI on http://10.10.130.119:5380 after changing the default
-# admin password) to let Ansible create the zone + wildcard record - or let
-# the bootstrap above do it automatically on a fresh instance.
+# Zone management is API-driven, using the token resolved above.
 - name: Create the preview zone
   ansible.builtin.uri:
-    url: "http://localhost:5380/api/zones/create?token={{ technitium_api_token }}&zone={{ preview_domain }}&type=Primary"
+    url: "http://localhost:5380/api/zones/create?token={{ technitium_token }}&zone={{ preview_domain }}&type=Primary"
     method: GET
     status_code: 200
-  when: technitium_api_token is defined
+  when: technitium_token is defined
 
 - name: Add the wildcard A record pointing at the preview host
   ansible.builtin.uri:
-    url: "http://localhost:5380/api/zones/records/add?token={{ technitium_api_token }}&domain=*.{{ preview_domain }}&type=A&zone={{ preview_domain }}&ipAddress={{ preview_host_ip }}&overwrite=true"
+    url: "http://localhost:5380/api/zones/records/add?token={{ technitium_token }}&domain=*.{{ preview_domain }}&type=A&zone={{ preview_domain }}&ipAddress={{ preview_host_ip }}&overwrite=true"
     method: GET
     status_code: 200
-  when: technitium_api_token is defined
+  when: technitium_token is defined
 
 # --- Lab zone (ADR 21): per-host A records + friendly service CNAMEs --------
 - name: Create the lab zone
   ansible.builtin.uri:
-    url: "http://localhost:5380/api/zones/create?token={{ technitium_api_token }}&zone={{ internal_domain }}&type=Primary"
+    url: "http://localhost:5380/api/zones/create?token={{ technitium_token }}&zone={{ internal_domain }}&type=Primary"
     method: GET
     status_code: 200
-  when: technitium_api_token is defined
+  when: technitium_token is defined
 
 - name: Add a per-host A record for every LXC
   ansible.builtin.uri:
-    url: "http://localhost:5380/api/zones/records/add?token={{ technitium_api_token }}&domain={{ item }}.{{ internal_domain }}&type=A&zone={{ internal_domain }}&ipAddress={{ hostvars[item].ansible_host }}&overwrite=true"
+    url: "http://localhost:5380/api/zones/records/add?token={{ technitium_token }}&domain={{ item }}.{{ internal_domain }}&type=A&zone={{ internal_domain }}&ipAddress={{ hostvars[item].ansible_host }}&overwrite=true"
     method: GET
     status_code: 200
   loop: "{{ groups['all'] }}"
-  when: technitium_api_token is defined
+  when: technitium_token is defined
 
 - name: Add friendly service CNAME records
   ansible.builtin.uri:
-    url: "http://localhost:5380/api/zones/records/add?token={{ technitium_api_token }}&domain={{ item.name }}.{{ internal_domain }}&type=CNAME&zone={{ internal_domain }}&cname={{ item.target }}.{{ internal_domain }}&overwrite=true"
+    url: "http://localhost:5380/api/zones/records/add?token={{ technitium_token }}&domain={{ item.name }}.{{ internal_domain }}&type=CNAME&zone={{ internal_domain }}&cname={{ item.target }}.{{ internal_domain }}&overwrite=true"
     method: GET
     status_code: 200
   loop: "{{ dns_service_cnames }}"
-  when: technitium_api_token is defined
+  when: technitium_token is defined
 
 # ADR 41: pve1/Kemp aren't in the inventory (no LXC), so they never get a
 # record from "per-host A record for every LXC" above - added explicitly.
 - name: Add A records for physical/appliance infrastructure
   ansible.builtin.uri:
-    url: "http://localhost:5380/api/zones/records/add?token={{ technitium_api_token }}&domain={{ item.name }}.{{ internal_domain }}&type=A&zone={{ internal_domain }}&ipAddress={{ item.ip }}&overwrite=true"
+    url: "http://localhost:5380/api/zones/records/add?token={{ technitium_token }}&domain={{ item.name }}.{{ internal_domain }}&type=A&zone={{ internal_domain }}&ipAddress={{ item.ip }}&overwrite=true"
     method: GET
     status_code: 200
   loop: "{{ dns_physical_host_records }}"
-  when: technitium_api_token is defined
+  when: technitium_token is defined
+
+# Technitium reports API failures as HTTP 200 + a JSON status, which `uri` does not treat as an error,
+# so prove the zone really holds records (ADR 119) instead of trusting the tasks above.
+- name: Verify the lab zone holds records
+  ansible.builtin.uri:
+    url: "http://localhost:5380/api/zones/records/get?token={{ technitium_token }}&domain=authentik.{{ internal_domain }}&zone={{ internal_domain }}"
+    method: GET
+    status_code: 200
+  register: technitium_zone_check
+  failed_when: >
+    technitium_zone_check.json.status | default('') != 'ok' or
+    (technitium_zone_check.json.response.records | default([]) | length) == 0
+  when: technitium_token is defined
+  no_log: true
+
 
 - name: Push TECHNITIUM_ADMIN_PASSWORD to Infisical
   ansible.builtin.include_role:

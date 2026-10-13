@@ -124,7 +124,7 @@ Alongside the per-PR stacks, the preview host runs an always-on **ops compose st
 *   **pgAdmin / RedisInsight server entries:** add prod PostgreSQL as `10.10.120.110:5432` and prod Garnet as `10.10.120.111:6379` (two targeted firewall exceptions allow exactly this — see `terraform/unifi.tf` and `docs/05`). Per-PR preview databases stay loopback-only by design; inspect them with `docker exec -it pr-<n>-db-1 psql -U brewhouse brewhouse_pr<n>` (via SSH or the Portainer console).
 *   **Watchtower** updates only the labeled ops containers nightly (04:00) — running PR preview stacks are deliberately never mutated mid-test.
 *   **Cockpit certificates:** the `step-ca` role issues one 1-year certificate per LXC (SAN `<host>.brewhouse.internal`) and the `cockpit` role installs it. Renewal = re-run `ansible-playbook site.yml` before expiry.
-*   **DNS records:** with `technitium_api_token` set (`ansible/inventory/group_vars/dns/secrets.yml`, git-ignored), Ansible manages the `brewhouse.internal` zone — per-host A records from the inventory and the service CNAMEs from `dns_service_cnames` (`group_vars/dns/vars.yml`). Manual equivalent: create the zone in the Technitium UI and mirror that list.
+*   **DNS records:** Ansible manages (the role resolves its own working API token: the supplied `technitium_api_token` if accepted, else the generated admin password, else the default-login bootstrap - ADR 119; the converge fails if the zone ends up empty) the `brewhouse.internal` zone — per-host A records from the inventory and the service CNAMEs from `dns_service_cnames` (`group_vars/dns/vars.yml`). Manual equivalent: create the zone in the Technitium UI and mirror that list.
 
 ---
 

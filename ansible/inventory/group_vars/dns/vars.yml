@@ -1,5 +1,8 @@
 ---
-# Technitium DNS (ADR 20/21). technitium_api_token lives in the sibling
+# Technitium DNS (ADR 20/21). technitium_api_token (optional) lives in the sibling
+# secrets file but is only used if the server accepts it - the role falls back to a login
+# with the generated admin password, then to the default admin/admin bootstrap (ADR 119).
+# It used to live in the sibling
 # secrets.yml (git-ignored, human-supplied) — see secrets.yml.example.
 # Without it, the technitium role skips zone/record management and you
 # create the zones by hand (docs/11 section 2 step 3). ADR 31: if
