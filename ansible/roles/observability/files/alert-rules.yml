@@ -153,3 +153,26 @@ groups:
         annotations:
           summary: "Synology temperature is high ({{ $value }} C)"
           description: "System temperature above 70 C or a disk above 60 C for 10 minutes."
+
+  - name: kemp
+    rules:
+      # vSState: 1 inService, 2 outOfService, 4 disabled (administrative), 5 sorry, 6 redirect,
+      # 7 errormsg, 8 securityDown. A deliberately disabled service (4) is not an alert.
+      - alert: KempVirtualServiceDown
+        expr: kemp_vs_state != 1 and kemp_vs_state != 4
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kemp virtual service {{ $labels.vsName }} (index {{ $labels.vsIndex }}) is not in service"
+          description: "vSState is {{ $value }} (2 outOfService, 5 sorry, 6 redirect, 7 errormsg, 8 securityDown)."
+
+      # rSState: 1 inService, 2 outOfService, 4 disabled.
+      - alert: KempRealServerDown
+        expr: kemp_rs_state == 2
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kemp real server {{ $labels.rsAddress }}:{{ $labels.rsPort }} ({{ $labels.vsName }}) is out of service"
+          description: "The LoadMaster's health check has taken real server {{ $labels.rsAddress }}:{{ $labels.rsPort }} out of rotation for 3 minutes."
