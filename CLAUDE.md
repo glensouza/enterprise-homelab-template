@@ -170,7 +170,7 @@ Follow these patterns consistently:
 
 ## Configuration
 
-Local development needs no manual config — the AppHost injects all connection strings. In production the required environment keys (rendered by the Infisical Agent) are: `ConnectionStrings__brewhousedb`, `ConnectionStrings__cache`, `ConnectionStrings__messaging`, `OTEL_EXPORTER_OTLP_ENDPOINT`. Optional, all defaulted in `appsettings.json`: `BlobStorage:Provider` (`local` | `s3`), `Messaging:Transport` (`rabbitmq` | `sqs` | `servicebus`), `Realtime:HubBaseUrl`. GitHub Actions needs the `EFBUNDLE_CONNECTION` secret (real Postgres connection string for the migration bundle) and a `homelab` environment with a required reviewer. Never put credentials in workflow files.
+Local development needs no manual config — the AppHost injects all connection strings. In production the required environment keys (rendered by the Infisical Agent) are: `ConnectionStrings__brewhousedb`, `ConnectionStrings__cache`, `ConnectionStrings__messaging`, `OTEL_EXPORTER_OTLP_ENDPOINT`. Optional, all defaulted in `appsettings.json`: `BlobStorage:Provider` (`local` | `s3`), `Messaging:Transport` (`rabbitmq` | `sqs` | `servicebus`), `Realtime:HubBaseUrl`. GitHub Actions needs the `EFBUNDLE_CONNECTION` secret (real Postgres connection string for the migration bundle) and a `homelab` environment with a required reviewer. Never put credentials in workflow files. Optional admin-login keys (ADR 125): `Authentik__Authority`, `Authentik__ClientId`, `Authentik__ClientSecret` - the `/admin/*` pages (dead letters) stay closed to everyone until all three exist.
 
 ## Safety guardrails (RED RULES)
 

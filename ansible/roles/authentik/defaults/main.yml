@@ -42,6 +42,15 @@ authentik_oidc_apps:
     client_secret: "{{ oidc_clients.grafana.client_secret }}"
     redirect_uris:
       - "http://{{ hostvars['observability'].ansible_host }}:3000/login/generic_oauth"
+  # Admin login for the BrewHouse app itself (docs/01 ADR 125): only members of brewhouse-admins reach /admin/*.
+  - name: BrewHouse
+    slug: brewhouse
+    client_id: "{{ oidc_clients.brewhouse.client_id }}"
+    client_secret: "{{ oidc_clients.brewhouse.client_secret }}"
+    redirect_uris:
+      - "https://{{ brewhouse_public_host }}/signin-oidc"
+    groups: [brewhouse-admins]
+    admin_groups: [brewhouse-admins]
   - name: pgAdmin
     slug: pgadmin
     client_id: "{{ oidc_clients.pgadmin.client_id }}"

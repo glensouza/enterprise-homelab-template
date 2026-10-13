@@ -9,6 +9,8 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0" />
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" Version="10.0.0" />
     <PackageVersion Include="Microsoft.AspNetCore.DataProtection.StackExchangeRedis" Version="10.0.0" />
+    <!-- docs/01 ADR 125: Authentik OIDC login for the admin pages. -->
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.0" />
     <!-- Direct override: Microsoft.AspNetCore.DataProtection.StackExchangeRedis 10.0.0 pulls
          System.Security.Cryptography.Xml 10.0.0, which has several known high-severity
          vulnerabilities (GHSA-8q5v-6pqq-x66h and others). -->

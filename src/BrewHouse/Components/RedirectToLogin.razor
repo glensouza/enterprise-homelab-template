@@ -1,0 +1,24 @@
+@inject NavigationManager Navigation
+@inject IConfiguration Configuration
+
+@if (!BrewHouse.Services.AdminAuthentication.IsConfigured(Configuration))
+{
+    <p data-testid="admin-login-unconfigured">Admin sign-in is not configured on this node.</p>
+}
+else
+{
+    <p><i>Redirecting to sign-in...</i></p>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        if (!BrewHouse.Services.AdminAuthentication.IsConfigured(Configuration))
+            return;
+
+        var returnUrl = "/" + Navigation.ToBaseRelativePath(Navigation.Uri);
+        Navigation.NavigateTo(
+            $"{BrewHouse.Services.AdminAuthentication.LoginPath}?returnUrl={Uri.EscapeDataString(returnUrl)}",
+            forceLoad: true);
+    }
+}

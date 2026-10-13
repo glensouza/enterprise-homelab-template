@@ -41,4 +41,11 @@ oidc_clients:
   proxmox:
     client_id: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/oidc/proxmox_client_id length=40 chars=ascii_letters,digits') }}"
     client_secret: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/oidc/proxmox_client_secret length=64 chars=ascii_letters,digits') }}"
+  brewhouse:
+    client_id: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/oidc/brewhouse_client_id length=40 chars=ascii_letters,digits') }}"
+    client_secret: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/oidc/brewhouse_client_secret length=64 chars=ascii_letters,digits') }}"
 radius_kemp_shared_secret: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/oidc/radius_kemp_shared_secret length=40 chars=ascii_letters,digits') }}"
+
+# The public hostname of the auction (Cloudflare tunnel -> Kemp VIP). Authentik's BrewHouse OIDC redirect URI
+# is built from it, so the admin sign-in works from the public name (docs/01 ADR 125).
+brewhouse_public_host: "homelab.smartsoftwarecoffee.com"

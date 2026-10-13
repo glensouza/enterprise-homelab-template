@@ -1,0 +1,137 @@
+@page "/admin/dead-letters"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = BrewHouse.Services.AdminAuthentication.Policy)]
+@using BrewHouse.Services
+@inject IDeadLetterAdmin DeadLetterAdmin
+
+<h1>Dead letters</h1>
+<p class="subtitle">
+    Messages whose handler kept failing and were parked by Wolverine. Replay re-sends one; discard removes it for good.
+    <a href="@AdminAuthentication.LogoutPath">Sign out</a>
+</p>
+
+<div class="card">
+    @if (_loading)
+    {
+        <p class="status-line"><i>Loading...</i></p>
+    }
+    else if (_error is not null)
+    {
+        <p class="status-line error" data-testid="dead-letter-error">@_error</p>
+    }
+    else if (_page.TotalCount == 0)
+    {
+        <p class="status-line" data-testid="dead-letter-empty">No dead letters. Nothing is waiting for attention.</p>
+    }
+    else
+    {
+        <p class="status-line" data-testid="dead-letter-count">@_page.TotalCount dead letter(s) - page @_pageNumber of @TotalPages</p>
+        <table class="bids-table">
+            <thead>
+                <tr>
+                    <th>Message</th>
+                    <th>Failure</th>
+                    <th>Sent</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in _page.Items)
+                {
+                    <tr data-testid="dead-letter-@item.Id">
+                        <td>@ShortType(item.MessageType)</td>
+                        <td title="@item.ExceptionMessage">
+                            <strong>@ShortType(item.ExceptionType)</strong><br />
+                            <small>@Truncate(item.ExceptionMessage, 140)</small>
+                        </td>
+                        <td>@item.SentAt.ToString("u")</td>
+                        <td class="bid-col">
+                            <button class="btn-secondary" data-testid="replay-@item.Id" @onclick="() => ReplayAsync(item.Id)">Replay</button>
+                            @if (_confirmDiscard == item.Id)
+                            {
+                                <button class="btn-secondary" data-testid="confirm-discard-@item.Id" @onclick="() => DiscardAsync(item.Id)">Really discard?</button>
+                                <button class="btn-secondary" @onclick="() => _confirmDiscard = null">Cancel</button>
+                            }
+                            else
+                            {
+                                <button class="btn-secondary" data-testid="discard-@item.Id" @onclick="() => _confirmDiscard = item.Id">Discard</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <p>
+            <button class="btn-secondary" @onclick="PreviousAsync" disabled="@(_pageNumber <= 1)">Previous</button>
+            <button class="btn-secondary" @onclick="NextAsync" disabled="@(_pageNumber >= TotalPages)">Next</button>
+        </p>
+    }
+    @if (_notice is not null)
+    {
+        <p class="status-line" data-testid="dead-letter-notice"><i>@_notice</i></p>
+    }
+</div>
+
+@code {
+    private const int PageSize = 25;
+    private DeadLetterPage _page = new(0, []);
+    private int _pageNumber = 1;
+    private bool _loading = true;
+    private string? _error;
+    private string? _notice;
+    private Guid? _confirmDiscard;
+
+    private int TotalPages => Math.Max(1, (int)Math.Ceiling(_page.TotalCount / (double)PageSize));
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _page = await DeadLetterAdmin.ListAsync(_pageNumber, PageSize);
+            // The last item of a page was just replayed/discarded: step back instead of showing an empty page.
+            if (_page.Items.Count == 0 && _pageNumber > 1)
+            {
+                _pageNumber = TotalPages;
+                _page = await DeadLetterAdmin.ListAsync(_pageNumber, PageSize);
+            }
+            _error = null;
+        }
+        catch (Exception ex)
+        {
+            _error = $"Could not read the dead letters: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ReplayAsync(Guid id)
+    {
+        await DeadLetterAdmin.ReplayAsync(id);
+        _notice = "Marked for replay.";
+        await LoadAsync();
+    }
+
+    private async Task DiscardAsync(Guid id)
+    {
+        _confirmDiscard = null;
+        await DeadLetterAdmin.DiscardAsync(id);
+        _notice = "Discarded.";
+        await LoadAsync();
+    }
+
+    private Task PreviousAsync() { _pageNumber = Math.Max(1, _pageNumber - 1); return LoadAsync(); }
+    private Task NextAsync() { _pageNumber = Math.Min(TotalPages, _pageNumber + 1); return LoadAsync(); }
+
+    private static string ShortType(string typeName)
+    {
+        var comma = typeName.IndexOf(',');
+        var name = comma > 0 ? typeName[..comma] : typeName;
+        var dot = name.LastIndexOf('.');
+        return dot >= 0 ? name[(dot + 1)..] : name;
+    }
+
+    private static string Truncate(string value, int max) => value.Length <= max ? value : value[..max] + "...";
+}

@@ -610,6 +610,25 @@
   changed_when: "'OIDC_CHANGED' in authentik_oidc_result.stdout"
   no_log: true
 
+# The BrewHouse web nodes read their OIDC settings from the brewhouse Infisical project (rendered into
+# /etc/brewhouse/brewhouse.env by the Agent, ADR 12/125): the issuer URL, the deterministic client id and secret.
+# Same values Authentik was just given above, so a rebuild converges to a working admin login.
+- name: Push the BrewHouse admin-login settings to Infisical (consumed by the running app)
+  ansible.builtin.include_role:
+    name: infisical-secret
+  vars:
+    infisical_secret_name: "{{ item.name }}"
+    infisical_secret_target: brewhouse
+    infisical_secret_value: "{{ item.value }}"
+  loop:
+    - { name: Authentik__Authority, value: "https://authentik.{{ internal_domain }}/application/o/brewhouse/" }
+    - { name: Authentik__ClientId, value: "{{ oidc_clients.brewhouse.client_id }}" }
+    - { name: Authentik__ClientSecret, value: "{{ oidc_clients.brewhouse.client_secret }}" }
+  loop_control:
+    label: "{{ item.name }}"
+  when: infisical_project_id is defined
+  no_log: true
+
 # --- Tier-3 RADIUS Provider/Application/Outpost (docs/01 ADR 74/120) ---------
 # Created here and the outpost's API token read straight back from Authentik (it creates that token
 # itself), replacing the hand-copied outpost-token extra var that went stale on rebuild.

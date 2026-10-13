@@ -43,3 +43,17 @@
     name: blazor-app.service
     enabled: true
     daemon_reload: true
+
+# The app's Authentik admin login (docs/01 ADR 125) fetches OIDC discovery/JWKS from
+# https://authentik.<internal_domain>, whose certificate is signed by the private step-ca root - same
+# class of gap as the rabbitmq role (ADR 75). The root is fetched to the controller by the step-ca play.
+- name: Install the step-ca root certificate into the system trust store
+  ansible.builtin.copy:
+    src: "/opt/ansible-fetched/step-ca/root_ca.crt"
+    dest: /usr/local/share/ca-certificates/step-ca-root.crt
+    mode: "0644"
+  register: blazor_app_step_ca_cert
+
+- name: Update the system CA trust store
+  ansible.builtin.command: update-ca-certificates
+  when: blazor_app_step_ca_cert.changed

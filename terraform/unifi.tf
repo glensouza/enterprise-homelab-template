@@ -204,6 +204,27 @@ resource "unifi_firewall_policy" "web_to_infisical" {
   enabled = true
 }
 
+resource "unifi_firewall_policy" "web_to_authentik" {
+  # docs/01 ADR 125: the BrewHouse admin login makes the web LXCs fetch OIDC discovery and signing keys from
+  # Authentik (https://authentik.brewhouse.internal -> 10.10.130.123:443). drop_web_to_mgmt blocks all of
+  # VLAN 110 -> VLAN 130 by default, so this needs its own exception (same pattern as web_to_infisical above).
+  name     = "Allow Web -> Authentik OIDC (443)"
+  action   = "ALLOW"
+  protocol = "tcp"
+  source = {
+    zone_id         = local.internal_zone_id
+    ips             = [local.vlan110_cidr]
+    matching_target = "IP"
+  }
+  destination = {
+    zone_id         = local.internal_zone_id
+    ips             = ["10.10.130.123"]
+    port            = "443"
+    matching_target = "IP"
+  }
+  enabled = true
+}
+
 resource "unifi_firewall_policy" "web_to_homepage" {
   # ADR 47: exposing Homepage via the Cloudflare Tunnel means the cloudflared
   # connector (VLAN 110) must reach Homepage (10.10.130.120:3000) directly -

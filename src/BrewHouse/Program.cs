@@ -202,6 +202,10 @@ if (messagingTransport == MessagingTransportConfigurator.RabbitMq)
         sp.GetRequiredService<RabbitMqHealthConnection>().GetConnectionAsync());
 }
 
+// 7b. ADMIN LOGIN: Authentik OIDC for the /admin pages only (docs/01 ADR 125). The auction stays anonymous.
+builder.Services.AddAdminAuthentication(builder.Configuration);
+builder.Services.AddSingleton<IDeadLetterAdmin, WolverineDeadLetterAdmin>();
+
 // 8. VERSION: exposed via VersionService (reads assembly version injected at publish by /p:Version)
 builder.Services.AddSingleton<VersionService>();
 
@@ -266,9 +270,12 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseStaticFiles();
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseAntiforgery();
 app.MapHealthChecks("/health"); // Kemp probes this endpoint
 app.MapHub<BrewHouse.Hubs.BidsHub>("/hubs/bids");
+app.MapAdminAuthentication();
 
 // Serves a photo back out of whichever IBlobStore backend is configured (local
 // NAS mount or S3) - the read half of the round-trip Home.razor's "Simulate
