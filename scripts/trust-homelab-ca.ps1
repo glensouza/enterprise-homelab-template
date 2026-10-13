@@ -7,6 +7,7 @@
   A browser shows ERR_CERT_AUTHORITY_INVALID until that root is trusted. A `terraform destroy` mints a new root
   unless the CA was restored from the controller (docs/01 ADR 126), so run this after a rebuild if the browser complains.
   Defaults match this repo's addressing (devops 10.10.10.111, step-ca 10.10.130.121); override -Devops / -StepCa for your own lab.
+  On macOS or Linux use scripts/trust-homelab-ca.sh instead.
 
   Steps: scp the public root from devops, compare its SHA-256 fingerprint with the one step-ca itself reports,
   and only if they match run `certutil -user -addstore Root` (Windows shows a confirmation prompt; click Yes).

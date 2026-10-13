@@ -64,7 +64,8 @@ enterprise-homelab-template/
 ├── ansible/                           # LXC config: runtime, NFS, systemd, pgBackRest, DNS/PKI, Cockpit (docs/08)
 ├── deploy/preview/                    # Per-PR preview compose template (docs/11)
 ├── scripts/
-│   └── trust-homelab-ca.ps1           # Windows: fetch, verify and trust the step-ca root (docs/11 section 4)
+│   ├── trust-homelab-ca.ps1           # Windows: fetch, verify and trust the step-ca root (docs/11 section 4)
+│   └── trust-homelab-ca.sh            # macOS/Linux: same, plus the Linux browser (NSS) database
 ├── tests/
 │   └── BrewHouse.Tests/       
 ├── .githooks/
