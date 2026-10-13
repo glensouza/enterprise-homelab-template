@@ -136,14 +136,24 @@ groups:
 
       - alert: SynologyVolumeHigh
         expr: |
-          100 * snmp_storage_used_units{job="snmp_synology", hrStorageDescr=~"/volume.*"}
-              / snmp_storage_size_units{job="snmp_synology", hrStorageDescr=~"/volume.*"} > 85
+          100 * snmp_storage_used_units{job="snmp_synology", hrStorageDescr=~"/volume[0-9]+"}
+              / snmp_storage_size_units{job="snmp_synology", hrStorageDescr=~"/volume[0-9]+"} > 85
         for: 15m
         labels:
           severity: warning
         annotations:
           summary: "Synology {{ $labels.hrStorageDescr }} is {{ $value | printf \"%.0f\" }}% full"
           description: "Volume {{ $labels.hrStorageDescr }} has been above 85% for 15 minutes."
+
+      # A disk can report Normal status and health while its bad-sector count climbs; growth is
+      # the early warning (a steady, unchanged count is not).
+      - alert: SynologyDiskBadSectorsGrowing
+        expr: increase(synology_disk_bad_sectors[1d]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "Synology disk {{ $labels.diskID }} gained bad sectors"
+          description: "Bad sector count on {{ $labels.diskID }} rose by {{ $value | printf \"%.0f\" }} in the last 24 hours."
 
       - alert: SynologyTemperatureHigh
         expr: synology_temperature_celsius > 70 or synology_disk_temperature_celsius > 60
