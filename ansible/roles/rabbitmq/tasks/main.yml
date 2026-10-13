@@ -189,17 +189,15 @@
     dest: /usr/local/share/ca-certificates/step-ca-root.crt
     mode: "0644"
   register: rabbitmq_step_ca_cert
-  when: rabbitmq_oidc_client_id is defined
 
 - name: Update the system CA trust store
   ansible.builtin.command: update-ca-certificates
-  when: rabbitmq_oidc_client_id is defined and rabbitmq_step_ca_cert.changed
+  when: rabbitmq_step_ca_cert.changed
 
 - name: Enable the RabbitMQ OAuth2 auth backend plugin
   ansible.builtin.command: rabbitmq-plugins enable rabbitmq_auth_backend_oauth2
   register: rabbitmq_oauth2_plugin
   changed_when: "'already enabled' not in rabbitmq_oauth2_plugin.stdout"
-  when: rabbitmq_oidc_client_id is defined
 
 - name: Configure RabbitMQ's OAuth2 login against Authentik
   ansible.builtin.template:
@@ -209,7 +207,6 @@
     group: rabbitmq
     mode: "0644"
   register: rabbitmq_oauth2_conf
-  when: rabbitmq_oidc_client_id is defined
 
 - name: Restart RabbitMQ if the OAuth2 config changed
   ansible.builtin.systemd:
@@ -224,19 +221,16 @@
   ansible.builtin.apt:
     name: [debian-keyring, debian-archive-keyring, apt-transport-https]
     state: present
-  when: rabbitmq_oidc_client_id is defined
 
 - name: Install Caddy (Debian backports)
   ansible.builtin.include_role:
     name: caddy-install
-  when: rabbitmq_oidc_client_id is defined
 
 - name: Create the Caddy PKI directory
   ansible.builtin.file:
     path: /etc/caddy/pki
     state: directory
     mode: "0755"
-  when: rabbitmq_oidc_client_id is defined
 
 - name: Install the step-ca root certificate for Caddy to trust
   ansible.builtin.copy:
@@ -246,7 +240,6 @@
     group: root
     mode: "0644"
   notify: Restart rabbitmq-caddy
-  when: rabbitmq_oidc_client_id is defined
 
 - name: Install the Caddyfile
   ansible.builtin.template:
@@ -256,11 +249,9 @@
     group: root
     mode: "0644"
   notify: Restart rabbitmq-caddy
-  when: rabbitmq_oidc_client_id is defined
 
 - name: Enable and start Caddy
   ansible.builtin.systemd:
     name: caddy
     enabled: true
     state: started
-  when: rabbitmq_oidc_client_id is defined

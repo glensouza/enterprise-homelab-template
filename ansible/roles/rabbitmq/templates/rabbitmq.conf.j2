@@ -18,5 +18,5 @@ auth_oauth2.scope_aliases.2.alias = rabbitmq-monitoring
 auth_oauth2.scope_aliases.2.scope = rabbitmq.tag:monitoring rabbitmq.read:*
 
 management.oauth_enabled = true
-management.oauth_client_id = {{ rabbitmq_oidc_client_id }}
+management.oauth_client_id = {{ oidc_clients.rabbitmq.client_id }}
 management.oauth_scopes = openid profile email rabbitmq

@@ -20,3 +20,25 @@ step_ca_url: https://10.10.130.121:4443
 dns_physical_host_records:
   - { name: proxmox, ip: "10.10.10.101" }
   - { name: kemp, ip: "10.10.10.199" }
+
+# Tier-1 OIDC clients and the Kemp RADIUS shared secret (docs/01 ADR 120). Deterministic: generated once
+# on the controller and cached under /opt/ansible-credentials (outside git, survives a rebuild), so the
+# Authentik Provider (roles/authentik) and the app that consumes it are always configured with the same
+# values - nothing hand-copied from Authentik's UI. RabbitMQ is a public client (no secret). Read a
+# value for a manual app-side step (Portainer, Proxmox, Kemp) from the file named here, on devops.
+oidc_clients:
+  grafana:
+    client_id: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/oidc/grafana_client_id length=40 chars=ascii_letters,digits') }}"
+    client_secret: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/oidc/grafana_client_secret length=64 chars=ascii_letters,digits') }}"
+  pgadmin:
+    client_id: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/oidc/pgadmin_client_id length=40 chars=ascii_letters,digits') }}"
+    client_secret: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/oidc/pgadmin_client_secret length=64 chars=ascii_letters,digits') }}"
+  rabbitmq:
+    client_id: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/oidc/rabbitmq_client_id length=40 chars=ascii_letters,digits') }}"
+  portainer:
+    client_id: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/oidc/portainer_client_id length=40 chars=ascii_letters,digits') }}"
+    client_secret: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/oidc/portainer_client_secret length=64 chars=ascii_letters,digits') }}"
+  proxmox:
+    client_id: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/oidc/proxmox_client_id length=40 chars=ascii_letters,digits') }}"
+    client_secret: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/oidc/proxmox_client_secret length=64 chars=ascii_letters,digits') }}"
+radius_kemp_shared_secret: "{{ lookup('ansible.builtin.password', '/opt/ansible-credentials/oidc/radius_kemp_shared_secret length=40 chars=ascii_letters,digits') }}"

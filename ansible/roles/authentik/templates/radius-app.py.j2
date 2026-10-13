@@ -1,0 +1,54 @@
+# Rendered by roles/authentik (docs/01 ADR 120) and piped to `django-admin shell`.
+# Idempotent get-or-update of the tier-3 RADIUS Provider + Application + standalone RADIUS Outpost
+# used by the Kemp LoadMaster WUI login (ADR 74). Prints RADIUS_OUTPOST_TOKEN=<key> on its last line:
+# the outpost's API token is created by Authentik, so the role reads it back from here instead of from
+# a hand-copied extra var. Plain top-level statements on purpose (see forward-auth-app.py.j2).
+from authentik.core.models import Application
+from authentik.flows.models import Flow
+from authentik.outposts.models import Outpost, OutpostType
+from authentik.providers.radius.models import RadiusProvider
+
+provider_name = "{{ authentik_radius_provider_name }}"
+slug = "{{ authentik_radius_app_slug }}"
+changed = False
+
+# RadiusProvider.authorization_flow is the flow RADIUS clients authenticate through.
+flow = Flow.objects.get(slug="default-authentication-flow")
+
+provider = RadiusProvider.objects.filter(name=provider_name).first()
+if provider is None:
+    provider = RadiusProvider(name=provider_name)
+    changed = True
+desired = {
+    "shared_secret": "{{ radius_kemp_shared_secret }}",
+    "client_networks": "{{ authentik_radius_client_networks }}",
+    "mfa_support": False,
+    "authorization_flow_id": flow.pk,
+}
+for key, value in desired.items():
+    if getattr(provider, key) != value:
+        setattr(provider, key, value)
+        changed = True
+provider.save()
+
+app = Application.objects.filter(slug=slug).first()
+if app is None:
+    app = Application(slug=slug, name="Kemp LoadMaster (RADIUS)", provider=provider)
+    app.save()
+    changed = True
+elif app.provider_id != provider.pk:
+    app.provider = provider
+    app.save()
+    changed = True
+
+outpost = Outpost.objects.filter(name="{{ authentik_radius_outpost_name }}").first()
+if outpost is None:
+    outpost = Outpost(name="{{ authentik_radius_outpost_name }}", type=OutpostType.RADIUS)
+    outpost.save()
+    changed = True
+if not outpost.providers.filter(pk=provider.pk).exists():
+    outpost.providers.add(provider)
+    changed = True
+
+print("RADIUS_CHANGED" if changed else "RADIUS_OK", slug)
+print("RADIUS_OUTPOST_TOKEN=" + outpost.token.key)

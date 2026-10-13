@@ -25,3 +25,64 @@ authentik_redis_channel_db: 1
 # manages (docs/01 ADR 107). host = the <host>.{{ internal_domain }} label.
 authentik_forward_auth_apps:
   - { name: CritterWatch, slug: critterwatch, host: critterwatch }
+  # ADR 66's original five were hand-created and lost with the 2026-10-12 rebuild (ADR 120).
+  - { name: Dozzle, slug: dozzle, host: dozzle }
+  - { name: RedisInsight, slug: redisinsight, host: redisinsight }
+  - { name: Uptime Kuma, slug: uptime-kuma, host: kuma }
+  - { name: PatchMon, slug: patchmon, host: patchmon }
+  - { name: Homepage, slug: homepage, host: homepage }
+
+# Tier-1 native OIDC apps (docs/01 ADR 72/73/120). client_id/client_secret come from oidc_clients
+# (group_vars/all) - the consuming role reads the same values. Infisical is not listed: its SSO needs a
+# paid license (ADR 77).
+authentik_oidc_apps:
+  - name: Grafana
+    slug: grafana
+    client_id: "{{ oidc_clients.grafana.client_id }}"
+    client_secret: "{{ oidc_clients.grafana.client_secret }}"
+    redirect_uris:
+      - "http://{{ hostvars['observability'].ansible_host }}:3000/login/generic_oauth"
+  - name: pgAdmin
+    slug: pgadmin
+    client_id: "{{ oidc_clients.pgadmin.client_id }}"
+    client_secret: "{{ oidc_clients.pgadmin.client_secret }}"
+    redirect_uris:
+      - "https://pgadmin.{{ internal_domain }}/oauth2/authorize"
+  - name: RabbitMQ
+    slug: rabbitmq
+    client_type: public
+    client_id: "{{ oidc_clients.rabbitmq.client_id }}"
+    # Both entries are needed (ADR 75): Authentik derives CORS origins from redirect_uris, and the management
+    # UI's browser-side discovery fetch is CORS-gated.
+    redirect_uris:
+      - "https://rabbitmq.{{ internal_domain }}/js/oidc-oauth/login-callback.html"
+      - "https://rabbitmq.{{ internal_domain }}"
+    groups: [rabbitmq-administrator, rabbitmq-monitoring]
+    admin_groups: [rabbitmq-administrator]
+    scope_mappings:
+      - name: RabbitMQ claims
+        scope_name: rabbitmq
+        expression: |
+          # Authentik's RabbitMQ integration guide: aud for the resource server + the user's groups
+          # (matched by auth_oauth2.scope_aliases in rabbitmq.conf).
+          groups = [group.name for group in request.user.ak_groups.all()]
+          return {"aud": ["rabbitmq"], "groups": groups}
+  - name: Portainer
+    slug: portainer
+    client_id: "{{ oidc_clients.portainer.client_id }}"
+    client_secret: "{{ oidc_clients.portainer.client_secret }}"
+    redirect_uris:
+      - "https://portainer.{{ internal_domain }}"
+  - name: Proxmox
+    slug: proxmox
+    client_id: "{{ oidc_clients.proxmox.client_id }}"
+    client_secret: "{{ oidc_clients.proxmox.client_secret }}"
+    redirect_uris:
+      - "https://proxmox.{{ internal_domain }}:8006"
+      - "https://10.10.10.101:8006"
+
+# Tier-3 RADIUS for the Kemp LoadMaster WUI login (ADR 74/120).
+authentik_radius_provider_name: Kemp LoadMaster (RADIUS)
+authentik_radius_app_slug: kemp
+authentik_radius_outpost_name: RADIUS Outpost
+authentik_radius_client_networks: "10.10.10.0/24"

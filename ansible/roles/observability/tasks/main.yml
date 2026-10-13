@@ -404,11 +404,10 @@
     dest: /usr/local/share/ca-certificates/step-ca-root.crt
     mode: "0644"
   register: observability_step_ca_cert
-  when: grafana_oidc_client_id is defined
 
 - name: Update the system CA trust store
   ansible.builtin.command: update-ca-certificates
-  when: grafana_oidc_client_id is defined and observability_step_ca_cert.changed
+  when: observability_step_ca_cert.changed
 
 # --- Grafana OIDC via a systemd EnvironmentFile drop-in (docs/01 ADR 109) ----
 # This used to be a blockinfile in /etc/default/grafana-server. That file is
@@ -432,8 +431,8 @@
       GF_SERVER_ROOT_URL=http://{{ ansible_host }}:3000/
       GF_AUTH_GENERIC_OAUTH_ENABLED=true
       GF_AUTH_GENERIC_OAUTH_NAME=Authentik
-      GF_AUTH_GENERIC_OAUTH_CLIENT_ID={{ grafana_oidc_client_id }}
-      GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET={{ grafana_oidc_client_secret }}
+      GF_AUTH_GENERIC_OAUTH_CLIENT_ID={{ oidc_clients.grafana.client_id }}
+      GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET={{ oidc_clients.grafana.client_secret }}
       GF_AUTH_GENERIC_OAUTH_SCOPES="openid profile email"
       GF_AUTH_GENERIC_OAUTH_AUTH_URL=https://authentik.{{ internal_domain }}/application/o/authorize/
       GF_AUTH_GENERIC_OAUTH_TOKEN_URL=https://authentik.{{ internal_domain }}/application/o/token/
@@ -451,7 +450,6 @@
       GF_USERS_AUTO_ASSIGN_ORG_ROLE=Editor
   register: observability_grafana_oauth_env
   notify: restart grafana-server
-  when: grafana_oidc_client_id is defined and grafana_oidc_client_secret is defined
   no_log: true
 
 - name: Create the grafana-server systemd drop-in directory

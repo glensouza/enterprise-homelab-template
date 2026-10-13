@@ -8,8 +8,8 @@ AUTHENTICATION_SOURCES = ['oauth2', 'internal']
 OAUTH2_CONFIG = [{
     'OAUTH2_NAME': 'authentik',
     'OAUTH2_DISPLAY_NAME': 'Authentik',
-    'OAUTH2_CLIENT_ID': '{{ pgadmin_oidc_client_id }}',
-    'OAUTH2_CLIENT_SECRET': '{{ pgadmin_oidc_client_secret }}',
+    'OAUTH2_CLIENT_ID': '{{ oidc_clients.pgadmin.client_id }}',
+    'OAUTH2_CLIENT_SECRET': '{{ oidc_clients.pgadmin.client_secret }}',
     'OAUTH2_TOKEN_URL': 'https://authentik.{{ internal_domain }}/application/o/token/',
     'OAUTH2_AUTHORIZATION_URL': 'https://authentik.{{ internal_domain }}/application/o/authorize/',
     'OAUTH2_API_BASE_URL': 'https://authentik.{{ internal_domain }}/',

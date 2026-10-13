@@ -85,6 +85,8 @@ re-run (it then repairs the rest).
 | `SNMP_USER` / `SNMP_AUTH_PASSWORD` / `SNMP_PRIV_PASSWORD` | `roles/snmp-exporter` SNMPv3 login to the Synology and Kemp (ADR 116); the role also stores a vault copy in Infisical `/admin`. Set with `gh secret set <name>` (prompts, not echoed) and the same values on both devices. |
 | `ALERTMANAGER_SMTP_USER` / `ALERTMANAGER_SMTP_PASSWORD` | `roles/observability` Alertmanager email (ADR 114). The password is a Gmail **app password**; the role also stores a vault copy in Infisical `/admin`. |
 
+The Authentik OIDC client ids/secrets and the Kemp RADIUS shared secret are not GitHub secrets either: `group_vars/all` generates them once into `/opt/ansible-credentials/oidc/` on devops and both Authentik and the consuming roles read them (ADR 120).
+
 The Proxmox read-only token is not a GitHub secret: `terraform apply` creates it and writes `/opt/ansible-secrets/pve-exporter.yml` on devops (0600), which `converge.sh` loads (ADR 115). It is deleted and re-minted on destroy/apply.
 
 ```bash
