@@ -214,7 +214,7 @@ modules:
         lookups:
           - { labels: [rsIndex], labelname: rsVsIndex, oid: 1.3.6.1.4.1.12196.13.2.1.1, type: gauge }
           - { labels: [rsVsIndex], labelname: vsName, oid: 1.3.6.1.4.1.12196.13.1.1.13, type: DisplayString }
-          - { labels: [rsIndex], labelname: rsAddress, oid: 1.3.6.1.4.1.12196.13.2.1.2, type: InetAddress }
+          - { labels: [rsIndex], labelname: rsAddress, oid: 1.3.6.1.4.1.12196.13.2.1.2, type: DisplayString }
           - { labels: [rsIndex], labelname: rsPort, oid: 1.3.6.1.4.1.12196.13.2.1.3, type: gauge }
       - name: kemp_rs_active_connections
         oid: 1.3.6.1.4.1.12196.13.2.1.17
@@ -224,7 +224,7 @@ modules:
         lookups:
           - { labels: [rsIndex], labelname: rsVsIndex, oid: 1.3.6.1.4.1.12196.13.2.1.1, type: gauge }
           - { labels: [rsVsIndex], labelname: vsName, oid: 1.3.6.1.4.1.12196.13.1.1.13, type: DisplayString }
-          - { labels: [rsIndex], labelname: rsAddress, oid: 1.3.6.1.4.1.12196.13.2.1.2, type: InetAddress }
+          - { labels: [rsIndex], labelname: rsAddress, oid: 1.3.6.1.4.1.12196.13.2.1.2, type: DisplayString }
           - { labels: [rsIndex], labelname: rsPort, oid: 1.3.6.1.4.1.12196.13.2.1.3, type: gauge }
       - name: snmp_if_oper_status
         oid: 1.3.6.1.2.1.2.2.1.8
