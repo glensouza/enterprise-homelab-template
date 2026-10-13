@@ -75,8 +75,10 @@ Browsers show the green padlock only after the step-ca root certificate is trust
 scp root@10.10.130.121:/root/.step/certs/root_ca.crt .
 ```
 
+* **Windows, scripted (recommended):** `.\scripts\trust-homelab-ca.ps1` - fetches the root from devops, checks its SHA-256 fingerprint against the one step-ca itself reports, and only then runs `certutil -user -addstore Root` (Windows asks you to confirm). Pass `-Devops` / `-StepCa` for your own addresses. Restart the browser afterwards.
 * **Windows (current user):** `certutil -addstore -user Root root_ca.crt`
 * **Windows (all users, admin):** `certutil -addstore Root root_ca.crt`
+* **Rebuilds:** the CA state is saved on the controller and restored when the step-ca LXC is recreated (`docs/01` ADR 126), so the root - and your trust of it - survives `terraform destroy`. Only the very first CA after adopting ADR 126 is new; if a browser reports `ERR_CERT_AUTHORITY_INVALID` later, re-run the script.
 * **Domain fleet:** distribute via GPO — *Computer Configuration → Policies → Windows Settings → Security Settings → Public Key Policies → Trusted Root Certification Authorities*.
 
 ## 5. Operations & troubleshooting

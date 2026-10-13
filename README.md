@@ -63,6 +63,8 @@ enterprise-homelab-template/
 ├── terraform/                         # bpg/proxmox LXCs + resnickio/unifi VLANs/firewall (docs/08)
 ├── ansible/                           # LXC config: runtime, NFS, systemd, pgBackRest, DNS/PKI, Cockpit (docs/08)
 ├── deploy/preview/                    # Per-PR preview compose template (docs/11)
+├── scripts/
+│   └── trust-homelab-ca.ps1           # Windows: fetch, verify and trust the step-ca root (docs/11 section 4)
 ├── tests/
 │   └── BrewHouse.Tests/       
 ├── .githooks/
