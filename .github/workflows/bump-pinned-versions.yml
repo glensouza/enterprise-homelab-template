@@ -79,6 +79,13 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "${branch}"
           sed -i "s/^${VAR}: \"${current_version}\"/${VAR}: \"${latest_version}\"/" "${FILE}"
+          # The Garnet test image tag (AppHost; deploy-blazor/pr-preview read it from there) must track the production
+          # pin, or CI tests an older Garnet than the LXC runs (docs/01 ADR 122).
+          if [ "${COMPONENT}" = "garnet" ]; then
+            extra="src/BrewHouse.AppHost/Program.cs"
+            sed -i "s/garnet:${current_version}/garnet:${latest_version}/g; s/WithImageTag(\"${current_version}\")/WithImageTag(\"${latest_version}\")/" ${extra}
+            git add ${extra}
+          fi
           git add "${FILE}"
           git commit -m "chore: bump ${COMPONENT} to ${latest_version}"
           git push origin "${branch}"

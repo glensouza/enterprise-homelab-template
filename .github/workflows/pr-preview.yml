@@ -43,8 +43,10 @@ jobs:
     # needed here too since this runs the same test suite.
     - name: Pre-pull and locally re-tag the Garnet image (DCP/GHCR workaround)
       run: |
-        docker pull ghcr.io/microsoft/garnet:2.1.7
-        docker tag ghcr.io/microsoft/garnet:2.1.7 microsoft/garnet:2.1.7
+        # One source for the tag: the AppHost pin, which bump-pinned-versions.yml keeps equal to garnet_version.
+        GARNET_TAG=$(grep -A1 'WithImage("microsoft/garnet")' src/BrewHouse.AppHost/Program.cs | grep -oP 'WithImageTag\("\K[^"]+')
+        docker pull ghcr.io/microsoft/garnet:${GARNET_TAG}
+        docker tag ghcr.io/microsoft/garnet:${GARNET_TAG} microsoft/garnet:${GARNET_TAG}
 
     # Tests gate the preview deploy, same as homelab (deploy-blazor.yml).
     - name: Restore & Test
