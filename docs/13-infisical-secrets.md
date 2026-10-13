@@ -102,8 +102,8 @@ gh secret set ALERTMANAGER_SMTP_PASSWORD      # prompts; not echoed
    bootstraps it, then every other role pushes its secrets straight into the right project
    (`infisical_secret_target` -> `infisical_project_ids`) and each Agent renders only its own project.
    The same run then queues the **Deploy .NET 10 Blazor App** and **Deploy CritterWatch Console** jobs (ADR 121; the converge
-   only prepares those hosts), each behind its own `homelab` approval - approve them or the site stays down and Kemp reports
-   every real server out of service. A converge run by hand on devops (`bash converge.sh`) has none of the GitHub secrets
+   only prepares those hosts), ungated (the one approval on `apply` covers the whole run) so the site comes up without a second click, and
+   Kemp stops reporting every real server out of service. A converge run by hand on devops (`bash converge.sh`) has none of the GitHub secrets
    (SNMP, SMTP, tunnel token, Infisical admin); use the workflow when those must be applied.
 2. Verify:
    - `grep -c = /etc/brewhouse/brewhouse.env` -> `5`; `/etc/critterwatch/critterwatch.env` -> `2`.

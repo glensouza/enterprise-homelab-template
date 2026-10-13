@@ -240,15 +240,20 @@ jobs:
   # docs/01 ADR 121: the converge above only prepares the web nodes - the blazor-app role enables
   # the unit but never starts it (nothing is on :5000 until a release is deployed), so after a
   # rebuild Kemp reports every real server down and the Blazor app is simply absent. Calling the
-  # deploy workflow here makes "terraform apply" end with a running site. It keeps its own
-  # `environment: homelab` approval, so a human still approves the deploy separately.
+  # deploy workflow here makes "terraform apply" end with a running site. The deploys run ungated
+  # (`ungated: true` -> the approval-free `preview` environment): the one `homelab` approval on `apply`
+  # covers the whole run. Their own push / manual triggers keep the `homelab` gate.
   deploy-web:
     needs: apply
     uses: ./.github/workflows/deploy-blazor.yml
+    with:
+      ungated: true
     secrets: inherit
 
   # Same for CritterWatch (docs/01 ADR 121): nothing listens on its port until a release is deployed.
   deploy-critterwatch:
     needs: apply
     uses: ./.github/workflows/deploy-critterwatch.yml
+    with:
+      ungated: true
     secrets: inherit

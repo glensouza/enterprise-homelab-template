@@ -24,7 +24,14 @@ on:
   # nothing listening on :5000 until a real deploy lands).
   workflow_dispatch: {}
   # Called by terraform.yml after apply + converge (docs/01 ADR 121), same as deploy-blazor.yml.
-  workflow_call: {}
+  workflow_call:
+    inputs:
+      # true only from terraform.yml, whose own `apply` approval already covers the run (ADR 121): the
+      # job then uses the approval-free `preview` environment instead of `homelab`. Unset (push,
+      # workflow_dispatch) or false keeps the homelab approval gate.
+      ungated:
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy-critterwatch
@@ -33,7 +40,7 @@ concurrency:
 jobs:
   build-test-and-deploy:
     runs-on: self-hosted
-    environment: homelab
+    environment: ${{ inputs.ungated && 'preview' || 'homelab' }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7

@@ -27,7 +27,14 @@ on:
   # Called by terraform.yml after a successful apply + converge (docs/01 ADR 121): the converge
   # only prepares the web nodes (the blazor-app role never starts the unit), so a rebuild is not
   # finished until a release is deployed to them. Same job, same homelab approval gate.
-  workflow_call: {}
+  workflow_call:
+    inputs:
+      # true only from terraform.yml, whose own `apply` approval already covers the run (ADR 121): the
+      # job then uses the approval-free `preview` environment instead of `homelab`. Unset (push,
+      # workflow_dispatch) or false keeps the homelab approval gate.
+      ungated:
+        type: boolean
+        default: false
 
 # Only the latest push's run stays queued - an older one still waiting on
 # approval (or, if already approved, still mid-deploy) gets cancelled the
@@ -42,7 +49,7 @@ concurrency:
 jobs:
   build-test-and-deploy:
     runs-on: self-hosted
-    environment: homelab
+    environment: ${{ inputs.ungated && 'preview' || 'homelab' }}
     steps:
     - name: Checkout Code
       uses: actions/checkout@v7
