@@ -399,6 +399,7 @@ resource "unifi_firewall_policy" "drop_web_to_mgmt" {
     unifi_firewall_policy.web_to_homepage,
     unifi_firewall_policy.web_to_observability_otlp,
     unifi_firewall_policy.web_to_technitium_dns,
+    unifi_firewall_policy.web_to_authentik,
   ]
 }
 
