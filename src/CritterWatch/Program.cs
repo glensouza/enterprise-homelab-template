@@ -43,7 +43,8 @@ builder.AddCritterWatch(
         // globally).
         opts.UseRabbitMq(new Uri(rabbitConnectionString))
             .AutoProvision();
-        opts.ListenToRabbitQueue("critterwatch");
+        // Same arguments as BrewHouse's sender side (docs/01 ADR 124): no dead-letter exchange, stale telemetry is dropped.
+        opts.ListenToRabbitQueue("critterwatch").DisableDeadLetterQueueing();
     });
 
 var app = builder.Build();

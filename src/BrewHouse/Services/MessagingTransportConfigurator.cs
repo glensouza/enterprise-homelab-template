@@ -5,6 +5,7 @@ using Wolverine.AzureServiceBus;
 using Wolverine.CritterWatch;
 using Wolverine.Postgresql;
 using Wolverine.RabbitMQ;
+using Wolverine.RabbitMQ.Internal;
 
 namespace BrewHouse.Services;
 
@@ -100,6 +101,14 @@ public static class MessagingTransportConfigurator
                 options.AddCritterWatchMonitoring(
                     critterWatchUri: new Uri("rabbitmq://queue/critterwatch"),
                     systemControlUri: new Uri("rabbitmq://queue/brewhouse-control"));
+
+                // docs/01 ADR 124: telemetry is only useful while it is fresh (ServiceUpdates carry a ~45 s
+                // expiry). With the transport-wide dead-letter exchange on this queue, every expired message
+                // piled up in wolverine-dead-letter-queue whenever the console was down or not yet deployed
+                // (1,500+ in 40 minutes after a rebuild). No dead-letter exchange: an expired status update
+                // is simply dropped. The console's own listener on this queue must declare it the same way
+                // (src/CritterWatch/Program.cs) - RabbitMQ rejects a redeclare with different arguments.
+                options.Transports.GetOrCreate<RabbitMqTransport>().Queues["critterwatch"].DeadLetterQueue = null;
                 break;
         }
     }

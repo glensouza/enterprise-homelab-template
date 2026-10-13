@@ -81,4 +81,20 @@ public class MessagingTransportConfiguratorTests
                 ServiceBusConnectionString = null,
             }));
     }
+
+    // docs/01 ADR 124: expired CritterWatch telemetry must be dropped, not dead-lettered.
+    [Fact]
+    public void Configure_Rabbitmq_CritterWatch_Queue_Has_No_DeadLetterQueue()
+    {
+        var options = new WolverineOptions();
+
+        MessagingTransportConfigurator.Configure(options, new MessagingTransportSettings
+        {
+            Transport = MessagingTransportConfigurator.RabbitMq,
+            RabbitMqConnectionString = "amqp://guest:guest@localhost:5672",
+        });
+
+        var transport = options.Transports.GetOrCreate<RabbitMqTransport>();
+        Assert.Null(transport.Queues["critterwatch"].DeadLetterQueue);
+    }
 }
