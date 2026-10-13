@@ -57,4 +57,15 @@ if not outpost.providers.filter(pk=provider.pk).exists():
     outpost.providers.add(provider)
     changed = True
 
+# The embedded outpost builds the redirect to the login flow from its own authentik_host. Left empty
+# (the rebuilt default) it falls back to localhost, so an unauthenticated visitor to any forward-auth
+# app was bounced to https://localhost/... instead of Authentik (docs/01 ADR 123).
+authentik_host = "https://authentik.{{ internal_domain }}"
+outpost_config = outpost.config
+if outpost_config.authentik_host != authentik_host:
+    outpost_config.authentik_host = authentik_host
+    outpost.config = outpost_config
+    outpost.save()
+    changed = True
+
 print("FORWARD_AUTH_CHANGED" if changed else "FORWARD_AUTH_OK", slug)
