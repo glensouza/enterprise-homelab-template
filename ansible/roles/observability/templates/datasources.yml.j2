@@ -1,6 +1,14 @@
 # Managed by Ansible (roles/observability) — manual edits will be overwritten.
 apiVersion: 1
 
+# The Prometheus datasource gained a fixed uid (dashboards reference it, ADR 114). Grafana cannot
+# change the uid of a datasource it already provisioned under the same name: provisioning fails with
+# "data source not found" and grafana-server exits in a restart loop (seen 2026-10-13). Deleting it
+# first lets it be re-created with the fixed uid; everything here is config-as-code, so nothing is lost.
+deleteDatasources:
+  - name: Prometheus
+    orgId: 1
+
 datasources:
   - name: Prometheus
     uid: prometheus
