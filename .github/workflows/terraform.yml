@@ -236,3 +236,19 @@ jobs:
           SNMP_AUTH_PASSWORD: ${{ secrets.SNMP_AUTH_PASSWORD }}
           SNMP_PRIV_PASSWORD: ${{ secrets.SNMP_PRIV_PASSWORD }}
         run: bash ./converge.sh
+
+  # docs/01 ADR 121: the converge above only prepares the web nodes - the blazor-app role enables
+  # the unit but never starts it (nothing is on :5000 until a release is deployed), so after a
+  # rebuild Kemp reports every real server down and the Blazor app is simply absent. Calling the
+  # deploy workflow here makes "terraform apply" end with a running site. It keeps its own
+  # `environment: homelab` approval, so a human still approves the deploy separately.
+  deploy-web:
+    needs: apply
+    uses: ./.github/workflows/deploy-blazor.yml
+    secrets: inherit
+
+  # Same for CritterWatch (docs/01 ADR 121): nothing listens on its port until a release is deployed.
+  deploy-critterwatch:
+    needs: apply
+    uses: ./.github/workflows/deploy-critterwatch.yml
+    secrets: inherit

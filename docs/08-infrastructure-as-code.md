@@ -58,6 +58,7 @@ ansible/
    terraform plan
    terraform apply   # creates VLANs, firewall rules, and all 12 LXCs,
                      # then renders ansible/inventory/terraform-hosts.yml
+                     # then the chained converge, then the web + CritterWatch deploys (one approval each, ADR 121)
    ```
 
 > **Scope note:** the Kemp LoadMaster VIP, sticky sessions, and Let's Encrypt DNS-01 (`docs/03`, `docs/09`) remain manual/GUI-managed — Kemp ships no supported Terraform provider. Everything *behind* the VIP is code.

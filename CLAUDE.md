@@ -142,7 +142,7 @@ same as a real status page is meant to be.
 The whole lab is `terraform apply && ansible-playbook site.yml` — see `docs/08-infrastructure-as-code.md`:
 
 - **Terraform** (`terraform/`): `bpg/proxmox` for the 16 LXCs, `resnickio/unifi` for the VLAN 110/120/130/140 networks and the zone-based firewall policy matrix (not `paultyng/unifi` — its legacy `LAN_IN`/`rule_index` model is rejected by UniFi Network 8.x+, ADR 17). `lxc.tf` / `unifi.tf` are code mirrors of `docs/04` / `docs/05` — change all three together. Apply renders the Ansible inventory.
-- **Ansible** (`ansible/`): converges the web nodes (dotnet-runtime, blazor-app), the Postgres node (pgBackRest + pg-dump-prune), the preview infrastructure (technitium DNS, step-ca PKI, resolver, docker + preview-host incl. the ops stack on VLAN 140), and fleet-wide Cockpit (`hosts: all`, runs last — needs the certs the step-ca play fetches). Units are copied verbatim from `src/systemd/` — edit them there and re-run the playbook.
+- **Ansible** (`ansible/`): converges the web nodes (dotnet-runtime, blazor-app), the Postgres node (pgBackRest + pg-dump-prune), the preview infrastructure (technitium DNS, step-ca PKI, resolver, docker + preview-host incl. the ops stack on VLAN 140), and fleet-wide Cockpit (`hosts: all`, runs last — needs the certs the step-ca play fetches). Units are copied verbatim from `src/systemd/` — edit them there and re-run the playbook. A `terraform.yml` run ends with the web-app and CritterWatch deploys (reusable workflows behind their own `homelab` approvals, ADR 121), because the converge only prepares those hosts.
 - **Kemp LoadMaster** remains GUI-managed (no supported Terraform provider).
 
 ## CI/CD & deployments

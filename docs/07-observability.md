@@ -38,6 +38,10 @@ The `OTEL_EXPORTER_OTLP_ENDPOINT` value is rendered into `/etc/brewhouse/brewhou
 
 **Enable SNMPv3 on the Kemp LoadMaster (WUI `https://10.10.10.199`, LMOS 7.2.63.2):** System Configuration -> Logging Options -> SNMP Options (the path was confirmed in the live WUI; it is not under Miscellaneous Options) -> tick *Enable SNMP*, then *Enable SNMP V3* (the SNMP Clients and Community String fields are unavailable in v3 mode, so v1/v2c is off and the device cannot restrict clients); on the SNMP V3 Options page set the user name = `SNMP_USER`, authentication protocol *SHA* + the auth password, *Enable Privacy* with protocol *AES* + the privacy password. Progress warns that enabling SNMP "causes a significant performance hit", so the Kemp job is polled once a minute. (Field labels per Progress' LoadMaster WUI guide.)
 
+**Reading the Kemp metrics (ADR 121):** the LoadMaster lists three virtual-service rows for the Blazor VIP - `Blazor-App-VIP` (443), `Blazor-App-VIP-80` (80) and an unnamed **SubVS** (port 0, `vsAddress="slave of 10.10.110.199"`) that carries the two real servers behind the 443 service. A real server appears once per virtual service it is attached to, so the same pair shows under the port-80 service and under the SubVS: one pair of backends, two paths, not a duplicate. The SubVS reports zero connections because Kemp counts its traffic on the parent; the alert summaries show it as `SubVS (<vsAddress>)`.
+
+A converge run by hand with `bash converge.sh` on devops has none of the GitHub-secret environment variables, so it rewrites `prometheus.yml` without the SNMP jobs (and skips the SMTP and tunnel-token tasks); run the **Ansible Converge** workflow for any converge that must keep them (docs/13).
+
 Passwords: 20+ characters, letters and digits only (DSM rejects `"`, `'`, `\` and spaces); `openssl rand -hex 16` gives a suitable one. Check from devops: `snmpwalk -v3 -l authPriv -u <user> -a SHA -A <auth> -x AES -X <priv> 10.10.10.90 1.3.6.1.4.1.6574.1`.
 
 ## 4. Health Checks

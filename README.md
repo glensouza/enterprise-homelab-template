@@ -75,8 +75,8 @@ enterprise-homelab-template/
         ├── pr-preview.yml             # Deploy isolated preview env per PR (self-hosted, docs/11)
         ├── pr-preview-cleanup.yml     # Tear down the preview env on PR merge/close
         ├── bump-minor.yml             # Auto-bump MINOR version on PR open against main
-        ├── deploy-blazor.yml          # Test -> backup DB -> migrate -> symlinked release deploy
-        ├── deploy-critterwatch.yml    # Test -> publish -> symlinked release deploy (single instance)
+        ├── deploy-blazor.yml          # Test -> backup DB -> migrate -> symlinked release deploy (also called by terraform.yml)
+        ├── deploy-critterwatch.yml    # Test -> publish -> symlinked release deploy (single instance; also called by terraform.yml)
         └── rollback.yml               # Manual rollback to any of the last 5 releases
 ```
 

@@ -23,6 +23,8 @@ on:
   # own workflow_dispatch (e.g. the LXC's container gets recreated and has
   # nothing listening on :5000 until a real deploy lands).
   workflow_dispatch: {}
+  # Called by terraform.yml after apply + converge (docs/01 ADR 121), same as deploy-blazor.yml.
+  workflow_call: {}
 
 concurrency:
   group: deploy-critterwatch

@@ -166,6 +166,7 @@ groups:
 
   - name: kemp
     rules:
+      # A SubVS has no name (empty vsName) and a vsAddress of "slave of <parent ip>" - the summaries fall back to that.
       # vSState: 1 inService, 2 outOfService, 4 disabled (administrative), 5 sorry, 6 redirect,
       # 7 errormsg, 8 securityDown. A deliberately disabled service (4) is not an alert.
       - alert: KempVirtualServiceDown
@@ -174,7 +175,7 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "Kemp virtual service {{ $labels.vsName }} (index {{ $labels.vsIndex }}) is not in service"
+          summary: "Kemp virtual service {{ if $labels.vsName }}{{ $labels.vsName }}{{ else }}SubVS ({{ $labels.vsAddress }}){{ end }} (index {{ $labels.vsIndex }}) is not in service"
           description: "vSState is {{ $value }} (2 outOfService, 5 sorry, 6 redirect, 7 errormsg, 8 securityDown)."
 
       # rSState: 1 inService, 2 outOfService, 4 disabled.
@@ -184,5 +185,5 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Kemp real server {{ $labels.rsAddress }}:{{ $labels.rsPort }} ({{ $labels.vsName }}) is out of service"
+          summary: "Kemp real server {{ $labels.rsAddress }}:{{ $labels.rsPort }} ({{ if $labels.vsName }}{{ $labels.vsName }}{{ else }}SubVS ({{ $labels.vsAddress }}){{ end }}) is out of service"
           description: "The LoadMaster's health check has taken real server {{ $labels.rsAddress }}:{{ $labels.rsPort }} out of rotation for 3 minutes."
