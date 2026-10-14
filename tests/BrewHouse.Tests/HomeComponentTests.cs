@@ -60,11 +60,11 @@ public class HomeComponentTests : BunitContext
             cut.WaitForAssertion(() =>
             {
                 Assert.Contains("Photo written to storage backend and read back successfully.", cut.Markup);
-                Assert.Contains("/api/photos/auctions/coffee/Segfault-Yirgacheffe-Front.png", cut.Markup);
+                Assert.Contains("/api/photos/auctions/coffee/Terraform-Roast-Front.png", cut.Markup);
             }, TimeSpan.FromSeconds(5));
             mockBlobStore.Verify(
                 b => b.WriteBytesAsync(
-                    "auctions/coffee/Segfault-Yirgacheffe-Front.png",
+                    "auctions/coffee/Terraform-Roast-Front.png",
                     samplePhotoBytes,
                     "image/png",
                     It.IsAny<CancellationToken>()),

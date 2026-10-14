@@ -18,8 +18,8 @@
     @if (PhotoUrl is not null)
     {
         <figure class="lot-photo">
-            <img src="@PhotoUrl" alt="Segfault Yirgacheffe lot photo" />
-            <figcaption>Segfault Yirgacheffe &mdash; @PhotoBlobPath</figcaption>
+            <img src="@PhotoUrl" alt="Terraform Roast lot photo" />
+            <figcaption>Terraform Roast &mdash; @PhotoBlobPath</figcaption>
         </figure>
     }
 </div>
@@ -29,7 +29,7 @@
 </div>
 
 @code {
-    private const string PhotoBlobPath = "auctions/coffee/Segfault-Yirgacheffe-Front.png";
+    private const string PhotoBlobPath = "auctions/coffee/Terraform-Roast-Front.png";
     private string UploadStatus = "Ready.";
     private string? PhotoUrl;
     private bool IsUploading;

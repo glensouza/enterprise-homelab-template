@@ -87,7 +87,11 @@ public static class MessagingTransportConfigurator
                 if (string.IsNullOrWhiteSpace(settings.RabbitMqConnectionString))
                     throw new InvalidOperationException(
                         "ConnectionStrings:messaging is required when Messaging:Transport is 'rabbitmq'.");
-                options.UseRabbitMq(new Uri(settings.RabbitMqConnectionString)).AutoProvision();
+                // docs/01 ADR 127: no RabbitMQ dead-letter exchange anywhere. A message that exhausts its retries is parked
+                // in Wolverine's own database table (wolverine.wolverine_dead_letters), which is what the admin page
+                // (ADR 125) lists, replays and discards. With the native exchange it went to
+                // wolverine-dead-letter-queue instead, invisible to the page.
+                options.UseRabbitMq(new Uri(settings.RabbitMqConnectionString)).AutoProvision().DisableDeadLetterQueueing();
                 options.PublishMessage<ProcessBidMessage>().ToRabbitQueue("bids");
                 options.ListenToRabbitQueue("bids");
 

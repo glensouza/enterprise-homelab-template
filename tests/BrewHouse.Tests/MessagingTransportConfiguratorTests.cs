@@ -2,6 +2,7 @@ using BrewHouse.Services;
 using Wolverine;
 using Wolverine.AmazonSqs.Internal;
 using Wolverine.AzureServiceBus;
+using Wolverine.RabbitMQ;
 using Wolverine.RabbitMQ.Internal;
 using Xunit;
 
@@ -96,5 +97,22 @@ public class MessagingTransportConfiguratorTests
 
         var transport = options.Transports.GetOrCreate<RabbitMqTransport>();
         Assert.Null(transport.Queues["critterwatch"].DeadLetterQueue);
+    }
+
+    // docs/01 ADR 127: failed bids must park in Wolverine's database dead-letter table (what the admin page lists),
+    // not in RabbitMQ's wolverine-dead-letter-queue.
+    [Fact]
+    public void Configure_Rabbitmq_Uses_Wolverine_Database_Dead_Letters()
+    {
+        var options = new WolverineOptions();
+
+        MessagingTransportConfigurator.Configure(options, new MessagingTransportSettings
+        {
+            Transport = MessagingTransportConfigurator.RabbitMq,
+            RabbitMqConnectionString = "amqp://guest:guest@localhost:5672",
+        });
+
+        var transport = options.Transports.GetOrCreate<RabbitMqTransport>();
+        Assert.Equal(DeadLetterQueueMode.WolverineStorage, transport.DeadLetterQueue.Mode);
     }
 }
