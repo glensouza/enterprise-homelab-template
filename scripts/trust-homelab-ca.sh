@@ -9,8 +9,10 @@
 #   3. install it: macOS System keychain, or the Linux system store (Debian/Ubuntu, Fedora/RHEL family),
 #      plus the per-user NSS database that Chrome/Chromium/Firefox-on-Linux read, when `certutil` is available
 #
-# Usage: scripts/trust-homelab-ca.sh [--devops IP] [--step-ca IP] [--out FILE] [--dry-run] [--no-nss]
+# Usage: scripts/trust-homelab-ca.sh [--devops IP] [--step-ca IP] [--out FILE] [--dry-run] [--no-nss] [--keep]
 #   --dry-run  fetch and verify only; install nothing (needs no sudo)
+#   --keep     leave the downloaded certificate file in place (by default a file the script chose itself
+#              in ~/Downloads or the temp directory is deleted after a successful install; --out is always kept)
 # Defaults match this repo's addressing (devops 10.10.10.111, step-ca 10.10.130.121); override for your own lab.
 # Needs: ssh/scp access to root@devops, openssl, and sudo for the install step.
 
@@ -23,6 +25,8 @@ CERT_NAME="BrewHouse Homelab CA Root CA"
 OUT=""
 DRY_RUN=0
 NO_NSS=0
+KEEP=0
+OUT_DEFAULTED=0
 
 die() { echo "error: $*" >&2; exit 1; }
 
@@ -55,11 +59,13 @@ parse_args() {
       --out)     OUT="${2:?--out needs a value}"; shift 2 ;;
       --dry-run) DRY_RUN=1; shift ;;
       --no-nss)  NO_NSS=1; shift ;;
+      --keep)    KEEP=1; shift ;;
       -h|--help) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
       *) die "unknown argument: $1 (try --help)" ;;
     esac
   done
   if [ -z "$OUT" ]; then
+    OUT_DEFAULTED=1
     if [ -d "$HOME/Downloads" ]; then OUT="$HOME/Downloads/brewhouse-root_ca.crt"
     else OUT="${TMPDIR:-/tmp}/brewhouse-root_ca.crt"
     fi
@@ -133,6 +139,10 @@ main() {
     *)       die "unsupported OS $(uname -s) - on Windows use scripts/trust-homelab-ca.ps1" ;;
   esac
   install_nss
+  if [ "$OUT_DEFAULTED" -eq 1 ] && [ "$KEEP" -eq 0 ]; then
+    rm -f "$OUT"
+    echo "Removed the downloaded copy ($OUT); the trusted copy lives in the system store."
+  fi
   echo "Done. Fully restart your browser so it picks up the new root."
   echo "Firefox keeps its own store on every OS: import $OUT under Settings > Privacy & Security > Certificates > View Certificates > Authorities, or enable security.enterprise_roots.enabled."
 }
