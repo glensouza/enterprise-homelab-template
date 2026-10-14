@@ -21,16 +21,21 @@ authentik_worker_https_port: 8443
 authentik_redis_cache_db: 0
 authentik_redis_channel_db: 1
 
-# Tier-2 forward-auth apps whose Authentik Provider/Application this role
-# manages (docs/01 ADR 107). host = the <host>.{{ internal_domain }} label.
+# Tier-2 forward-auth apps whose Authentik Application this role manages (docs/01 ADR 107, ADR 128).
+# host = the <host>.{{ internal_domain }} label. Exactly ONE entry carries `domain_provider: true`: its
+# Provider is the single forward-domain Provider (cookie_domain = internal_domain) the embedded outpost uses
+# for every host under the domain. Several domain-wide Providers tie in the outpost's suffix match and one
+# was picked arbitrarily (CritterWatch's login bounced through Dozzle's callback), so the other apps are
+# provider-less launcher entries behind the same sign-in. Its host is only the OIDC callback host: it must
+# NOT be authentik.<domain> (the exact-match path is the anonymous-bypass bug of ADR 71).
 authentik_forward_auth_apps:
+  - { name: Homepage, slug: homepage, host: homepage, domain_provider: true }
   - { name: CritterWatch, slug: critterwatch, host: critterwatch }
   # ADR 66's original five were hand-created and lost with the 2026-10-12 rebuild (ADR 120).
   - { name: Dozzle, slug: dozzle, host: dozzle }
   - { name: RedisInsight, slug: redisinsight, host: redisinsight }
   - { name: Uptime Kuma, slug: uptime-kuma, host: kuma }
   - { name: PatchMon, slug: patchmon, host: patchmon }
-  - { name: Homepage, slug: homepage, host: homepage }
 
 # Tier-1 native OIDC apps (docs/01 ADR 72/73/120). client_id/client_secret come from oidc_clients
 # (group_vars/all) - the consuming role reads the same values. Infisical is not listed: its SSO needs a
