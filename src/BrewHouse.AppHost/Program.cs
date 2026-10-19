@@ -29,15 +29,15 @@ var brewhouseDb = postgres.AddDatabase("brewhousedb");
 //    incompatibility, not a real permissions issue - CI pre-pulls from
 //    ghcr.io and re-tags to this registry-less local name before tests run
 //    (see deploy-blazor.yml/pr-preview.yml); do the same for local dev:
-//      docker pull ghcr.io/microsoft/garnet:2.2.1
-//      docker tag ghcr.io/microsoft/garnet:2.2.1 microsoft/garnet:2.2.1
+//      docker pull ghcr.io/microsoft/garnet:2.2.3
+//      docker tag ghcr.io/microsoft/garnet:2.2.3 microsoft/garnet:2.2.3
 // 2. WithEntrypoint is required - AddRedis("cache") still injects Aspire's
 //    own `redis-server` startup command regardless of the swapped image,
 //    and Garnet's image has no such binary (only /app/GarnetServer),
 //    crashing with exit code 127 ("redis-server: not found") without this.
 var cache = builder.AddRedis("cache")
     .WithImage("microsoft/garnet")
-    .WithImageTag("2.2.1")
+    .WithImageTag("2.2.3")
     .WithEntrypoint("/app/GarnetServer")
     .WithDataVolume("brewhouse-cache-data");
 
