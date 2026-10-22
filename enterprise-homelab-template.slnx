@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/samples/">
+    <Project Path="samples/YarpGateway/YarpGateway.csproj" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/BrewHouse.AppHost/BrewHouse.AppHost.csproj" />
     <Project Path="src/BrewHouse/BrewHouse.csproj" />

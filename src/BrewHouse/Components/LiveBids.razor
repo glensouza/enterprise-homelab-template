@@ -1,10 +1,10 @@
 @using System.Globalization
-@using Microsoft.EntityFrameworkCore
 @using BrewHouse.Data
 @using BrewHouse.Services
 @using Wolverine
 @implements IDisposable
-@inject IDbContextFactory<AuctionDbContext> DbContextFactory
+@inject ICoffeeLotReader CoffeeLotReader
+@inject ISimilarLotQuery SimilarLots
 @inject IMessageBus MessageBus
 @inject IBidsClient BidsClient
 
@@ -43,6 +43,10 @@ else
             }
         </tbody>
     </table>
+    @if (_nearest is not null && _coffeeLots is { Count: > 0 })
+    {
+        <p class="similar-lot" data-testid="similar-lot">Nearest to @_coffeeLots[0].Origin: @_nearest.Origin</p>
+    }
 }
 
 @code {
@@ -52,13 +56,15 @@ else
     private static readonly CultureInfo UsCurrency = CultureInfo.GetCultureInfo("en-US");
     private static string FormatUsd(decimal amount) => amount.ToString("C", UsCurrency);
 
-    private List<CoffeeLot>? _coffeeLots;
+    private List<CoffeeLotSnapshot>? _coffeeLots;
+    private CoffeeLotSnapshot? _nearest;
     private readonly HashSet<int> _recentlyUpdated = [];
 
     protected override async Task OnInitializedAsync()
     {
-        await using var db = await DbContextFactory.CreateDbContextAsync();
-        _coffeeLots = await db.CoffeeLots.OrderBy(l => l.Origin).ToListAsync();
+        _coffeeLots = (await CoffeeLotReader.GetLotsAsync()).ToList();
+        if (_coffeeLots.Count > 0)
+            _nearest = await SimilarLots.FindNearestAsync(_coffeeLots[0].Id);
 
         BidsClient.BidPlaced += OnBidPlaced;
         await BidsClient.StartAsync();

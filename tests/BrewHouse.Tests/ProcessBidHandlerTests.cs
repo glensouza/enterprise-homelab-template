@@ -35,6 +35,13 @@ public class ProcessBidHandlerTests
         return (hubContext.Object, clientProxy);
     }
 
+    private static ICoffeeLotReader CreateLots()
+    {
+        var lots = new Mock<ICoffeeLotReader>();
+        lots.Setup(reader => reader.InvalidateAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        return lots.Object;
+    }
+
     [Fact]
     public async Task Handle_ExistingCoffeeLot_Updates_CurrentBid_And_Broadcasts()
     {
@@ -47,6 +54,7 @@ public class ProcessBidHandlerTests
             new ProcessBidMessage { CoffeeLotId = 1, BidAmount = 50000m },
             db,
             hubContext,
+            CreateLots(),
             NullLogger<AuctionDbContext>.Instance);
 
         var coffeeLot = await db.CoffeeLots.FindAsync(1);
@@ -70,6 +78,7 @@ public class ProcessBidHandlerTests
             new ProcessBidMessage { CoffeeLotId = 1, BidAmount = bidAmount },
             db,
             hubContext,
+            CreateLots(),
             NullLogger<AuctionDbContext>.Instance);
 
         var coffeeLot = await db.CoffeeLots.FindAsync(1);
@@ -90,6 +99,46 @@ public class ProcessBidHandlerTests
                 new ProcessBidMessage { CoffeeLotId = 999, BidAmount = 50000m },
                 db,
                 hubContext,
+                CreateLots(),
                 NullLogger<AuctionDbContext>.Instance));
+    }
+
+    [Fact]
+    public async Task Handle_LosingConcurrentBid_Does_Not_Overwrite_The_Winner()
+    {
+        var databaseName = Guid.NewGuid().ToString();
+        var options = new DbContextOptionsBuilder<AuctionDbContext>()
+            .UseInMemoryDatabase(databaseName)
+            .Options;
+
+        await using (var seed = new AuctionDbContext(options))
+        {
+            seed.CoffeeLots.Add(new CoffeeLot { Id = 1, Origin = "Terraform Roast", CurrentBid = 100m });
+            await seed.SaveChangesAsync();
+        }
+
+        await using var losing = new AuctionDbContext(options);
+        var stale = await losing.CoffeeLots.FindAsync(1);
+        Assert.NotNull(stale);
+
+        await using var winning = new AuctionDbContext(options);
+        var (hubContext, _) = CreateHubContext();
+        await ProcessBidHandler.Handle(
+            new ProcessBidMessage { CoffeeLotId = 1, BidAmount = 600m },
+            winning,
+            hubContext,
+            CreateLots(),
+            NullLogger<AuctionDbContext>.Instance);
+
+        await ProcessBidHandler.Handle(
+            new ProcessBidMessage { CoffeeLotId = 1, BidAmount = 500m },
+            losing,
+            hubContext,
+            CreateLots(),
+            NullLogger<AuctionDbContext>.Instance);
+
+        await using var check = new AuctionDbContext(options);
+        var saved = await check.CoffeeLots.FindAsync(1);
+        Assert.Equal(600m, saved!.CurrentBid);
     }
 }

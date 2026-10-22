@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 using BrewHouse.Data;
+using BrewHouse.Services;
+using Pgvector.EntityFrameworkCore;
 using Xunit;
 
 namespace BrewHouse.Tests;
@@ -29,7 +31,7 @@ public class DatabaseIntegrationTests
         Assert.False(string.IsNullOrWhiteSpace(connectionString));
 
         var options = new DbContextOptionsBuilder<AuctionDbContext>()
-            .UseNpgsql(connectionString)
+            .UseNpgsql(connectionString, npgsql => npgsql.UseVector())
             .Options;
         await using var db = new AuctionDbContext(options);
 
@@ -70,7 +72,7 @@ public class DatabaseIntegrationTests
         Assert.False(string.IsNullOrWhiteSpace(connectionString));
 
         var options = new DbContextOptionsBuilder<AuctionDbContext>()
-            .UseNpgsql(connectionString, x => x.MigrationsAssembly(typeof(AuctionDbContext).Assembly.FullName))
+            .UseNpgsql(connectionString, x => x.UseVector().MigrationsAssembly(typeof(AuctionDbContext).Assembly.FullName))
             .Options;
         await using var db = new AuctionDbContext(options);
 
@@ -86,7 +88,64 @@ public class DatabaseIntegrationTests
 
         await migrator.MigrateAsync("20260917051217_RenameEquipmentToCoffeeLot");
 
-        var saved = await db.CoffeeLots.SingleAsync(e => e.Origin == origin);
-        Assert.Equal(125000m, saved.CurrentBid);
+        // Raw SQL, not the current CoffeeLot model: this assertion runs against the schema as it
+        // existed at the rename, which does not yet have the embedding column.
+        await using var connection = db.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open)
+            await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = """SELECT "CurrentBid" FROM "CoffeeLots" WHERE "Origin" = @origin""";
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = "origin";
+        parameter.Value = origin;
+        command.Parameters.Add(parameter);
+        var savedBid = (decimal)(await command.ExecuteScalarAsync())!;
+        Assert.Equal(125000m, savedBid);
+    }
+
+    [Fact]
+    public async Task Nearest_Lot_Uses_Cosine_Distance_On_Postgres()
+    {
+        var builder = await DistributedApplicationTestingBuilder.CreateAsync<Projects.BrewHouse_AppHost>();
+        await using var app = await builder.BuildAsync();
+        await app.StartAsync();
+
+        var connectionString = await app.GetConnectionStringAsync("brewhousedb");
+        var options = new DbContextOptionsBuilder<AuctionDbContext>()
+            .UseNpgsql(connectionString, npgsql => npgsql.UseVector())
+            .Options;
+        int anchorId;
+        await using (var db = new AuctionDbContext(options))
+        {
+            await db.Database.MigrateAsync();
+            // The AppHost volume persists across runs. Postgres_Is_Reachable and an earlier
+            // draft of this test leave extra rows behind. A row whose embedding matches the
+            // anchor is cosine distance 0 and wins over every real neighbor.
+            string[] seededOrigins =
+            [
+                "Terraform Roast",
+                "Proxmox Pour-Over",
+                "Wolverine Dark Roast",
+                "Rabbit Hole Espresso",
+                "Garnet Reserve",
+            ];
+            await db.CoffeeLots.Where(lot => !seededOrigins.Contains(lot.Origin)).ExecuteDeleteAsync();
+            anchorId = await db.CoffeeLots
+                .Where(lot => lot.Origin == "Terraform Roast")
+                .Select(lot => lot.Id)
+                .SingleAsync();
+        }
+
+        var nearest = await new SimilarLotQuery(new AuctionDbContextFactoryAdapter(options)).FindNearestAsync(anchorId);
+        Assert.NotNull(nearest);
+        Assert.Equal("Wolverine Dark Roast", nearest.Origin);
+    }
+
+    private sealed class AuctionDbContextFactoryAdapter(DbContextOptions<AuctionDbContext> options) : IDbContextFactory<AuctionDbContext>
+    {
+        public AuctionDbContext CreateDbContext() => new(options);
+
+        public Task<AuctionDbContext> CreateDbContextAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(CreateDbContext());
     }
 }

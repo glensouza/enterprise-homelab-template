@@ -9,6 +9,8 @@ open in [draw.io](https://app.diagrams.net/) or the VS Code draw.io extension). 
 as `request-flows-bid.png` and `request-flows-photo-upload.png` — export both tabs at 2x
 and drop them in `docs/` alongside this file if the images below aren't showing yet.
 
+The lot list on the page comes from `ICoffeeLotReader`: Garnet key `brewhouse:coffee-lots` for five seconds, then Postgres (ADR 130). The same page asks `SimilarLotQuery` for one cosine neighbor of the first lot when the database is Npgsql (ADR 133). `POST /api/v1/auctions/{id}/bids` publishes the same `ProcessBidMessage` the button publishes (ADR 134).
+
 ## Placing a bid — asynchronous, queued
 
 ![Bid flow diagram: Browser A clicks Bid, the Blazor circuit publishes a durable message to RabbitMQ, Wolverine delivers it to ProcessBidHandler which writes to Postgres and broadcasts through Garnet to every open browser.](request-flows-bid.png)
@@ -23,7 +25,9 @@ and drop them in `docs/` alongside this file if the images below aren't showing 
    up next — seconds later, not synchronously with step 2. It does not have to be the
    same node that published it.
 4. **`ProcessBidHandler` writes the new bid** to Postgres (`brewhouse_db`,
-   `CoffeeLots.CurrentBid`) via EF Core.
+   `CoffeeLots.CurrentBid`) via EF Core only when the amount still beats the standing
+   price. `CurrentBid` is a concurrency token (ADR 132). A losing overlap reloads once
+   and drops the bid. A successful save invalidates `brewhouse:coffee-lots`.
 5. **The handler broadcasts `BidPlaced`** through Garnet, the shared SignalR backplane
    (ADR 04/08) — this is what actually fans a single bid out to every connected browser
    regardless of which web node they're attached to.

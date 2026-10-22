@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using Pgvector;
 
 #nullable disable
 
@@ -19,6 +20,7 @@ namespace BrewHouse.Migrations
                 .HasAnnotation("ProductVersion", "10.0.0")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "vector");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("BrewHouse.Data.CoffeeLot", b =>
@@ -30,7 +32,11 @@ namespace BrewHouse.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<decimal>("CurrentBid")
+                        .IsConcurrencyToken()
                         .HasColumnType("numeric");
+
+                    b.Property<Vector>("Embedding")
+                        .HasColumnType("vector(32)");
 
                     b.Property<string>("Origin")
                         .IsRequired()

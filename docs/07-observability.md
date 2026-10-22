@@ -8,7 +8,7 @@ The application emits all three telemetry signals via OpenTelemetry and exports 
 The .NET app configures OpenTelemetry in `Program.cs`:
 * **Logs:** `ILogger` output via OpenTelemetry, including scopes and formatted messages.
 * **Metrics:** ASP.NET Core, HttpClient, and .NET Runtime instrumentation.
-* **Traces:** ASP.NET Core and HttpClient instrumentation plus the `Npgsql` ActivitySource for database spans.
+* **Traces:** ASP.NET Core and HttpClient instrumentation, the `Npgsql` ActivitySource, Wolverine's ActivitySource, and StackExchange.Redis. The Redis instrumentation registers its profiler on a lazy multiplexer and does not dial Garnet until the first cache command (ADR 131), so `db-apply` still starts when the cache is down.
 * **Export:** A single OTLP exporter (`UseOtlpExporter`) reads `OTEL_EXPORTER_OTLP_ENDPOINT`. If the variable is unset, export is a no-op.
 
 ## 2. Local Development (Aspire Dashboard)

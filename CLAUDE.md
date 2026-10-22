@@ -31,7 +31,7 @@ Whenever you touch code, refactor logic, modify infrastructure configs, or add f
    - **Verification:** ensure all tests build and pass (`dotnet test`).
 
 2. **Synchronize documentation (`docs/` & `CLAUDE.md`):**
-   - **Architecture changes:** create/update an ADR in `docs/01-architecture-decisions.md`.
+   - **Architecture changes:** create/update an ADR in `docs/01-architecture-decisions.md`. Incident write-ups keep their heading there and the full text goes in `docs/incidents.md`.
    - **Infrastructure changes:** update the topology matrix below and `docs/05-unifi-network-isolation.md`; keep `terraform/lxc.tf` / `terraform/unifi.tf` in sync with `docs/04` / `docs/05`.
 
 ## Architecture
@@ -40,9 +40,10 @@ This is a production-grade template for hosting **.NET 10 Blazor Server** apps o
 
 | Path | Role |
 |------|------|
-| `src/BrewHouse` | The Blazor Server app — Wolverine messaging, EF Core + pgvector, SignalR scale-out via Garnet backplane, `/health` deep checks |
+| `src/BrewHouse` | The Blazor Server app — Wolverine messaging, EF Core + pgvector (one local embedding per lot), Garnet as the SignalR backplane and a 5-second lot-list cache, versioned `/api/v1` and `/api/v2` auctions, `/health` for Kemp and `/health/detail` JSON |
 | `src/BrewHouse.AppHost` | .NET Aspire orchestration host — entry point for local dev; provisions all backing containers |
 | `src/CritterWatch` | JasperFx CritterWatch console (ADR 91) — Wolverine/Marten monitoring for BrewHouse, its own small self-published app, own LXC/DB, deployed via `deploy-critterwatch.yml` |
+| `samples/YarpGateway` | Undeployed YARP sample that proxies `/api/**` to two local BrewHouse processes. Ansible, Terraform, and the workflows do not install it (ADR 134) |
 | `src/systemd` | **Canonical** systemd units (`blazor-app.service`, `critterwatch.service`, `pg-dump-prune.*`) — Ansible copies them verbatim; never edit units on an LXC |
 | `terraform/` | bpg/proxmox LXCs + resnickio/unifi VLANs & firewall — code mirror of `docs/04` / `docs/05` |
 | `ansible/` | LXC configuration: .NET runtime, systemd units, pgBackRest, Technitium DNS, step-ca, preview host |
@@ -51,7 +52,7 @@ This is a production-grade template for hosting **.NET 10 Blazor Server** apps o
 
 ### Deployment model
 
-Apps are deployed to native Debian LXCs and managed strictly via `systemd`. Deploys publish into immutable release directories `/var/www/brewhouse/releases/<sha>` and atomically flip a `current` symlink (last 5 kept per node) — app rollback is a symlink move plus restart, health-gated per node so one web node always keeps serving (ADR 16). The app exposes `/health` with deep checks (Postgres, Garnet, RabbitMQ) for Kemp L7 routing — always maintain it. TLS terminates at the Kemp LoadMaster (Let's Encrypt wildcard, DNS-01); app LXCs run plain HTTP on port 5000. CritterWatch follows the same publish+symlink+systemd shape (`deploy-critterwatch.yml`, `/var/www/critterwatch/releases/<sha>`) but stripped down for its single-instance deployment — no maintenance-page bracket, no EF migration step (ADR 91).
+Apps are deployed to native Debian LXCs and managed strictly via `systemd`. Deploys publish into immutable release directories `/var/www/brewhouse/releases/<sha>` and atomically flip a `current` symlink (last 5 kept per node) — app rollback is a symlink move plus restart, health-gated per node so one web node always keeps serving (ADR 16). The app exposes `/health` as the one-word Kemp probe (`Healthy` / `Unhealthy`) and `/health/detail` as JSON that names Postgres, Garnet, and RabbitMQ separately (ADR 129). Always keep `/health` a plain text body. TLS terminates at the Kemp LoadMaster (Let's Encrypt wildcard, DNS-01); app LXCs run plain HTTP on port 5000. CritterWatch follows the same publish+symlink+systemd shape (`deploy-critterwatch.yml`, `/var/www/critterwatch/releases/<sha>`) but stripped down for its single-instance deployment — no maintenance-page bracket, no EF migration step (ADR 91).
 
 ### PR preview environments (non-prod)
 
@@ -67,11 +68,11 @@ Wolverine (ADR 07) backs all async messaging over RabbitMQ; handlers are plain s
 
 ### Data & scale-out
 
-PostgreSQL (pgvector) is the store; Garnet is both cache and the Blazor Server SignalR backplane (`AddStackExchangeRedis`), with Kemp sticky sessions anchoring circuits to a node (ADR 08). EF Core Migration Bundles run in CI **before** app deploys — never `Database.Migrate()` on boot (ADR 11). Wolverine keeps a *separate* envelope-storage schema (`wolverine.*`) for the durable outbox; CI applies it with `dotnet BrewHouse.dll db-apply` in the same pre-deploy step, for the same anti-race reason.
+PostgreSQL (pgvector) is the store. Each coffee lot has a `vector(32)` embedding from a local feature hash, and the lot page asks for one nearest neighbor (ADR 133). Garnet is the Blazor Server SignalR backplane (`AddStackExchangeRedis`) and a 5-second lot-list cache at `brewhouse:coffee-lots` (ADR 130), with Kemp sticky sessions anchoring circuits to a node (ADR 08). A bid writes only when it still beats the standing price; `CurrentBid` is the concurrency token (ADR 132). EF Core Migration Bundles run in CI **before** app deploys — never `Database.Migrate()` on boot (ADR 11). Wolverine keeps a *separate* envelope-storage schema (`wolverine.*`) for the durable outbox; CI applies it with `dotnet BrewHouse.dll db-apply` in the same pre-deploy step, for the same anti-race reason.
 
 ### Secrets & observability
 
-No secrets in `appsettings.json` and no SDK in the app (ADR 12): the Infisical Agent renders `/etc/brewhouse/brewhouse.env`, loaded by systemd via `EnvironmentFile=`; the app fails fast if connection strings are missing. Secrets live in per-service Infisical projects (`BrewHouse Web`, `BrewHouse CritterWatch`; vault-only `/admin` in the main one) and each Agent renders only its own project (ADR 108, `docs/13-infisical-secrets.md` - includes the rebuild order) - never push a human-only credential to a place an Agent reads. Telemetry is OpenTelemetry over OTLP (`UseOtlpExporter` driven by `OTEL_EXPORTER_OTLP_ENDPOINT`) — Grafana Alloy on VLAN 130 in the homelab fanning out to Loki (logs), Tempo (traces) and Prometheus (metrics) with Grafana on top (`docs/07`, `ansible/roles/observability`), the Aspire Dashboard locally (ADR 09). Decided to stay on this stack rather than adopt SigNoz.
+No secrets in `appsettings.json` and no SDK in the app (ADR 12): the Infisical Agent renders `/etc/brewhouse/brewhouse.env`, loaded by systemd via `EnvironmentFile=`; the app fails fast if connection strings are missing. Secrets live in per-service Infisical projects (`BrewHouse Web`, `BrewHouse CritterWatch`; vault-only `/admin` in the main one) and each Agent renders only its own project (ADR 108, `docs/13-infisical-secrets.md` - includes the rebuild order) - never push a human-only credential to a place an Agent reads. Telemetry is OpenTelemetry over OTLP (`UseOtlpExporter` driven by `OTEL_EXPORTER_OTLP_ENDPOINT`) — traces include Npgsql, Wolverine, and StackExchange.Redis. The Redis instrumentation uses a lazy multiplexer and does not dial Garnet until the first cache command (ADR 131). Grafana Alloy on VLAN 130 in the homelab fans out to Loki (logs), Tempo (traces) and Prometheus (metrics) with Grafana on top (`docs/07`, `ansible/roles/observability`), the Aspire Dashboard locally (ADR 09). Decided to stay on this stack rather than adopt SigNoz.
 
 ## Network topology
 

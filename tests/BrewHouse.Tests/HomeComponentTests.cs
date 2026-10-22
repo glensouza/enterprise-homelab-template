@@ -46,11 +46,19 @@ public class HomeComponentTests : BunitContext
             mockFactory.Setup(f => f.CreateDbContextAsync(It.IsAny<CancellationToken>()))
                 .ReturnsAsync(() => new AuctionDbContext(options));
 
+            var reader = new Mock<ICoffeeLotReader>();
+            reader.Setup(r => r.GetLotsAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
+            var similar = new Mock<ISimilarLotQuery>();
+            similar.Setup(s => s.FindNearestAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((CoffeeLotSnapshot?)null);
+
             Services.AddSingleton(mockBlobStore.Object);
             Services.AddSingleton(mockEnvironment.Object);
             Services.AddSingleton(mockMessageBus.Object);
             Services.AddSingleton(mockBidsClient.Object);
             Services.AddSingleton(mockFactory.Object);
+            Services.AddSingleton(reader.Object);
+            Services.AddSingleton(similar.Object);
 
             var cut = Render<Home>();
             cut.Find("button").Click();

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using Pgvector.EntityFrameworkCore;
 
 namespace BrewHouse.Data;
 
@@ -12,7 +13,7 @@ public class AuctionDbContextFactory : IDesignTimeDbContextFactory<AuctionDbCont
     public AuctionDbContext CreateDbContext(string[] args)
     {
         var options = new DbContextOptionsBuilder<AuctionDbContext>()
-            .UseNpgsql("Host=localhost;Database=brewhouse_design_time")
+            .UseNpgsql("Host=localhost;Database=brewhouse_design_time", options => options.UseVector())
             .Options;
         return new AuctionDbContext(options);
     }

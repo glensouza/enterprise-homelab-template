@@ -1,6 +1,8 @@
 # Enterprise Proxmox + .NET 10 Blazor Home Lab Template
 
-A production-grade, highly available, decentralized home lab architecture template for hosting **.NET 10 Blazor** web applications on **Proxmox VE 9.1**. 
+A production-grade, highly available, decentralized home lab architecture template for hosting **.NET 10 Blazor** web applications on **Proxmox VE 9.1**.
+
+The web tier is two nodes behind Kemp. Postgres, Garnet, and RabbitMQ are single instances on pve4; recovery is pgBackRest and `rollback.yml`, not a data-tier failover. On a laptop, `dotnet run --project src/BrewHouse.AppHost` starts the app and its containers.
 
 This repository utilizes a consolidated AI-Native approach via a single `CLAUDE.md` file, teaching Claude Code your exact architecture, network layout, safety guardrails, and required developer workflow (auto-updating tests and docs).
 
@@ -32,7 +34,8 @@ enterprise-homelab-template/
 ├── Directory.Packages.props           # Central package management (net10.0)
 ├── docs/
 │   ├── architecture.drawio            # Full topology incl. VLAN 140 preview tier
-│   ├── 01-architecture-decisions.md   
+│   ├── 01-architecture-decisions.md   # Standing decisions; incident write-ups are docs/incidents.md
+│   ├── incidents.md                   # Incident ADR text, headings stay in 01
 │   ├── 02-proxmox-and-backups.md
 │   ├── 03-kemp-load-balancer.md
 │   ├── 04-lxc-provisioning.md
@@ -42,7 +45,11 @@ enterprise-homelab-template/
 │   ├── 08-infrastructure-as-code.md   # Terraform + Ansible implementation guide
 │   ├── 09-ssl-certificates.md         # Let's Encrypt Wildcard & Cloudflare DNS-01 Strategy
 │   ├── 10-rollback.md                 # Symlinked releases + pg_dump + pgBackRest PITR recovery
-│   └── 11-pr-preview-environments.md  # Ephemeral per-PR envs, internal DNS/PKI, admin tooling
+│   ├── 11-pr-preview-environments.md  # Ephemeral per-PR envs, internal DNS/PKI, admin tooling
+│   ├── 12-request-flows.md            # Bid and photo-upload request paths
+│   └── 13-infisical-secrets.md        # Per-service Infisical projects and the rebuild order
+├── samples/
+│   └── YarpGateway/                   # Undeployed YARP sample (ADR 134). Not installed by Ansible or Terraform
 ├── src/
 │   ├── BrewHouse/             
 │   │   ├── BrewHouse.csproj

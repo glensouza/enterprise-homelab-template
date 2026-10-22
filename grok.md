@@ -1,6 +1,6 @@
 # Grok change log
 
-Local work from 2026-10-22. This file is the only commit on this branch. The code and video-script edits it describes are still uncommitted in the working trees, and nothing has been pushed to `main`.
+Local work from 2026-10-22. The template changes are on `docs/grok-change-log`. The video-script edits are still uncommitted in the sibling repo. Nothing has been pushed to `main`.
 
 Repos:
 
@@ -111,4 +111,4 @@ Added: `SHOOT-LIST.md`.
 
 ## Left alone
 
-No second app name. No Gravitee, second gateway, API keys, developer portal, or Postgres replication. No new fortnights. No Terraform, Ansible, or workflow changes for the YARP sample. No `DROP DATABASE`, no `pct destroy`, no NAS wipe. The code stays uncommitted. This branch contains `grok.md` only.
+No second app name. No Gravitee, second gateway, API keys, developer portal, or Postgres replication. No new fortnights. No Terraform, Ansible, or workflow changes for the YARP sample. No `DROP DATABASE`, no `pct destroy`, no NAS wipe. The video-script edits stay uncommitted in the sibling repo. Nothing was pushed to `main`.

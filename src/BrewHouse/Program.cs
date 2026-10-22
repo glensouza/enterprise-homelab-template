@@ -13,6 +13,7 @@ using OpenTelemetry.Trace;
 using BrewHouse.Data;
 using BrewHouse.Services;
 using BrewHouse.Storage;
+using Pgvector.EntityFrameworkCore;
 using StackExchange.Redis;
 using Wolverine;
 
@@ -75,6 +76,10 @@ builder.Services.AddOpenTelemetry()
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
         .AddSource("Npgsql")
+        // ADR 131: Garnet commands on the app's multiplexer become spans. The multiplexer
+        // registered below is lazy, so this callback's RegisterProfiler does not dial Garnet
+        // during db-apply / codegen test.
+        .AddRedisInstrumentation()
         // docs/01 ADR 105: Wolverine has its own built-in ActivitySource
         // (literally named "Wolverine", confirmed by decompiling the
         // installed package - WolverineTracing.ActivitySource) and already
@@ -95,15 +100,17 @@ builder.Services.AddOpenTelemetry()
 //    Scoped context for short-lived operations (Wolverine handlers) and a factory
 //    for Blazor Server components (long-lived circuits must not hold a scoped context).
 builder.Services.AddDbContext<AuctionDbContext>(options =>
-    options.UseNpgsql(dbConnectionString));
+    options.UseNpgsql(dbConnectionString, npgsql => npgsql.UseVector()));
 builder.Services.AddDbContextFactory<AuctionDbContext>(options =>
-    options.UseNpgsql(dbConnectionString));
+    options.UseNpgsql(dbConnectionString, npgsql => npgsql.UseVector()));
 
 // 4. CACHE & SIGNALR BACKPLANE (Garnet, RESP-compatible)
 //    BidsHub rides this same backplane, so a bid placed on Web 01 fans out to
 //    every circuit connected to Web 02 (ADR 08) - see LiveBids.razor.
-builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
-    ConnectionMultiplexer.Connect(cacheConnectionString));
+builder.Services.AddSingleton<IConnectionMultiplexer>(_ => LazyConnectionMultiplexer.Create(cacheConnectionString));
+builder.Services.AddSingleton<ILotListCache, GarnetLotListCache>();
+builder.Services.AddSingleton<ICoffeeLotReader, CoffeeLotReader>();
+builder.Services.AddSingleton<ISimilarLotQuery, SimilarLotQuery>();
 builder.Services.AddSignalR().AddStackExchangeRedis(cacheConnectionString);
 builder.Services.AddScoped<IBidsClient, SignalRBidsClient>();
 
@@ -205,6 +212,7 @@ if (messagingTransport == MessagingTransportConfigurator.RabbitMq)
 // 7b. ADMIN LOGIN: Authentik OIDC for the /admin pages only (docs/01 ADR 125). The auction stays anonymous.
 builder.Services.AddAdminAuthentication(builder.Configuration);
 builder.Services.AddSingleton<IDeadLetterAdmin, WolverineDeadLetterAdmin>();
+builder.Services.AddAuctionVersioning();
 
 // 8. VERSION: exposed via VersionService (reads assembly version injected at publish by /p:Version)
 builder.Services.AddSingleton<VersionService>();
@@ -273,8 +281,14 @@ app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
-app.MapHealthChecks("/health"); // Kemp probes this endpoint
+app.MapHealthChecks("/health"); // Kemp probes this endpoint. Plain "Healthy" / "Unhealthy".
+app.MapHealthChecks("/health/detail", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    ResponseWriter = HealthCheckJsonWriter.WriteAsync,
+});
 app.MapHub<BrewHouse.Hubs.BidsHub>("/hubs/bids");
+app.MapAuctionApi();
+app.MapAuctionDocs();
 app.MapAdminAuthentication();
 
 // Serves a photo back out of whichever IBlobStore backend is configured (local
